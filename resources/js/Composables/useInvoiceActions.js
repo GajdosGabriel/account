@@ -1,4 +1,5 @@
 import { router } from '@inertiajs/vue3';
+import { t } from './useLang';
 
 /**
  * Jedno miesto, kde je definované menu dokladu.
@@ -7,6 +8,8 @@ import { router } from '@inertiajs/vue3';
  * Ktoré sa naozaj zobrazia, rozhoduje `invoice.can` – mapa, ktorú zostavuje
  * InvoicePolicy na serveri. Pridanie akcie je tak zmena na jednom mieste
  * a nikdy nevznikne tlačidlo, ktoré backend odmietne.
+ *
+ * Popisky sú z lang/{locale}/actions.php – rovnako ako v RowActions.
  */
 export function invoiceMenu(invoice, options = {}) {
     const url = (suffix = '') => `/invoices/${invoice.id}${suffix}`;
@@ -14,77 +17,77 @@ export function invoiceMenu(invoice, options = {}) {
 
     const items = [
         {
-            label: 'Otvoriť detail',
+            label: t('actions.invoice.view'),
             icon: 'eye',
             can: 'view',
             href: url(),
         },
         {
-            label: 'Náhľad faktúry',
+            label: t('actions.invoice.preview'),
             icon: 'receipt',
             can: 'view',
             onSelect: () => window.open(url('/preview'), '_blank'),
         },
         {
-            label: 'Stiahnuť PDF',
+            label: t('actions.invoice.download'),
             icon: 'download',
             can: 'download',
             onSelect: () => window.open(url('/pdf'), '_blank'),
         },
         { separator: true },
         {
-            label: 'Vystaviť doklad',
+            label: t('actions.invoice.issue'),
             icon: 'check',
             can: 'issue',
             method: 'post',
             url: url('/issue'),
-            confirm: 'Vystavením sa doklad zamkne a dostane číslo. Pokračovať?',
+            confirm: t('actions.invoice.confirm.issue'),
         },
         {
-            label: invoice.sent_count > 0 ? 'Poslať znovu e-mailom' : 'Poslať e-mailom',
+            label: invoice.sent_count > 0 ? t('actions.invoice.resend') : t('actions.invoice.send'),
             icon: 'send',
             can: 'send',
             badge: invoice.sent_count > 0 ? `${invoice.sent_count}×` : null,
             onSelect: on.send ? () => on.send(invoice) : () => router.post(url('/send'), {}, { preserveScroll: true }),
         },
         {
-            label: 'Poslať upomienku',
+            label: t('actions.invoice.remind'),
             icon: 'mail',
             can: 'remind',
-            badge: invoice.days_overdue ? `${invoice.days_overdue} dní` : null,
+            badge: invoice.days_overdue ? t('actions.invoice.days', { count: invoice.days_overdue }) : null,
             method: 'post',
             url: url('/remind'),
-            confirm: 'Odoslať zákazníkovi upomienku?',
+            confirm: t('actions.invoice.confirm.remind'),
         },
         {
-            label: 'Zaznamenať úhradu',
+            label: t('actions.invoice.pay'),
             icon: 'receipt',
             can: 'pay',
             onSelect: on.pay ? () => on.pay(invoice) : () => router.post(url('/pay'), {}, { preserveScroll: true }),
         },
         { separator: true },
         {
-            label: 'Upraviť koncept',
+            label: t('actions.invoice.edit'),
             icon: 'pencil',
             can: 'update',
             href: url(),
         },
         {
-            label: 'Vytvoriť kópiu',
+            label: t('actions.invoice.duplicate'),
             icon: 'copy',
             can: 'duplicate',
             method: 'post',
             url: url('/duplicate'),
         },
         {
-            label: 'Vystaviť faktúru zo zálohy',
+            label: t('actions.invoice.convert'),
             icon: 'invoice',
             can: 'convert',
             method: 'post',
             url: url('/convert'),
         },
         {
-            label: 'Vystaviť dobropis',
+            label: t('actions.invoice.credit'),
             icon: 'invoice',
             can: 'credit',
             onSelect: on.credit
@@ -93,38 +96,38 @@ export function invoiceMenu(invoice, options = {}) {
         },
         { separator: true },
         {
-            label: 'Stornovať',
+            label: t('actions.invoice.cancel'),
             icon: 'ban',
             can: 'cancel',
             danger: true,
             method: 'post',
             url: url('/cancel'),
-            confirm: 'Naozaj stornovať tento doklad?',
+            confirm: t('actions.invoice.confirm.cancel'),
         },
         {
-            label: 'Zmazať koncept',
+            label: t('actions.invoice.delete'),
             icon: 'trash',
             can: 'delete',
             danger: true,
             method: 'delete',
             url: url(),
-            confirm: 'Presunúť koncept do koša? Dá sa vrátiť späť.',
+            confirm: t('actions.invoice.confirm.delete'),
         },
         {
-            label: 'Obnoviť z koša',
+            label: t('actions.invoice.restore'),
             icon: 'refresh',
             can: 'restore',
             method: 'post',
             url: url('/restore'),
         },
         {
-            label: 'Zmazať natrvalo',
+            label: t('actions.invoice.force_delete'),
             icon: 'trash',
             can: 'forceDelete',
             danger: true,
             method: 'delete',
             url: url('/force'),
-            confirm: 'Nenávratné zmazanie. Naozaj pokračovať?',
+            confirm: t('actions.invoice.confirm.force_delete'),
         },
     ];
 

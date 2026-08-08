@@ -7,7 +7,9 @@ import PageHeader from '../../Components/PageHeader.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
 import DropdownMenu from '../../Components/DropdownMenu.vue';
+import RowActions from '../../Components/RowActions.vue';
 import { invoiceMenu } from '../../Composables/useInvoiceActions';
+import { t } from '../../Composables/useLang';
 
 const props = defineProps({
     organization: { type: Object, required: true },
@@ -23,6 +25,18 @@ const props = defineProps({
 
 const verifying = ref(false);
 const overrideOpen = ref(false);
+
+const resending = ref(false);
+
+const resendVerification = () => router.post(
+    `/organizations/${props.organization.id}/billing-email/resend`,
+    {},
+    {
+        preserveScroll: true,
+        onStart: () => { resending.value = true; },
+        onFinish: () => { resending.value = false; },
+    },
+);
 
 const addressOpen = ref(false);
 const contactOpen = ref(false);
@@ -52,27 +66,106 @@ const subscribe = (planId) => router.post(`${base}/subscribe`, { plan_id: planId
 const cancel = (key) => confirm('Naozaj zrušiť predplatné?') && router.post(`${base}/${key}/cancel`, {}, { preserveScroll: true });
 const activate = (key) => router.post(`${base}/${key}/activate`, {}, { preserveScroll: true });
 
+/* ---------- výnimky, adresy a kontakty ----------
+ * Formulár slúži na pridanie aj na úpravu – rozhoduje `editing*`.
+ * Mazanie a kôš rieši RowActions podľa policy, tu už nie sú.
+ */
+
+const editingOverride = ref(null);
+const editingAddress = ref(null);
+const editingContact = ref(null);
+
+const editOverride = (override) => {
+    editingOverride.value = override.id;
+    overrideOpen.value = true;
+    overrideForm.clearErrors();
+    overrideForm.product_key = override.product_key;
+    overrideForm.feature = override.feature;
+    overrideForm.value = override.value ?? '';
+    overrideForm.expires_at = override.expires_at ?? '';
+    overrideForm.note = override.note ?? '';
+};
+
+const closeOverride = () => {
+    editingOverride.value = null;
+    overrideOpen.value = false;
+    overrideForm.reset();
+    overrideForm.clearErrors();
+};
+
+// Výnimka je jednoznačná dvojicou projekt + funkcia, preto ju server
+// ukladá cez updateOrCreate a úprava je to isté volanie ako pridanie.
 const saveOverride = () => overrideForm.post(`${base}/overrides`, {
     preserveScroll: true,
-    onSuccess: () => { overrideForm.reset(); overrideOpen.value = false; },
+    onSuccess: () => closeOverride(),
 });
 
-const removeOverride = (id) => router.delete(`${base}/overrides/${id}`, { preserveScroll: true });
+const editAddress = (address) => {
+    editingAddress.value = address.id;
+    addressOpen.value = true;
+    addressForm.clearErrors();
 
-const saveAddress = () => addressForm.post(`${base}/addresses`, {
-    preserveScroll: true,
-    onSuccess: () => { addressForm.reset(); addressOpen.value = false; },
-});
+    Object.assign(addressForm, {
+        type: address.type,
+        label: address.label ?? '',
+        recipient: address.recipient ?? '',
+        street: address.street ?? '',
+        street_no: address.street_no ?? '',
+        city: address.city ?? '',
+        postal_code: address.postal_code ?? '',
+        region: address.region ?? '',
+        country: address.country ?? 'SK',
+        phone: address.phone ?? '',
+        note: address.note ?? '',
+        is_default: address.is_default,
+    });
+};
 
-const removeAddress = (id) => confirm('Odstrániť adresu?')
-    && router.delete(`${base}/addresses/${id}`, { preserveScroll: true });
+const closeAddress = () => {
+    editingAddress.value = null;
+    addressOpen.value = false;
+    addressForm.reset();
+    addressForm.clearErrors();
+};
 
-const saveContact = () => contactForm.post(`${base}/contacts`, {
-    preserveScroll: true,
-    onSuccess: () => { contactForm.reset(); contactOpen.value = false; },
-});
+const saveAddress = () => {
+    const options = { preserveScroll: true, onSuccess: () => closeAddress() };
 
-const removeContact = (id) => router.delete(`${base}/contacts/${id}`, { preserveScroll: true });
+    editingAddress.value
+        ? addressForm.patch(`${base}/addresses/${editingAddress.value}`, options)
+        : addressForm.post(`${base}/addresses`, options);
+};
+
+const editContact = (contact) => {
+    editingContact.value = contact.id;
+    contactOpen.value = true;
+    contactForm.clearErrors();
+
+    Object.assign(contactForm, {
+        type: contact.type,
+        name: contact.name,
+        position: contact.position ?? '',
+        email: contact.email ?? '',
+        phone: contact.phone ?? '',
+        note: contact.note ?? '',
+        is_primary: contact.is_primary,
+    });
+};
+
+const closeContact = () => {
+    editingContact.value = null;
+    contactOpen.value = false;
+    contactForm.reset();
+    contactForm.clearErrors();
+};
+
+const saveContact = () => {
+    const options = { preserveScroll: true, onSuccess: () => closeContact() };
+
+    editingContact.value
+        ? contactForm.patch(`${base}/contacts/${editingContact.value}`, options)
+        : contactForm.post(`${base}/contacts`, options);
+};
 
 const reverify = async () => {
     verifying.value = true;
@@ -105,7 +198,15 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                 <Icon name="refresh" :size="16" />
                 {{ verifying ? 'Overujem…' : 'Overiť v registroch' }}
             </button>
-            <Link :href="`${base}/edit`" class="btn-primary">Upraviť</Link>
+            <Link :href="`${base}/edit`" class="btn-primary">{{ t('actions.edit') }}</Link>
+            <RowActions
+                :abilities="{ ...organization.can, view: false }"
+                :trashed="!!organization.deleted_at"
+                :base="base"
+                :name="organization.name"
+                :edit-href="`${base}/edit`"
+                :label="t('actions.menu')"
+            />
         </template>
     </PageHeader>
 
@@ -175,7 +276,41 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
 
                     <div class="border-t border-slate-100 pt-3.5">
                         <dt class="text-slate-500">E-mail na faktúry</dt>
-                        <dd class="mt-0.5 font-medium text-slate-900">{{ organization.billing_email ?? organization.email ?? '—' }}</dd>
+                        <dd class="mt-0.5 font-medium text-slate-900">
+                            {{ organization.billing_email_effective ?? '—' }}
+
+                            <!-- Neoverená adresa je bežný stav, nie chyba – preto
+                                 upozornenie, nie červená hláška. -->
+                            <span
+                                v-if="organization.billing_email_effective"
+                                class="ml-1.5 rounded-full px-2 py-0.5 align-middle text-xs font-medium ring-1 ring-inset"
+                                :class="organization.billing_email_verified
+                                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                                    : 'bg-amber-50 text-amber-800 ring-amber-600/20'"
+                            >
+                                {{ organization.billing_email_verified ? 'overený' : 'neoverený' }}
+                            </span>
+                        </dd>
+
+                        <p v-if="organization.billing_email_verified" class="mt-1 text-xs text-slate-400">
+                            Potvrdený {{ organization.billing_email_verified_at }}
+                        </p>
+
+                        <template v-else-if="organization.billing_email_effective">
+                            <p class="mt-1 text-xs text-slate-500">
+                                {{ organization.billing_email_verification_sent_at
+                                    ? `Žiadosť odoslaná ${organization.billing_email_verification_sent_at}.`
+                                    : 'Žiadosť o potvrdenie zatiaľ neodišla.' }}
+                            </p>
+                            <button
+                                type="button"
+                                class="mt-1.5 text-xs font-medium text-brand-700 hover:underline disabled:opacity-50"
+                                :disabled="resending"
+                                @click="resendVerification"
+                            >
+                                {{ resending ? 'Posielam…' : 'Poslať overovací e-mail' }}
+                            </button>
+                        </template>
                     </div>
                     <div class="border-t border-slate-100 pt-3.5">
                         <dt class="text-slate-500">Telefón</dt>
@@ -265,27 +400,38 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                 description="Pošta, doručenie, prevádzkarne. Sídlo sa upravuje v základných údajoch."
             >
                 <template #action>
-                    <button type="button" class="btn-secondary btn-sm" @click="addressOpen = !addressOpen">
+                    <button type="button" class="btn-secondary btn-sm" @click="addressOpen ? closeAddress() : (addressOpen = true)">
                         {{ addressOpen ? 'Zavrieť' : 'Pridať' }}
                     </button>
                 </template>
 
                 <ul class="divide-y divide-slate-100 text-sm">
-                    <li v-for="a in addresses" :key="a.id" class="flex items-start justify-between gap-3 py-3">
+                    <li
+                        v-for="a in addresses"
+                        :key="a.id"
+                        class="flex items-start justify-between gap-3 py-3"
+                        :class="a.deleted_at ? 'opacity-50' : ''"
+                    >
                         <div class="min-w-0">
                             <p class="flex items-center gap-2">
                                 <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                                     {{ a.type_label }}
                                 </span>
                                 <span v-if="a.is_default" class="text-xs text-emerald-600">predvolená</span>
+                                <span v-if="a.deleted_at" class="text-xs text-slate-400">{{ t('actions.trashed') }}</span>
                             </p>
                             <p class="mt-1 font-medium text-slate-900">{{ a.label || a.recipient || a.line }}</p>
                             <p class="text-xs text-slate-500">{{ a.line }}</p>
                             <p v-if="a.note" class="mt-0.5 text-xs text-slate-400">{{ a.note }}</p>
                         </div>
-                        <button type="button" class="shrink-0 text-sm text-rose-600 hover:underline" @click="removeAddress(a.id)">
-                            Zmazať
-                        </button>
+                        <RowActions
+                            :abilities="a.can"
+                            :trashed="!!a.deleted_at"
+                            :base="`${base}/addresses/${a.id}`"
+                            :name="a.label || a.line"
+                            size="sm"
+                            @edit="editAddress(a)"
+                        />
                     </li>
                     <li v-if="addresses.length === 0" class="py-6 text-center text-slate-500">
                         Žiadne ďalšie adresy — pošta chodí na sídlo.
@@ -339,7 +485,10 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                         <input id="a_note" v-model="addressForm.note" type="text" placeholder="rampa č. 3, po 15:00" />
                     </div>
                     <div class="sm:col-span-6 flex items-center gap-4">
-                        <button type="submit" class="btn-primary btn-sm" :disabled="addressForm.processing">Pridať adresu</button>
+                        <button type="submit" class="btn-primary btn-sm" :disabled="addressForm.processing">
+                            {{ editingAddress ? 'Uložiť zmeny' : 'Pridať adresu' }}
+                        </button>
+                        <button v-if="editingAddress" type="button" class="btn-secondary btn-sm" @click="closeAddress">Zrušiť</button>
                         <label class="flex items-center gap-2 text-sm font-normal text-slate-600">
                             <input v-model="addressForm.is_default" type="checkbox" />
                             predvolená pre tento typ
@@ -351,17 +500,23 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
             <!-- Kontaktné osoby -->
             <CardSection icon="user" tone="slate" title="Kontaktné osoby" description="Komu volať kvôli faktúre a komu kvôli technike.">
                 <template #action>
-                    <button type="button" class="btn-secondary btn-sm" @click="contactOpen = !contactOpen">
+                    <button type="button" class="btn-secondary btn-sm" @click="contactOpen ? closeContact() : (contactOpen = true)">
                         {{ contactOpen ? 'Zavrieť' : 'Pridať' }}
                     </button>
                 </template>
 
                 <ul class="divide-y divide-slate-100 text-sm">
-                    <li v-for="c in contacts" :key="c.id" class="flex items-start justify-between gap-3 py-3">
+                    <li
+                        v-for="c in contacts"
+                        :key="c.id"
+                        class="flex items-start justify-between gap-3 py-3"
+                        :class="c.deleted_at ? 'opacity-50' : ''"
+                    >
                         <div class="min-w-0">
                             <p class="font-medium text-slate-900">
                                 {{ c.name }}
                                 <span v-if="c.is_primary" class="ml-1 text-xs font-normal text-brand-600">hlavný</span>
+                                <span v-if="c.deleted_at" class="ml-1 text-xs font-normal text-slate-400">{{ t('actions.trashed') }}</span>
                             </p>
                             <p class="text-xs text-slate-500">
                                 {{ c.type_label }}<span v-if="c.position"> · {{ c.position }}</span>
@@ -372,9 +527,14 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                                 <span v-if="c.phone">{{ c.phone }}</span>
                             </p>
                         </div>
-                        <button type="button" class="shrink-0 text-sm text-rose-600 hover:underline" @click="removeContact(c.id)">
-                            Zmazať
-                        </button>
+                        <RowActions
+                            :abilities="c.can"
+                            :trashed="!!c.deleted_at"
+                            :base="`${base}/contacts/${c.id}`"
+                            :name="c.name"
+                            size="sm"
+                            @edit="editContact(c)"
+                        />
                     </li>
                     <li v-if="contacts.length === 0" class="py-6 text-center text-slate-500">Žiadne kontaktné osoby.</li>
                 </ul>
@@ -410,8 +570,11 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                             hlavný kontakt
                         </label>
                     </div>
-                    <div class="sm:col-span-2">
-                        <button type="submit" class="btn-primary btn-sm" :disabled="contactForm.processing">Pridať kontakt</button>
+                    <div class="sm:col-span-2 flex gap-2">
+                        <button type="submit" class="btn-primary btn-sm" :disabled="contactForm.processing">
+                            {{ editingContact ? 'Uložiť zmeny' : 'Pridať kontakt' }}
+                        </button>
+                        <button v-if="editingContact" type="button" class="btn-secondary btn-sm" @click="closeContact">Zrušiť</button>
                     </div>
                 </form>
             </CardSection>
@@ -520,17 +683,23 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
         <!-- Ručné výnimky -->
         <CardSection icon="key" tone="amber" title="Ručné výnimky" description="Prepíšu hodnotu z plánu — napríklad dočasne zvýšený limit.">
             <template #action>
-                <button type="button" class="btn-secondary btn-sm" @click="overrideOpen = !overrideOpen">
+                <button type="button" class="btn-secondary btn-sm" @click="overrideOpen ? closeOverride() : (overrideOpen = true)">
                     {{ overrideOpen ? 'Zavrieť' : 'Pridať výnimku' }}
                 </button>
             </template>
 
             <ul class="divide-y divide-slate-100 text-sm">
-                <li v-for="o in overrides" :key="o.id" class="flex items-center justify-between gap-3 py-2.5">
+                <li
+                    v-for="o in overrides"
+                    :key="o.id"
+                    class="flex items-center justify-between gap-3 py-2.5"
+                    :class="o.deleted_at ? 'opacity-50' : ''"
+                >
                     <div class="min-w-0">
                         <p class="font-medium text-slate-900">
                             {{ o.product }} · <span class="font-mono text-xs">{{ o.feature }}</span> =
                             {{ o.value === null ? 'neobmedzene' : o.value }}
+                            <span v-if="o.deleted_at" class="ml-1 text-xs font-normal text-slate-400">{{ t('actions.trashed') }}</span>
                         </p>
                         <p class="text-xs text-slate-500">
                             <span v-if="o.expires_at">platí do {{ o.expires_at }}</span>
@@ -538,9 +707,14 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                             <span v-if="o.note"> · {{ o.note }}</span>
                         </p>
                     </div>
-                    <button type="button" class="shrink-0 text-sm text-rose-600 hover:underline" @click="removeOverride(o.id)">
-                        Zrušiť
-                    </button>
+                    <RowActions
+                        :abilities="o.can"
+                        :trashed="!!o.deleted_at"
+                        :base="`${base}/overrides/${o.id}`"
+                        :name="`${o.product} · ${o.feature}`"
+                        size="sm"
+                        @edit="editOverride(o)"
+                    />
                 </li>
                 <li v-if="overrides.length === 0" class="py-6 text-center text-slate-500">Žiadne výnimky.</li>
             </ul>
@@ -576,8 +750,9 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                     <label for="o_note">Poznámka</label>
                     <input id="o_note" v-model="overrideForm.note" type="text" placeholder="dohoda s klientom, beta prístup…" />
                 </div>
-                <div class="sm:col-span-2">
+                <div class="sm:col-span-2 flex gap-2">
                     <button type="submit" class="btn-primary" :disabled="overrideForm.processing">Uložiť výnimku</button>
+                    <button v-if="editingOverride" type="button" class="btn-secondary" @click="closeOverride">Zrušiť</button>
                 </div>
             </form>
         </CardSection>

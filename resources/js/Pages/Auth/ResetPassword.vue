@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import AuthLayout from '../../Layouts/AuthLayout.vue';
 import InputError from '../../Components/InputError.vue';
+import PasswordInput from '../../Components/PasswordInput.vue';
 
 const props = defineProps({
     token: { type: String, required: true },
@@ -33,13 +34,13 @@ const submit = () => form.post('/reset-password', {
 
             <div>
                 <label for="password">Nové heslo</label>
-                <input id="password" v-model="form.password" type="password" autocomplete="new-password" placeholder="••••••••" required autofocus />
+                <PasswordInput id="password" v-model="form.password" autocomplete="new-password" required autofocus />
                 <InputError :message="form.errors.password" />
             </div>
 
             <div>
                 <label for="password_confirmation">Nové heslo znova</label>
-                <input id="password_confirmation" v-model="form.password_confirmation" type="password" autocomplete="new-password" placeholder="••••••••" required />
+                <PasswordInput id="password_confirmation" v-model="form.password_confirmation" autocomplete="new-password" required />
             </div>
 
             <button type="submit" class="btn-primary w-full" :disabled="form.processing">

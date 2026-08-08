@@ -4,6 +4,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import PageHeader from '../../Components/PageHeader.vue';
+import PasswordInput from '../../Components/PasswordInput.vue';
 
 const props = defineProps({
     user: { type: Object, required: true },
@@ -86,19 +87,19 @@ const addOperator = () => operatorForm.post('/settings/operators', {
             <form class="space-y-5" @submit.prevent="updatePassword">
                 <div>
                     <label for="current_password">Súčasné heslo</label>
-                    <input id="current_password" v-model="passwordForm.current_password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+                    <PasswordInput id="current_password" v-model="passwordForm.current_password" autocomplete="current-password" required />
                     <InputError :message="passwordForm.errors.current_password" />
                 </div>
 
                 <div class="grid gap-5 sm:grid-cols-2">
                     <div>
                         <label for="new_password">Nové heslo</label>
-                        <input id="new_password" v-model="passwordForm.password" type="password" autocomplete="new-password" placeholder="••••••••" required />
+                        <PasswordInput id="new_password" v-model="passwordForm.password" autocomplete="new-password" required />
                         <InputError :message="passwordForm.errors.password" />
                     </div>
                     <div>
                         <label for="new_password_confirmation">Nové heslo znova</label>
-                        <input id="new_password_confirmation" v-model="passwordForm.password_confirmation" type="password" autocomplete="new-password" placeholder="••••••••" required />
+                        <PasswordInput id="new_password_confirmation" v-model="passwordForm.password_confirmation" autocomplete="new-password" required />
                     </div>
                 </div>
 

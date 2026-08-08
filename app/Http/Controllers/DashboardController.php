@@ -6,6 +6,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Organization;
 use App\Models\Product;
 use App\Models\Subscription;
+use App\Services\Invoicing\InvoiceStatistics;
 use App\Services\Usage\UsageRecorder;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -15,7 +16,7 @@ use Inertia\Response;
  */
 class DashboardController extends Controller
 {
-    public function __invoke(UsageRecorder $usage): Response
+    public function __invoke(UsageRecorder $usage, InvoiceStatistics $statistics): Response
     {
         $products = Product::withCount('organizations')->get();
 
@@ -84,6 +85,40 @@ class DashboardController extends Controller
             ]),
             'attention' => $attention,
             'near_limit' => $nearLimit,
+
+            // Fakturácia: čo sa tento mesiac vystavilo, čo visí a čo príde.
+            'invoicing' => $this->withMoney($statistics->summary()),
+            'forecast' => $this->withMoney($statistics->forecast()),
+            'months' => $statistics->months(),
         ]);
+    }
+
+    /**
+     * Doplní ku každej sume v centoch aj naformátovanú podobu.
+     *
+     * Formátovanie patrí na server: v šablóne by sa skôr či neskôr
+     * objavilo v troch mierne odlišných variantoch.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function withMoney(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            if (is_array($value) && array_key_exists('cents', $value)) {
+                $data[$key]['formatted'] = $this->money($value['cents']);
+            }
+
+            if ($key === 'total_cents') {
+                $data['total'] = $this->money((int) $value);
+            }
+        }
+
+        return $data;
+    }
+
+    protected function money(int $cents): string
+    {
+        return number_format($cents / 100, 2, ',', ' ').' €';
     }
 }

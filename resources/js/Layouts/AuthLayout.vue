@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import Icon from '../Components/Icon.vue';
+import DropdownMenu from '../Components/DropdownMenu.vue';
 
 defineProps({
     title: { type: String, required: true },
@@ -10,6 +11,23 @@ defineProps({
 
 const page = usePage();
 const flash = computed(() => page.props.flash ?? {});
+
+// Prihlasovacia obrazovka je prvé, čo človek uvidí – jazyk sa preto
+// prepína už tu, nielen po prihlásení.
+const locales = computed(() => page.props.locales ?? []);
+const currentLocale = computed(() => page.props.locale ?? 'sk');
+
+const localeShort = computed(
+    () => locales.value.find((item) => item.value === currentLocale.value)?.short ?? currentLocale.value.toUpperCase(),
+);
+
+const localeMenu = computed(() => locales.value.map((item) => ({
+    label: item.label,
+    method: 'post',
+    url: '/locale',
+    data: { locale: item.value },
+    badge: item.value === currentLocale.value ? '✓' : item.short,
+})));
 </script>
 
 <template>
@@ -48,7 +66,11 @@ const flash = computed(() => page.props.flash ?? {});
         </aside>
 
         <!-- Formulár -->
-        <main class="flex items-center justify-center px-4 py-12">
+        <main class="relative flex items-center justify-center px-4 py-12">
+            <div v-if="locales.length > 1" class="absolute right-4 top-4">
+                <DropdownMenu :items="localeMenu" :label="localeShort" />
+            </div>
+
             <div class="w-full max-w-sm">
                 <div class="mb-8 text-center lg:hidden">
                     <span class="chip mx-auto h-12 w-12 bg-gradient-to-br from-brand-500 to-violet-600 font-bold text-white shadow-lg shadow-brand-600/25">A</span>

@@ -119,6 +119,27 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Overený e-mail na faktúry
+    |--------------------------------------------------------------------------
+    |
+    | Zapnuté = doklad sa na nepotvrdenú adresu neodošle. Chráni to pred
+    | preklepom, ktorým by faktúra s IČO, sídlom a sumami odišla cudziemu
+    | človeku – odoslanie by pritom prebehlo „úspešne“ a nikto by sa nič
+    | nedozvedel.
+    |
+    | Predvolene vypnuté, aby zapnutie funkcie nezastavilo fakturáciu firmám,
+    | ktoré vznikli ešte pred jej zavedením. Odoslanie na nepotvrdenú adresu
+    | sa aj tak zapíše do histórie dokladu.
+    |
+    */
+
+    'require_verified_billing_email' => filter_var(
+        env('INVOICE_REQUIRE_VERIFIED_EMAIL', false),
+        FILTER_VALIDATE_BOOL,
+    ),
+
     'reminders' => [
         'enabled' => filter_var(env('INVOICE_REMINDERS_ENABLED', true), FILTER_VALIDATE_BOOL),
         'schedule' => [

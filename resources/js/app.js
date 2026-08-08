@@ -15,8 +15,12 @@ createInertiaApp({
             throw new Error(`Stránka ./Pages/${name}.vue neexistuje.`);
         }
 
-        // Prihlasovacie stránky si layout riešia samy.
-        page.default.layout = page.default.layout ?? (name.startsWith('Auth/') ? undefined : AppLayout);
+        // Prihlasovacie stránky si layout riešia samy. `Public/` sú stránky
+        // pre zákazníka (napr. potvrdenie e-mailu) – ten prihlásený nie je
+        // a AppLayout by na `auth.user.name` spadol.
+        const standalone = name.startsWith('Auth/') || name.startsWith('Public/');
+
+        page.default.layout = page.default.layout ?? (standalone ? undefined : AppLayout);
 
         return page;
     },

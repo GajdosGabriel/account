@@ -2,14 +2,16 @@
 import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import Icon from '../Components/Icon.vue';
+import DropdownMenu from '../Components/DropdownMenu.vue';
 
 const page = usePage();
 const auth = computed(() => page.props.auth);
 const flash = computed(() => page.props.flash ?? {});
 const menuOpen = ref(false);
 
+// Prehľad tu nie je zámerne – na dashboard vedie logo vľavo a dva
+// odkazy na to isté miesto vedľa seba si človek prečíta ako chybu.
 const navigation = [
-    { name: 'Prehľad', href: '/dashboard', icon: 'home' },
     { name: 'Organizácie', href: '/organizations', icon: 'building' },
     { name: 'Projekty', href: '/products', icon: 'card' },
     { name: 'Faktúry', href: '/invoices', icon: 'invoice' },
@@ -28,6 +30,25 @@ const initials = computed(() =>
 );
 
 const logout = () => router.post('/logout');
+
+/* ---------- jazyk rozhrania ---------- */
+
+const locales = computed(() => page.props.locales ?? []);
+const currentLocale = computed(() => page.props.locale ?? 'sk');
+
+const localeShort = computed(
+    () => locales.value.find((item) => item.value === currentLocale.value)?.short ?? currentLocale.value.toUpperCase(),
+);
+
+// Voľba sa ukladá do session, preto POST a nie odkaz – po prepnutí
+// zostávaš na tej istej stránke, len v inom jazyku.
+const localeMenu = computed(() => locales.value.map((item) => ({
+    label: item.label,
+    method: 'post',
+    url: '/locale',
+    data: { locale: item.value },
+    badge: item.value === currentLocale.value ? '✓' : item.short,
+})));
 
 // Zatvorí otvorené menu pri kliknutí mimo neho.
 const closeAll = (event) => {
@@ -67,14 +88,19 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
                 </nav>
 
                 <div class="ml-auto flex items-center gap-2">
+                    <!-- Jazyk rozhrania -->
+                    <DropdownMenu v-if="locales.length > 1" :items="localeMenu" :label="localeShort" />
+
                     <!-- Používateľské menu -->
                     <div class="relative" data-dropdown>
                         <button
                             type="button"
-                            class="chip h-9 w-9 bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-bold text-white transition hover:opacity-90"
+                            class="flex h-9 max-w-48 items-center gap-2 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 px-3 text-sm font-semibold text-white transition hover:opacity-90"
                             @click="menuOpen = !menuOpen"
                         >
-                            {{ initials }}
+                            <!-- Na úzkej obrazovke ostávajú iniciálky, celé meno by tlačilo navigáciu -->
+                            <span class="hidden truncate sm:block">{{ auth.user.name }}</span>
+                            <span class="text-xs sm:hidden">{{ initials }}</span>
                         </button>
 
                         <transition

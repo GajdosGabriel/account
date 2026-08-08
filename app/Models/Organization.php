@@ -4,7 +4,9 @@ namespace App\Models;
 
 use App\Enums\AddressType;
 use App\Enums\LegalForm;
+use App\Enums\SubjectType;
 use App\Enums\VatMode;
+use Database\Factories\OrganizationFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -15,12 +17,12 @@ use Illuminate\Support\Str;
 
 class Organization extends Model
 {
-    /** @use HasFactory<\Database\Factories\OrganizationFactory> */
+    /** @use HasFactory<OrganizationFactory> */
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
         // identifikácia
-        'name', 'legal_name', 'legal_form',
+        'name', 'legal_name', 'legal_form', 'subject_type',
         'ico', 'dic', 'ic_dph', 'vat_mode', 'oss_registered',
         // zápis v registri
         'register_court', 'register_section', 'register_insert', 'established_at',
@@ -28,6 +30,8 @@ class Organization extends Model
         'street', 'street_no', 'city', 'postal_code', 'region', 'country',
         // kontakt
         'email', 'billing_email', 'phone', 'website',
+        // overenie fakturačného e-mailu píše service, nie formulár –
+        // preto tu `billing_email_verified_*` zámerne nie je
         // banka
         'bank_name', 'iban', 'swift',
         // fakturačné preferencie
@@ -41,12 +45,15 @@ class Organization extends Model
     {
         return [
             'legal_form' => LegalForm::class,
+            'subject_type' => SubjectType::class,
             'vat_mode' => VatMode::class,
             'oss_registered' => 'boolean',
             'established_at' => 'date',
             'payment_terms_days' => 'integer',
             'ico_verified_at' => 'datetime',
             'vat_verified_at' => 'datetime',
+            'billing_email_verified_at' => 'datetime',
+            'billing_email_verification_sent_at' => 'datetime',
             'registry_snapshot' => 'array',
             'settings' => 'array',
         ];
@@ -191,6 +198,58 @@ class Organization extends Model
         return $this->vat_mode?->isPayer() ?? false;
     }
 
+    /** Súkromná osoba – občan bez IČO, nie podnikateľ. */
+    public function isPerson(): bool
+    {
+        return $this->subject_type?->isPerson() ?? false;
+    }
+
+    /* ---------------------------------------------------------------
+     | Fakturačný e-mail
+     |---------------------------------------------------------------*/
+
+    /**
+     * Adresa, na ktorú reálne chodia faktúry.
+     *
+     * Zámerne bez kontaktov typu `billing` – tie sa dajú pridať a zmazať
+     * nezávisle a overenie by sa pri každej zmene kontaktu rozsypalo.
+     * Overuje sa to, čo je na firme.
+     */
+    public function billingEmail(): ?string
+    {
+        return $this->billing_email ?: $this->email;
+    }
+
+    /**
+     * Overenie platí len pre tú adresu, ktorá sa overila.
+     *
+     * Preto tu nie je „pri zmene zruš overenie“ – po prepísaní e-mailu
+     * prestane sedieť porovnanie a firma je automaticky neoverená.
+     * Funguje to aj vtedy, keď stĺpec zmení iná cesta než formulár.
+     */
+    public function hasVerifiedBillingEmail(): bool
+    {
+        $email = $this->billingEmail();
+
+        return filled($email)
+            && $this->billing_email_verified_at !== null
+            && $this->emailsMatch($this->billing_email_verified_address, $email);
+    }
+
+    public function markBillingEmailVerified(string $email): void
+    {
+        $this->forceFill([
+            'billing_email_verified_address' => $email,
+            'billing_email_verified_at' => now(),
+        ])->save();
+    }
+
+    /** Adresy sa porovnávajú bez ohľadu na veľkosť písmen – `Firma@` a `firma@` je tá istá schránka. */
+    public function emailsMatch(?string $a, ?string $b): bool
+    {
+        return filled($a) && filled($b) && mb_strtolower(trim($a)) === mb_strtolower(trim($b));
+    }
+
     public function isActive(): bool
     {
         return $this->status === 'active';
@@ -256,12 +315,15 @@ class Organization extends Model
     {
         $missing = [];
 
-        if (blank($this->ico)) {
+        // Od občana sa IČO pýtať nedá – nikdy ho mať nebude. Bez tejto
+        // výnimky by mu doklad navždy hlásil chýbajúci údaj a nedal sa
+        // vystaviť, hoci na faktúru pre súkromnú osobu stačí meno a adresa.
+        if (blank($this->ico) && ! $this->isPerson()) {
             $missing[] = 'IČO';
         }
 
         if (blank($this->street) || blank($this->city) || blank($this->postal_code)) {
-            $missing[] = 'sídlo';
+            $missing[] = $this->isPerson() ? 'adresa' : 'sídlo';
         }
 
         if (blank($this->billing_email) && blank($this->email)) {

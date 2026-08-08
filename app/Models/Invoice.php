@@ -236,12 +236,14 @@ class Invoice extends Model
     /** @param array<string, mixed> $meta */
     public function recordEvent(string $event, ?string $description = null, array $meta = []): InvoiceEvent
     {
+        // `created_at` sa neposiela – dopĺňa ho Eloquent. Ako neplniteľný
+        // atribút by ho mimo produkcie zhodila kontrola z AppServiceProvider
+        // (preventSilentlyDiscardingAttributes) a v produkcii by ticho vypadol.
         return $this->events()->create([
             'user_id' => auth()->id(),
             'event' => $event,
             'description' => $description,
             'meta' => $meta ?: null,
-            'created_at' => now(),
         ]);
     }
 

@@ -14,7 +14,12 @@ use Symfony\Component\HttpFoundation\Response;
  * zákazník, nie my. Jazyk sa preto musí riadiť ním, nie predvoleným
  * jazykom Accountu.
  *
- * Poradie: ?lang= → hlavička Accept-Language → predvolený jazyk.
+ * Poradie: ?lang= → voľba v session → hlavička Accept-Language →
+ * predvolený jazyk.
+ *
+ * Session je až za `?lang=`, aby sa dal jazyk vynútiť odkazom, a pred
+ * hlavičkou, aby prepnutie v navigácii vydržalo aj na počítači, ktorý
+ * má prehliadač nastavený inak.
  */
 class SetLocale
 {
@@ -23,6 +28,7 @@ class SetLocale
         $supported = config('accounts.locales', ['sk']);
 
         $locale = $this->fromQuery($request, $supported)
+            ?? $this->fromSession($request, $supported)
             ?? $this->fromHeader($request, $supported)
             ?? config('app.locale');
 
@@ -37,6 +43,23 @@ class SetLocale
         $lang = strtolower((string) $request->query('lang', ''));
 
         return in_array($lang, $supported, true) ? $lang : null;
+    }
+
+    /**
+     * Voľba z prepínača v navigácii. API beží bez session, preto sa
+     * najprv pýtame, či vôbec nejaká je.
+     *
+     * @param  array<int, string>  $supported
+     */
+    protected function fromSession(Request $request, array $supported): ?string
+    {
+        if (! $request->hasSession()) {
+            return null;
+        }
+
+        $locale = (string) $request->session()->get('locale', '');
+
+        return in_array($locale, $supported, true) ? $locale : null;
     }
 
     /**

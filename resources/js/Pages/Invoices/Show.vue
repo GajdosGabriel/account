@@ -296,30 +296,32 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                 <template #footer>
                     <div class="flex justify-end">
                         <table class="text-sm">
-                            <tr>
-                                <td class="py-1 pr-8 text-slate-500">Základ dane</td>
-                                <td class="py-1 text-right font-medium whitespace-nowrap text-slate-900">
-                                    {{ money(invoice.subtotal_cents, invoice.currency) }}
-                                </td>
-                            </tr>
-                            <tr v-for="row in invoice.vat_summary.filter((r) => r.rate > 0)" :key="row.rate">
-                                <td class="py-1 pr-8 text-slate-500">DPH {{ trimmed(row.rate) }} %</td>
-                                <td class="py-1 text-right font-medium whitespace-nowrap text-slate-900">
-                                    {{ money(row.vat_cents, invoice.currency) }}
-                                </td>
-                            </tr>
-                            <tr class="border-t-2 border-brand-600">
-                                <td class="pt-2 pr-8 font-semibold text-brand-700">Celkom</td>
-                                <td class="pt-2 text-right text-lg font-bold whitespace-nowrap text-brand-700">
-                                    {{ invoice.total }}
-                                </td>
-                            </tr>
-                            <tr v-if="invoice.paid_cents > 0">
-                                <td class="pt-1 pr-8 text-xs text-slate-500">Už uhradené</td>
-                                <td class="pt-1 text-right text-xs whitespace-nowrap text-emerald-600">
-                                    −{{ money(invoice.paid_cents, invoice.currency) }}
-                                </td>
-                            </tr>
+                            <tbody>
+                                <tr>
+                                    <td class="py-1 pr-8 text-slate-500">Základ dane</td>
+                                    <td class="py-1 text-right font-medium whitespace-nowrap text-slate-900">
+                                        {{ money(invoice.subtotal_cents, invoice.currency) }}
+                                    </td>
+                                </tr>
+                                <tr v-for="row in invoice.vat_summary.filter((r) => r.rate > 0)" :key="row.rate">
+                                    <td class="py-1 pr-8 text-slate-500">DPH {{ trimmed(row.rate) }} %</td>
+                                    <td class="py-1 text-right font-medium whitespace-nowrap text-slate-900">
+                                        {{ money(row.vat_cents, invoice.currency) }}
+                                    </td>
+                                </tr>
+                                <tr class="border-t-2 border-brand-600">
+                                    <td class="pt-2 pr-8 font-semibold text-brand-700">Celkom</td>
+                                    <td class="pt-2 text-right text-lg font-bold whitespace-nowrap text-brand-700">
+                                        {{ invoice.total }}
+                                    </td>
+                                </tr>
+                                <tr v-if="invoice.paid_cents > 0">
+                                    <td class="pt-1 pr-8 text-xs text-slate-500">Už uhradené</td>
+                                    <td class="pt-1 text-right text-xs whitespace-nowrap text-emerald-600">
+                                        −{{ money(invoice.paid_cents, invoice.currency) }}
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </template>

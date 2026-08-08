@@ -36,6 +36,14 @@ class InvoiceMailer
             throw new DomainException('Firma nemá vyplnený e-mail na faktúry.');
         }
 
+        $verified = $this->recipientIsVerified($invoice, $recipient);
+
+        if (! $verified && config('invoicing.require_verified_billing_email')) {
+            throw new DomainException(
+                "Adresa {$recipient} nie je potvrdená. Pošli firme overovací e-mail alebo doklad odovzdaj inak.",
+            );
+        }
+
         // PDF si vygenerujeme a uložíme teraz, nie až vo fronte –
         // ak niečo padne, dozvieme sa to hneď a nie z logu.
         if ($this->renderer->pdfAvailable()) {
@@ -51,12 +59,37 @@ class InvoiceMailer
             'sent_count' => $invoice->sent_count + 1,
         ])->save();
 
-        $invoice->recordEvent('sent', "Odoslané na {$recipient}.", [
-            'email' => $recipient,
-            'attempt' => $invoice->sent_count,
-        ]);
+        $invoice->recordEvent(
+            'sent',
+            $verified
+                ? "Odoslané na {$recipient}."
+                : "Odoslané na {$recipient} – adresa nie je potvrdená.",
+            [
+                'email' => $recipient,
+                'attempt' => $invoice->sent_count,
+                // Keď zákazník o mesiac tvrdí, že nič nedostal, toto je prvá
+                // vec, ktorú treba vedieť: išlo to na overenú adresu?
+                'recipient_verified' => $verified,
+            ],
+        );
 
         return $invoice->refresh();
+    }
+
+    /**
+     * Bola adresa príjemcu potvrdená?
+     *
+     * Ručne zadaná adresa (jednorazové preposlanie) je potvrdená len vtedy,
+     * keď sa zhoduje s tou overenou – inak by sa dala kontrola obísť
+     * prepísaním políčka.
+     */
+    protected function recipientIsVerified(Invoice $invoice, string $recipient): bool
+    {
+        $organization = $invoice->organization;
+
+        return $organization !== null
+            && $organization->hasVerifiedBillingEmail()
+            && $organization->emailsMatch($organization->billing_email_verified_address, $recipient);
     }
 
     /**

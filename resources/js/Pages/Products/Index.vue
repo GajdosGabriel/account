@@ -6,6 +6,8 @@ import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
 import Pagination from '../../Components/Pagination.vue';
+import RowActions from '../../Components/RowActions.vue';
+import { t } from '../../Composables/useLang';
 
 const props = defineProps({
     products: { type: Object, required: true },
@@ -74,25 +76,39 @@ const submit = () => form.post('/products', {
     </div>
 
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Link
+        <div
             v-for="product in products.data"
             :key="product.key"
-            :href="`/products/${product.key}`"
             class="card group p-5 transition hover:-translate-y-0.5 hover:shadow-md"
+            :class="product.deleted_at ? 'opacity-60' : ''"
         >
             <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0">
-                    <h3 class="truncate font-semibold text-slate-900">{{ product.name }}</h3>
+                    <Link :href="`/products/${product.key}`" class="truncate font-semibold text-slate-900 hover:text-brand-700">
+                        {{ product.name }}
+                    </Link>
                     <p class="mt-0.5 font-mono text-xs text-slate-400">{{ product.key }}</p>
                 </div>
-                <span
-                    class="shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset"
-                    :class="product.is_active
-                        ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
-                        : 'bg-slate-100 text-slate-500 ring-slate-500/20'"
-                >
-                    {{ product.is_active ? 'aktívny' : 'vypnutý' }}
-                </span>
+                <div class="flex shrink-0 items-center gap-1.5">
+                    <span
+                        class="rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset"
+                        :class="product.deleted_at
+                            ? 'bg-slate-100 text-slate-500 ring-slate-500/20'
+                            : (product.is_active
+                                ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/20'
+                                : 'bg-slate-100 text-slate-500 ring-slate-500/20')"
+                    >
+                        {{ product.deleted_at ? t('actions.trashed') : (product.is_active ? 'aktívny' : 'vypnutý') }}
+                    </span>
+                    <RowActions
+                        :abilities="product.can"
+                        :trashed="!!product.deleted_at"
+                        :base="`/products/${product.key}`"
+                        :name="product.name"
+                        :edit-href="`/products/${product.key}`"
+                        size="sm"
+                    />
+                </div>
             </div>
 
             <dl class="mt-5 grid grid-cols-3 gap-2 text-center">
@@ -109,7 +125,7 @@ const submit = () => form.post('/products', {
                     <dt class="text-xs text-slate-500">funkcií</dt>
                 </div>
             </dl>
-        </Link>
+        </div>
 
         <div v-if="!products.data.length" class="card col-span-full p-12 text-center">
             <Icon name="card" :size="32" class="mx-auto mb-3 text-slate-300" />

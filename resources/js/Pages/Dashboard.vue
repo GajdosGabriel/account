@@ -1,15 +1,36 @@
 <script setup>
+import { computed } from 'vue';
 import { Head, Link } from '@inertiajs/vue3';
 import CardSection from '../Components/CardSection.vue';
 import StatusBadge from '../Components/StatusBadge.vue';
 import Icon from '../Components/Icon.vue';
 
-defineProps({
+const props = defineProps({
     stats: { type: Object, required: true },
     products: { type: Array, default: () => [] },
     attention: { type: Array, default: () => [] },
     near_limit: { type: Array, default: () => [] },
+    invoicing: { type: Object, default: () => ({}) },
+    forecast: { type: Object, default: () => ({}) },
+    months: { type: Array, default: () => [] },
 });
+
+/**
+ * Stĺpce vývoja sa škálujú na najvyššiu hodnotu v okne, nie na absolútnu
+ * sumu – inak by pri jednom silnom mesiaci boli ostatné neviditeľné.
+ */
+const peak = computed(
+    () => Math.max(1, ...props.months.flatMap((m) => [m.invoiced_cents, m.paid_cents])),
+);
+
+const height = (cents) => `${Math.max((Math.max(cents, 0) / peak.value) * 100, 1.5)}%`;
+
+const money = (cents) => `${new Intl.NumberFormat('sk-SK', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+}).format((cents ?? 0) / 100)} €`;
+
+const hasHistory = computed(() => props.months.some((m) => m.invoiced_cents || m.paid_cents));
 </script>
 
 <template>
@@ -43,6 +64,157 @@ defineProps({
                     <p class="text-xs text-white/60">s problémom platby</p>
                 </div>
             </div>
+        </div>
+
+        <!-- Fakturácia -->
+        <div>
+            <div class="mb-4 flex items-baseline justify-between gap-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Fakturácia</h2>
+                <Link href="/invoices" class="text-sm text-brand-700 hover:underline">Všetky doklady →</Link>
+            </div>
+
+            <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div class="card p-4">
+                    <p class="text-xs text-slate-500">Vyfakturované tento mesiac</p>
+                    <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                        {{ invoicing.invoiced_month?.formatted }}
+                    </p>
+                    <p class="mt-0.5 text-xs text-slate-400">{{ invoicing.invoiced_month?.count }} dokladov</p>
+                </div>
+
+                <div class="card p-4">
+                    <p class="text-xs text-slate-500">Uhradené tento mesiac</p>
+                    <p class="mt-1 text-2xl font-semibold tracking-tight text-emerald-600">
+                        {{ invoicing.paid_month?.formatted }}
+                    </p>
+                    <p class="mt-0.5 text-xs text-slate-400">{{ invoicing.paid_month?.count }} dokladov</p>
+                </div>
+
+                <Link href="/invoices" class="card p-4 transition hover:border-slate-300 hover:shadow-md">
+                    <p class="text-xs text-slate-500">Neuhradené spolu</p>
+                    <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
+                        {{ invoicing.outstanding?.formatted }}
+                    </p>
+                    <p class="mt-0.5 text-xs text-slate-400">{{ invoicing.outstanding?.count }} dokladov</p>
+                </Link>
+
+                <Link
+                    href="/invoices?status=overdue"
+                    class="card p-4 transition hover:shadow-md"
+                    :class="invoicing.overdue?.count ? 'border-rose-200 hover:border-rose-300' : 'hover:border-slate-300'"
+                >
+                    <p class="text-xs text-slate-500">Po splatnosti</p>
+                    <p
+                        class="mt-1 text-2xl font-semibold tracking-tight"
+                        :class="invoicing.overdue?.count ? 'text-rose-600' : 'text-slate-900'"
+                    >
+                        {{ invoicing.overdue?.formatted }}
+                    </p>
+                    <p class="mt-0.5 text-xs text-slate-400">{{ invoicing.overdue?.count }} dokladov</p>
+                </Link>
+            </div>
+        </div>
+
+        <div class="grid gap-6 lg:grid-cols-5">
+            <!-- Prognóza -->
+            <CardSection
+                class="lg:col-span-2"
+                icon="clock"
+                tone="emerald"
+                title="Prognóza príjmu"
+                :description="`Čo má pritiecť do ${forecast.days} dní, teda do ${forecast.until}.`"
+            >
+                <p class="text-3xl font-semibold tracking-tight text-slate-900">{{ forecast.total }}</p>
+                <p class="mt-1 text-xs text-slate-500">
+                    Nič sa neodhaduje – sú to splatné pohľadávky a obnovy, ktoré už v evidencii sú.
+                </p>
+
+                <dl class="mt-5 space-y-3 border-t border-slate-100 pt-4 text-sm">
+                    <div class="flex items-baseline justify-between gap-3">
+                        <dt class="text-slate-600">
+                            Splatné faktúry
+                            <span class="text-xs text-slate-400">· {{ forecast.due?.count }}</span>
+                        </dt>
+                        <dd class="font-semibold text-slate-900">{{ forecast.due?.formatted }}</dd>
+                    </div>
+                    <div class="flex items-baseline justify-between gap-3">
+                        <dt class="text-slate-600">
+                            Obnovy predplatných
+                            <span class="text-xs text-slate-400">· {{ forecast.renewals?.count }}</span>
+                        </dt>
+                        <dd class="font-semibold text-slate-900">{{ forecast.renewals?.formatted }}</dd>
+                    </div>
+                    <div class="flex items-baseline justify-between gap-3 border-t border-slate-100 pt-3">
+                        <dt class="text-slate-600">
+                            Ohrozené po splatnosti
+                            <span class="text-xs text-slate-400">· {{ forecast.at_risk?.count }}</span>
+                        </dt>
+                        <dd class="font-semibold" :class="forecast.at_risk?.count ? 'text-rose-600' : 'text-slate-400'">
+                            {{ forecast.at_risk?.formatted }}
+                        </dd>
+                    </div>
+                </dl>
+
+                <template #footer>
+                    <div class="flex flex-wrap items-center gap-x-6 gap-y-1 text-xs text-slate-500">
+                        <span v-if="invoicing.avg_days_to_pay !== null">
+                            Priemerná doba úhrady:
+                            <strong class="text-slate-700">{{ invoicing.avg_days_to_pay }} dní</strong>
+                        </span>
+                        <span v-if="invoicing.drafts">
+                            Konceptov čaká na vystavenie:
+                            <strong class="text-slate-700">{{ invoicing.drafts }}</strong>
+                        </span>
+                    </div>
+                </template>
+            </CardSection>
+
+            <!-- Vývoj -->
+            <CardSection
+                class="lg:col-span-3"
+                icon="invoice"
+                title="Vývoj fakturácie"
+                description="Posledných šesť mesiacov: vystavené a z toho uhradené."
+            >
+                <div v-if="hasHistory">
+                    <div class="flex h-44 items-end gap-3">
+                        <div v-for="month in months" :key="month.key" class="flex h-full flex-1 flex-col justify-end">
+                            <div class="flex h-full items-end justify-center gap-1">
+                                <div
+                                    class="w-1/2 rounded-t-md bg-brand-500/80 transition-all"
+                                    :style="{ height: height(month.invoiced_cents) }"
+                                    :title="`Vystavené: ${money(month.invoiced_cents)}`"
+                                ></div>
+                                <div
+                                    class="w-1/2 rounded-t-md bg-emerald-500/80 transition-all"
+                                    :style="{ height: height(month.paid_cents) }"
+                                    :title="`Uhradené: ${money(month.paid_cents)}`"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 flex gap-3 border-t border-slate-100 pt-2">
+                        <div v-for="month in months" :key="month.key" class="flex-1 text-center">
+                            <p class="text-xs font-medium text-slate-600">{{ month.label }}</p>
+                            <p class="text-xs text-slate-400">{{ money(month.invoiced_cents) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex items-center gap-4 text-xs text-slate-500">
+                        <span class="flex items-center gap-1.5">
+                            <span class="h-2.5 w-2.5 rounded-sm bg-brand-500/80"></span> vystavené
+                        </span>
+                        <span class="flex items-center gap-1.5">
+                            <span class="h-2.5 w-2.5 rounded-sm bg-emerald-500/80"></span> uhradené
+                        </span>
+                    </div>
+                </div>
+
+                <p v-else class="py-12 text-center text-sm text-slate-500">
+                    Zatiaľ nie je čo kresliť – vystav prvý doklad.
+                </p>
+            </CardSection>
         </div>
 
         <!-- Projekty -->

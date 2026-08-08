@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Concerns;
 
 use App\Enums\LegalForm;
+use App\Enums\SubjectType;
 use App\Enums\VatMode;
 use App\Rules\ValidIco;
 use App\Rules\ValidVatNumber;
@@ -15,6 +16,22 @@ use Illuminate\Validation\Rule;
 trait OrganizationRules
 {
     /**
+     * Stĺpce, ktoré sú v databáze NOT NULL a majú vlastný default.
+     *
+     * V pravidlách sú `nullable`, lebo formulár ich vyplniť nemusí – ale
+     * `nullable` tu znamená „nevyplnené“, nie „ulož NULL“. Prázdny select
+     * (alebo projekt, ktorý pole pošle ako null) by inak zhodil insert
+     * na integrity violation a volajúci by dostal 500 namiesto odpovede.
+     *
+     * @var array<int, string>
+     */
+    protected const DEFAULTED_COLUMNS = [
+        'vat_mode', 'oss_registered', 'country', 'currency',
+        'payment_terms_days', 'payment_method',
+        'invoice_language', 'invoice_delivery', 'status',
+    ];
+
+    /**
      * @return array<string, mixed>
      */
     protected function organizationRules(?int $ignoreId = null, bool $partial = false, bool $uniqueIco = true): array
@@ -23,6 +40,9 @@ trait OrganizationRules
 
         return [
             /* identifikácia */
+            'subject_type' => ['sometimes', Rule::enum(SubjectType::class)],
+            // U osoby je to meno človeka, u firmy názov – v oboch prípadoch
+            // jediný povinný údaj, na ktorom sa dá postaviť doklad.
             'name' => [$required, 'string', 'max:255'],
             'legal_name' => ['nullable', 'string', 'max:255'],
             'legal_form' => ['nullable', Rule::enum(LegalForm::class)],
@@ -73,6 +93,24 @@ trait OrganizationRules
             'invoice_delivery' => ['nullable', 'in:email,post,both'],
             'supplier_number' => ['nullable', 'string', 'max:40'],
         ];
+    }
+
+    /**
+     * Vyhodí NULL pri stĺpcoch, ktoré si držia vlastný default.
+     * Nevyplnené pole tak nechá platiť to, čo je v databáze.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function withoutNullDefaults(array $data): array
+    {
+        foreach (self::DEFAULTED_COLUMNS as $column) {
+            if (array_key_exists($column, $data) && $data[$column] === null) {
+                unset($data[$column]);
+            }
+        }
+
+        return $data;
     }
 
     /**

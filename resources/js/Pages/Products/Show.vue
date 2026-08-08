@@ -1,10 +1,12 @@
 <script setup>
 import { ref, reactive, computed } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import PageHeader from '../../Components/PageHeader.vue';
 import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
+import RowActions from '../../Components/RowActions.vue';
+import { t } from '../../Composables/useLang';
 
 const props = defineProps({
     product: { type: Object, required: true },
@@ -33,11 +35,9 @@ const saveProduct = () => productForm.patch(base, {
     onSuccess: () => { settingsOpen.value = false; },
 });
 
-const deleteProduct = () => {
-    if (confirm(`Naozaj odstrániť projekt „${props.product.name}“? Zmažú sa aj plány, katalóg, tokeny a webhooky.`)) {
-        router.delete(base);
-    }
-};
+// Na vlastnej stránke projektu nemá „zobraziť“ zmysel – ostatné akcie
+// rozhoduje ProductPolicy.
+const productAbilities = computed(() => ({ ...props.product.can, view: false }));
 
 /* ---------- katalóg funkcií ---------- */
 
@@ -74,11 +74,7 @@ const saveFeature = () => {
         : featureForm.post(`${base}/features`, options);
 };
 
-const deleteFeature = (feature) => {
-    if (confirm(`Odstrániť "${feature.name}" z katalógu? Plány prídu o túto hodnotu.`)) {
-        router.delete(`${base}/features/${feature.id}`, { preserveScroll: true });
-    }
-};
+const closeFeature = () => { featureOpen.value = false; editingFeature.value = null; };
 
 /* ---------- plány ---------- */
 
@@ -127,11 +123,7 @@ const savePlan = () => {
         : planForm.post(`${base}/plans`, options);
 };
 
-const deletePlan = (plan) => {
-    if (confirm(`Odstrániť plán "${plan.name}"?`)) {
-        router.delete(`${base}/plans/${plan.id}`, { preserveScroll: true });
-    }
-};
+const closePlan = () => { planOpen.value = false; editingPlan.value = null; };
 
 const formatFeatureValue = (feature, value) => {
     if (feature.type === 'flag') return value ? 'áno' : 'nie';
@@ -153,8 +145,20 @@ const formatFeatureValue = (feature, value) => {
                 <Icon name="settings" :size="16" />
                 {{ settingsOpen ? 'Zavrieť' : 'Nastavenia' }}
             </button>
+            <RowActions
+                :abilities="productAbilities"
+                :trashed="!!product.deleted_at"
+                :base="`/products/${product.key}`"
+                :name="product.name"
+                :label="t('actions.menu')"
+                @edit="settingsOpen = true"
+            />
         </template>
     </PageHeader>
+
+    <p v-if="product.deleted_at" class="mb-5 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
+        Projekt je {{ t('actions.trashed') }} – dá sa obnoviť alebo odstrániť natrvalo cez menu akcií.
+    </p>
 
     <div class="space-y-6">
         <!-- Nastavenia projektu -->
@@ -213,10 +217,6 @@ const formatFeatureValue = (feature, value) => {
                         <input v-model="productForm.is_active" type="checkbox" />
                         aktívny — pri vypnutí prestane API prijímať volania
                     </label>
-
-                    <button type="button" class="ml-auto text-sm text-rose-600 hover:underline" @click="deleteProduct">
-                        Odstrániť projekt
-                    </button>
                 </div>
             </form>
         </CardSection>
@@ -246,9 +246,14 @@ const formatFeatureValue = (feature, value) => {
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100">
-                    <tr v-for="feature in features" :key="feature.id">
+                    <tr v-for="feature in features" :key="feature.id" :class="feature.deleted_at ? 'opacity-50' : ''">
                         <td class="py-2.5 font-mono text-xs text-slate-700">{{ feature.key }}</td>
-                        <td class="py-2.5 font-medium text-slate-900">{{ feature.name }}</td>
+                        <td class="py-2.5 font-medium text-slate-900">
+                            {{ feature.name }}
+                            <span v-if="feature.deleted_at" class="ml-1.5 text-xs font-normal text-slate-400">
+                                {{ t('actions.trashed') }}
+                            </span>
+                        </td>
                         <td class="py-2.5">
                             <span
                                 class="rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset"
@@ -262,8 +267,14 @@ const formatFeatureValue = (feature, value) => {
                         <td class="py-2.5 font-mono text-xs text-slate-500">{{ feature.metric ?? '—' }}</td>
                         <td class="py-2.5 text-slate-600">{{ formatFeatureValue(feature, feature.default_value) }}</td>
                         <td class="py-2.5 text-right">
-                            <button type="button" class="text-sm text-brand-700 hover:underline" @click="openFeature(feature)">Upraviť</button>
-                            <button type="button" class="ml-3 text-sm text-rose-600 hover:underline" @click="deleteFeature(feature)">Zmazať</button>
+                            <RowActions
+                                :abilities="feature.can"
+                                :trashed="!!feature.deleted_at"
+                                :base="`${base}/features/${feature.id}`"
+                                :name="feature.name"
+                                size="sm"
+                                @edit="openFeature(feature)"
+                            />
                         </td>
                     </tr>
                     <tr v-if="features.length === 0">
@@ -314,7 +325,7 @@ const formatFeatureValue = (feature, value) => {
                     <button type="submit" class="btn-primary" :disabled="featureForm.processing">
                         {{ editingFeature ? 'Uložiť zmeny' : 'Pridať do katalógu' }}
                     </button>
-                    <button type="button" class="btn-secondary" @click="featureOpen = false; editingFeature = null">Zrušiť</button>
+                    <button type="button" class="btn-secondary" @click="closeFeature">Zrušiť</button>
                 </div>
             </form>
         </CardSection>
@@ -333,7 +344,7 @@ const formatFeatureValue = (feature, value) => {
                     v-for="plan in plans"
                     :key="plan.id"
                     class="rounded-xl border border-slate-200 p-4"
-                    :class="{ 'opacity-50': !plan.is_active }"
+                    :class="{ 'opacity-50': !plan.is_active || plan.deleted_at }"
                 >
                     <div class="flex items-baseline justify-between gap-2">
                         <h3 class="font-semibold text-slate-900">{{ plan.name }}</h3>
@@ -342,6 +353,7 @@ const formatFeatureValue = (feature, value) => {
                     <p class="mt-0.5 text-xs text-slate-500">
                         za {{ plan.interval === 'year' ? 'rok' : 'mesiac' }}
                         <span v-if="plan.trial_days"> · {{ plan.trial_days }} dní zdarma</span>
+                        <span v-if="plan.deleted_at"> · {{ t('actions.trashed') }}</span>
                     </p>
 
                     <ul class="mt-3 space-y-1 text-sm">
@@ -353,9 +365,16 @@ const formatFeatureValue = (feature, value) => {
                         </li>
                     </ul>
 
-                    <div class="mt-4 flex gap-3 border-t border-slate-100 pt-3">
-                        <button type="button" class="text-sm text-brand-700 hover:underline" @click="openPlan(plan)">Upraviť</button>
-                        <button type="button" class="text-sm text-rose-600 hover:underline" @click="deletePlan(plan)">Zmazať</button>
+                    <div class="mt-4 flex items-center justify-end border-t border-slate-100 pt-3">
+                        <RowActions
+                            :abilities="plan.can"
+                            :trashed="!!plan.deleted_at"
+                            :base="`${base}/plans/${plan.id}`"
+                            :name="plan.name"
+                            size="sm"
+                            :label="t('actions.menu')"
+                            @edit="openPlan(plan)"
+                        />
                     </div>
                 </article>
 
@@ -424,7 +443,7 @@ const formatFeatureValue = (feature, value) => {
                     <button type="submit" class="btn-primary" :disabled="planForm.processing">
                         {{ editingPlan ? 'Uložiť plán' : 'Vytvoriť plán' }}
                     </button>
-                    <button type="button" class="btn-secondary" @click="planOpen = false; editingPlan = null">Zrušiť</button>
+                    <button type="button" class="btn-secondary" @click="closePlan">Zrušiť</button>
                     <label class="ml-auto flex items-center gap-2 text-sm font-normal text-slate-600">
                         <input v-model="planForm.is_active" type="checkbox" />
                         aktívny

@@ -4,12 +4,16 @@ import PageHeader from '../../Components/PageHeader.vue';
 import Icon from '../../Components/Icon.vue';
 import OrganizationFilter from '../../Components/OrganizationFilter.vue';
 import Pagination from '../../Components/Pagination.vue';
+import RowActions from '../../Components/RowActions.vue';
 
 defineProps({
     organizations: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
     products: { type: Array, default: () => [] },
     statuses: { type: Array, default: () => [] },
+    /** Zoznam je prepnutý na kôš – rozhoduje o tom filter stavu. */
+    trashed: { type: Boolean, default: false },
+    trashed_count: { type: Number, default: 0 },
 });
 
 const statusStyles = {
@@ -31,7 +35,12 @@ const statusStyles = {
         </template>
     </PageHeader>
 
-    <OrganizationFilter :filters="filters" :products="products" :statuses="statuses" />
+    <OrganizationFilter
+        :filters="filters"
+        :products="products"
+        :statuses="statuses"
+        :trashed-count="trashed_count"
+    />
 
     <div class="card overflow-hidden">
         <table class="w-full text-left text-sm">
@@ -43,10 +52,16 @@ const statusStyles = {
                     <th class="px-5 py-3 font-medium">Mesto</th>
                     <th class="px-5 py-3 font-medium">Stav</th>
                     <th class="px-5 py-3 text-right font-medium">Projektov</th>
+                    <th class="w-12 px-2 py-3"></th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
-                <tr v-for="org in organizations.data" :key="org.id" class="transition hover:bg-brand-50/40">
+                <tr
+                    v-for="org in organizations.data"
+                    :key="org.id"
+                    class="transition hover:bg-brand-50/40"
+                    :class="org.deleted_at ? 'opacity-60' : ''"
+                >
                     <td class="px-5 py-3">
                         <Link :href="`/organizations/${org.id}`" class="font-medium text-slate-900 hover:text-brand-700 hover:underline">
                             {{ org.name }}
@@ -62,12 +77,24 @@ const statusStyles = {
                         </span>
                     </td>
                     <td class="px-5 py-3 text-right font-medium text-slate-700">{{ org.products_count }}</td>
+                    <td class="px-2 py-3 text-right">
+                        <RowActions
+                            :abilities="org.can"
+                            :trashed="!!org.deleted_at"
+                            :base="`/organizations/${org.id}`"
+                            :name="org.name"
+                            :edit-href="`/organizations/${org.id}/edit`"
+                        />
+                    </td>
                 </tr>
                 <tr v-if="organizations.data.length === 0">
                     <!-- Prázdny výpis pri zapnutom filtri vyzerá rovnako ako prázdna
                          evidencia — bez rozlíšenia človek hľadá chybu v dátach. -->
-                    <td colspan="6" class="px-5 py-12 text-center text-slate-500">
-                        {{ Object.keys(filters).length ? 'Filtru nezodpovedá žiadna organizácia.' : 'Zatiaľ tu nie je žiadna organizácia.' }}
+                    <td colspan="7" class="px-5 py-12 text-center text-slate-500">
+                        <template v-if="trashed">V koši nie je žiadna organizácia.</template>
+                        <template v-else>
+                            {{ Object.keys(filters).length ? 'Filtru nezodpovedá žiadna organizácia.' : 'Zatiaľ tu nie je žiadna organizácia.' }}
+                        </template>
                     </td>
                 </tr>
             </tbody>

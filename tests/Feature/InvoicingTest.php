@@ -178,14 +178,20 @@ class InvoicingTest extends TestCase
 
     public function test_fakturacne_udaje_sa_odfotia_pri_vystaveni(): void
     {
-        $organization = $this->organization(['name' => 'Pôvodná firma']);
+        // Na doklad ide obchodné meno, nie prezývka firmy – preto sa
+        // nastavuje `legal_name`. Bez neho by test porovnával s náhodnou
+        // hodnotou z factory a padol by na správnom správaní.
+        $organization = $this->organization([
+            'name' => 'Pôvodná firma',
+            'legal_name' => 'Pôvodná firma, s. r. o.',
+        ]);
         $issued = app(InvoiceService::class)->issue($this->draft($organization));
 
         $organization->update(['legal_name' => 'Nový názov, s. r. o.', 'city' => 'Košice']);
 
         $snapshot = $issued->refresh()->billing_snapshot;
 
-        $this->assertSame('Pôvodná firma', $snapshot['name']);
+        $this->assertSame('Pôvodná firma, s. r. o.', $snapshot['name']);
         $this->assertNotSame('Košice', $snapshot['address']['city']);
     }
 

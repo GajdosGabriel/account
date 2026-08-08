@@ -16,6 +16,8 @@ const props = defineProps({
     /** [{ key, name }] projektov do výberu. */
     products: { type: Array, default: () => [] },
     statuses: { type: Array, default: () => ['active', 'suspended', 'archived'] },
+    /** Počet zmazaných – kôš sa v stavoch ponúka, len keď v ňom niečo je. */
+    trashedCount: { type: Number, default: 0 },
     /** Kam sa filtre posielajú. */
     route: { type: String, default: '/organizations' },
 });
@@ -92,6 +94,10 @@ onBeforeUnmount(() => clearTimeout(timer));
             <option value="">Všetky stavy</option>
             <option v-for="status in statuses" :key="status" :value="status">
                 {{ STATUS_LABELS[status] ?? status }}
+            </option>
+            <!-- Kôš je stav zoznamu, nie stav firmy – preto až za oddeľovačom. -->
+            <option v-if="trashedCount || filters.status === 'trashed'" value="trashed">
+                Kôš ({{ trashedCount }})
             </option>
         </select>
 

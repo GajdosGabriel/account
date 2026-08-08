@@ -2,13 +2,13 @@
 
 namespace App\Http\Resources;
 
-use App\Enums\AddressType;
+use App\Models\Organization;
 use App\Models\OrganizationAddress;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * @mixin \App\Models\Organization
+ * @mixin Organization
  */
 class OrganizationResource extends JsonResource
 {
@@ -23,6 +23,10 @@ class OrganizationResource extends JsonResource
             'legal_name' => $this->legal_name,
             'legal_form' => $this->legal_form?->value,
             'legal_form_label' => $this->legal_form?->shortLabel(),
+            // Firma alebo súkromná osoba. Projekt podľa toho vie, či má
+            // vôbec pýtať IČO – od občana ho žiadať nemá zmysel.
+            'subject_type' => $this->subject_type?->value,
+            'is_person' => $this->isPerson(),
             'status' => $this->status,
 
             'identifiers' => [
@@ -81,6 +85,15 @@ class OrganizationResource extends JsonResource
                 'billing_email' => $this->billing_email,
                 'phone' => $this->phone,
                 'website' => $this->website,
+
+                // Adresa, na ktorú reálne chodia faktúry, a či je potvrdená.
+                // Projekt tak vie pri poli ukázať „neoverený“ namiesto toho,
+                // aby zákazník čakal doklady, ktoré mu nikto neposiela.
+                'billing_email_effective' => $this->billingEmail(),
+                'billing_email_verified' => $this->hasVerifiedBillingEmail(),
+                'billing_email_verified_at' => $this->hasVerifiedBillingEmail()
+                    ? $this->billing_email_verified_at?->toIso8601String()
+                    : null,
             ],
 
             'bank' => [

@@ -38,7 +38,6 @@ class OrganizationApiRequest extends FormRequest
         ];
     }
 
-
     protected function prepareForValidation(): void
     {
         $this->merge($this->normalizedOrganizationInput());
@@ -51,6 +50,8 @@ class OrganizationApiRequest extends FormRequest
      */
     public function organizationData(): array
     {
-        return collect($this->validated())->except('external_ref')->all();
+        return $this->withoutNullDefaults(
+            collect($this->validated())->except('external_ref')->all()
+        );
     }
 }

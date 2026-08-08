@@ -7,6 +7,7 @@ import CardSection from '../../Components/CardSection.vue';
 const props = defineProps({
     organization: { type: Object, default: null },
     legal_forms: { type: Array, default: () => [] },
+    subject_types: { type: Array, default: () => [] },
     vat_modes: { type: Array, default: () => [] },
 });
 
@@ -15,6 +16,7 @@ const o = props.organization ?? {};
 
 const form = useForm({
     // identifikácia
+    subject_type: o.subject_type ?? 'company',
     name: o.name ?? '',
     legal_name: o.legal_name ?? '',
     legal_form: o.legal_form ?? '',
@@ -66,6 +68,13 @@ const vatDescription = computed(
 );
 
 const needsVatNumber = computed(() => form.vat_mode !== 'non_payer');
+
+/**
+ * Súkromná osoba nemá IČO, DIČ ani zápis v registri – tie polia sa jej
+ * nezobrazujú. Backend ich pri uložení aj tak vyprázdni, takže tu nejde
+ * o kontrolu, ale o to, aby sa nikto nesnažil vypĺňať niečo, čo nemá.
+ */
+const isPerson = computed(() => form.subject_type === 'person');
 
 const post = async (url, body) => {
     const response = await fetch(url, {
@@ -170,10 +179,37 @@ const submit = () => {
             </p>
         </div>
 
+        <!-- Typ zákazníka -->
+        <CardSection icon="user" title="Typ zákazníka" description="Od súkromnej osoby sa firemné údaje nepýtajú – IČO nikdy mať nebude.">
+            <div class="flex flex-wrap gap-3">
+                <label
+                    v-for="type in subject_types"
+                    :key="type.value"
+                    class="flex flex-1 cursor-pointer gap-3 rounded-xl border p-4 font-normal transition"
+                    :class="form.subject_type === type.value
+                        ? 'border-brand-500 bg-brand-50/60 ring-1 ring-brand-500/20'
+                        : 'border-slate-200 hover:border-slate-300'"
+                >
+                    <input v-model="form.subject_type" type="radio" :value="type.value" class="mt-0.5" />
+                    <span class="min-w-0">
+                        <span class="block text-sm font-medium text-slate-900">{{ type.label }}</span>
+                        <span class="mt-0.5 block text-xs text-slate-500">{{ type.description }}</span>
+                    </span>
+                </label>
+            </div>
+            <InputError :message="form.errors.subject_type" />
+        </CardSection>
+
         <!-- Identifikácia -->
-        <CardSection icon="building" title="Identifikácia" description="IČO načítame z registra (SK: RPO, CZ: ARES), IČ DPH overíme vo VIES.">
+        <CardSection
+            icon="building"
+            title="Identifikácia"
+            :description="isPerson
+                ? 'Súkromnej osobe stačí meno. Na faktúru sa doplní adresa nižšie.'
+                : 'IČO načítame z registra (SK: RPO, CZ: ARES), IČ DPH overíme vo VIES.'"
+        >
             <div class="grid gap-4 sm:grid-cols-6">
-                <div class="sm:col-span-2">
+                <div v-if="!isPerson" class="sm:col-span-2">
                     <label for="ico">IČO</label>
                     <div class="flex gap-2">
                         <input
@@ -217,19 +253,19 @@ const submit = () => {
                     </div>
                 </div>
 
-                <div class="sm:col-span-4">
-                    <label for="name">Zobrazovaný názov</label>
+                <div :class="isPerson ? 'sm:col-span-6' : 'sm:col-span-4'">
+                    <label for="name">{{ isPerson ? 'Meno a priezvisko' : 'Zobrazovaný názov' }}</label>
                     <input id="name" v-model="form.name" type="text" required />
                     <InputError :message="form.errors.name" />
                 </div>
 
-                <div class="sm:col-span-4">
+                <div v-if="!isPerson" class="sm:col-span-4">
                     <label for="legal_name">Obchodné meno <span class="font-normal text-slate-400">— presne ako v registri</span></label>
                     <input id="legal_name" v-model="form.legal_name" type="text" placeholder="Firma, s. r. o." />
                     <InputError :message="form.errors.legal_name" />
                 </div>
 
-                <div class="sm:col-span-2">
+                <div v-if="!isPerson" class="sm:col-span-2">
                     <label for="legal_form">Právna forma</label>
                     <select id="legal_form" v-model="form.legal_form">
                         <option value="">—</option>
@@ -238,13 +274,13 @@ const submit = () => {
                     <InputError :message="form.errors.legal_form" />
                 </div>
 
-                <div class="sm:col-span-2">
+                <div v-if="!isPerson" class="sm:col-span-2">
                     <label for="dic">DIČ</label>
                     <input id="dic" v-model="form.dic" type="text" placeholder="2020123456" />
                     <InputError :message="form.errors.dic" />
                 </div>
 
-                <div class="sm:col-span-4">
+                <div v-if="!isPerson" class="sm:col-span-4">
                     <label for="vat_mode">Vzťah k DPH</label>
                     <select id="vat_mode" v-model="form.vat_mode">
                         <option v-for="m in vat_modes" :key="m.value" :value="m.value">{{ m.label }}</option>
@@ -253,7 +289,7 @@ const submit = () => {
                     <InputError :message="form.errors.vat_mode" />
                 </div>
 
-                <div v-if="needsVatNumber" class="sm:col-span-3">
+                <div v-if="needsVatNumber && !isPerson" class="sm:col-span-3">
                     <label for="ic_dph">IČ DPH</label>
                     <div class="flex gap-2">
                         <input id="ic_dph" v-model="form.ic_dph" type="text" placeholder="SK2020123456" />
@@ -272,7 +308,7 @@ const submit = () => {
                     <InputError :message="form.errors.ic_dph" />
                 </div>
 
-                <div v-if="needsVatNumber" class="sm:col-span-3 flex items-end pb-2.5">
+                <div v-if="needsVatNumber && !isPerson" class="sm:col-span-3 flex items-end pb-2.5">
                     <label class="flex items-center gap-2.5 text-sm font-normal text-slate-600">
                         <input v-model="form.oss_registered" type="checkbox" />
                         Registrovaná v OSS (predaj do EÚ)
@@ -282,7 +318,7 @@ const submit = () => {
         </CardSection>
 
         <!-- Zápis v registri -->
-        <CardSection icon="shield" tone="slate" title="Zápis v registri" description="Povinný údaj v päticke faktúry aj obchodnej korešpondencie.">
+        <CardSection v-if="!isPerson" icon="shield" tone="slate" title="Zápis v registri" description="Povinný údaj v päticke faktúry aj obchodnej korešpondencie.">
             <div class="grid gap-4 sm:grid-cols-6">
                 <div class="sm:col-span-3">
                     <label for="register_court">Registrový súd / úrad</label>
@@ -309,8 +345,10 @@ const submit = () => {
         <CardSection
             icon="home"
             tone="emerald"
-            title="Sídlo / miesto podnikania"
-            description="Adresa ako na živnostenskom liste alebo vo výpise z obchodného registra."
+            :title="isPerson ? 'Adresa' : 'Sídlo / miesto podnikania'"
+            :description="isPerson
+                ? 'Adresa trvalého bydliska – tlačí sa na faktúru.'
+                : 'Adresa ako na živnostenskom liste alebo vo výpise z obchodného registra.'"
         >
             <div class="grid gap-4 sm:grid-cols-6">
                 <div class="sm:col-span-4">

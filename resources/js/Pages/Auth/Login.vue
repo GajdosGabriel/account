@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthLayout from '../../Layouts/AuthLayout.vue';
 import InputError from '../../Components/InputError.vue';
+import PasswordInput from '../../Components/PasswordInput.vue';
 
 const form = useForm({ email: '', password: '', remember: false });
 
@@ -24,7 +25,7 @@ const submit = () => form.post('/login', { onFinish: () => form.reset('password'
                     <label for="password" class="mb-0">Heslo</label>
                     <Link href="/forgot-password" class="text-sm text-brand-700 hover:underline">Zabudli ste?</Link>
                 </div>
-                <input id="password" v-model="form.password" type="password" autocomplete="current-password" placeholder="••••••••" required />
+                <PasswordInput id="password" v-model="form.password" autocomplete="current-password" required />
                 <InputError :message="form.errors.password" />
             </div>
 

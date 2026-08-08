@@ -25,6 +25,17 @@ class OrganizationRequest extends FormRequest
         ];
     }
 
+    /**
+     * Údaje na uloženie. Rovnako ako v API sa nevyplnené polia s databázovým
+     * defaultom vyhadzujú – prázdny select v admin formulári by inak
+     * skončil na integrity violation.
+     *
+     * @return array<string, mixed>
+     */
+    public function organizationData(): array
+    {
+        return $this->withoutNullDefaults($this->validated());
+    }
 
     protected function prepareForValidation(): void
     {

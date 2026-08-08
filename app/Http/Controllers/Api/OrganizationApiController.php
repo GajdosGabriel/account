@@ -6,6 +6,7 @@ use App\Http\Requests\Api\OrganizationApiRequest;
 use App\Http\Resources\OrganizationResource;
 use App\Models\AuditLog;
 use App\Models\Organization;
+use App\Services\Billing\BillingEmailVerifier;
 use App\Services\Registry\IcoLookupService;
 use App\Services\Registry\ViesValidator;
 use Illuminate\Http\JsonResponse;
@@ -15,6 +16,8 @@ use Illuminate\Support\Facades\DB;
 
 class OrganizationApiController extends ApiController
 {
+    public function __construct(private readonly BillingEmailVerifier $verifier) {}
+
     /** Zoznam firiem naviazaných na volajúci projekt. */
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -64,6 +67,8 @@ class OrganizationApiController extends ApiController
 
             AuditLog::record('organization.linked', $existing, ['product' => $product->key], $existing->id, $product->id);
 
+            $this->verifier->sendIfNeeded($existing);
+
             return response()->json([
                 'data' => new OrganizationResource($existing),
                 'created' => false,
@@ -74,10 +79,17 @@ class OrganizationApiController extends ApiController
             $organization = Organization::create($attributes);
             $organization->linkTo($product, $data['external_ref'] ?? null);
 
-            return $organization;
+            // Nevyplnené polia doplnila databáza vlastným defaultom. Bez
+            // načítania by odpoveď hlásila `country: null`, hoci uložené
+            // je `SK` – a projekt by si tú nepravdu odložil do cache.
+            return $organization->refresh();
         });
 
         AuditLog::record('organization.created', $organization, ['product' => $product->key], $organization->id, $product->id);
+
+        // Mimo transakcie: e-mail sa nesmie odoslať skôr, než je firma
+        // naozaj uložená, inak by zákazník klikol na odkaz do prázdna.
+        $this->verifier->sendIfNeeded($organization);
 
         return response()->json([
             'data' => new OrganizationResource($organization),
@@ -112,6 +124,8 @@ class OrganizationApiController extends ApiController
         $organization->save();
 
         AuditLog::record('organization.updated', $organization, ['changed' => $changed, 'product' => $product->key], $organization->id, $product->id);
+
+        $this->verifier->sendIfNeeded($organization);
 
         return new OrganizationResource($organization);
     }

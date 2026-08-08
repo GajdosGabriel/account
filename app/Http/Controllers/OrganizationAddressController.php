@@ -30,7 +30,8 @@ class OrganizationAddressController extends Controller
 
     public function update(Request $request, Organization $organization, OrganizationAddress $address): RedirectResponse
     {
-        abort_unless($address->organization_id === $organization->id, 404);
+        $this->belongsTo($address, $organization);
+        $this->authorize('update', $address);
 
         $address->update($this->validateAddress($request));
 
@@ -39,11 +40,32 @@ class OrganizationAddressController extends Controller
 
     public function destroy(Organization $organization, OrganizationAddress $address): RedirectResponse
     {
-        abort_unless($address->organization_id === $organization->id, 404);
+        $this->belongsTo($address, $organization);
+        $this->authorize('delete', $address);
 
         $address->delete();
 
-        return back()->with('success', 'Adresa bola odstránená.');
+        return back()->with('success', __('actions.flash.deleted'));
+    }
+
+    public function restore(Organization $organization, OrganizationAddress $address): RedirectResponse
+    {
+        $this->belongsTo($address, $organization);
+        $this->authorize('restore', $address);
+
+        $address->restore();
+
+        return back()->with('success', __('actions.flash.restored'));
+    }
+
+    public function forceDelete(Organization $organization, OrganizationAddress $address): RedirectResponse
+    {
+        $this->belongsTo($address, $organization);
+        $this->authorize('forceDelete', $address);
+
+        $address->forceDelete();
+
+        return back()->with('success', __('actions.flash.force_deleted'));
     }
 
     public function storeContact(Request $request, Organization $organization): RedirectResponse
@@ -63,13 +85,61 @@ class OrganizationAddressController extends Controller
         return back()->with('success', 'Kontaktná osoba bola pridaná.');
     }
 
+    public function updateContact(Request $request, Organization $organization, OrganizationContact $contact): RedirectResponse
+    {
+        $this->belongsTo($contact, $organization);
+        $this->authorize('update', $contact);
+
+        $contact->update($request->validate([
+            'type' => ['required', Rule::in(OrganizationContact::TYPES)],
+            'name' => ['required', 'string', 'max:255'],
+            'position' => ['nullable', 'string', 'max:120'],
+            'email' => ['nullable', 'email', 'max:255'],
+            'phone' => ['nullable', 'string', 'max:40'],
+            'note' => ['nullable', 'string', 'max:500'],
+            'is_primary' => ['boolean'],
+        ]));
+
+        return back()->with('success', 'Kontakt bol upravený.');
+    }
+
     public function destroyContact(Organization $organization, OrganizationContact $contact): RedirectResponse
     {
-        abort_unless($contact->organization_id === $organization->id, 404);
+        $this->belongsTo($contact, $organization);
+        $this->authorize('delete', $contact);
 
         $contact->delete();
 
-        return back()->with('success', 'Kontakt bol odstránený.');
+        return back()->with('success', __('actions.flash.deleted'));
+    }
+
+    public function restoreContact(Organization $organization, OrganizationContact $contact): RedirectResponse
+    {
+        $this->belongsTo($contact, $organization);
+        $this->authorize('restore', $contact);
+
+        $contact->restore();
+
+        return back()->with('success', __('actions.flash.restored'));
+    }
+
+    public function forceDeleteContact(Organization $organization, OrganizationContact $contact): RedirectResponse
+    {
+        $this->belongsTo($contact, $organization);
+        $this->authorize('forceDelete', $contact);
+
+        $contact->forceDelete();
+
+        return back()->with('success', __('actions.flash.force_deleted'));
+    }
+
+    /**
+     * Adresa aj kontakt sa adresujú vlastným id – bez tejto kontroly
+     * by sa cez cudzí odkaz dali meniť záznamy inej firmy.
+     */
+    protected function belongsTo(OrganizationAddress|OrganizationContact $record, Organization $organization): void
+    {
+        abort_unless($record->organization_id === $organization->id, 404);
     }
 
     /**

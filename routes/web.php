@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeveloperController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OrganizationAddressController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\OrganizationLookupController;
@@ -25,6 +26,19 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', fn () => auth()->check()
     ? redirect()->route('dashboard')
     : redirect()->route('login'));
+
+// Jazyk sa prepína aj pred prihlásením – prihlasovacia obrazovka je
+// prvé, čo človek uvidí, a už tá má byť v jeho jazyku.
+Route::post('locale', LocaleController::class)->name('locale.update');
+
+// Potvrdenie fakturačného e-mailu. Klikne naň zákazník, ktorý sem prístup
+// nemá a mať nemá – autentizáciu preto rieši podpis v adrese. Binding musí
+// vidieť aj zmazané: firma sa medzitým mohla dostať do koša a odkaz má
+// aj tak povedať niečo zrozumiteľné.
+Route::get('organizations/{organization}/billing-email/verify', [OrganizationController::class, 'verifyBillingEmail'])
+    ->middleware(['signed', 'throttle:10,1'])
+    ->withTrashed()
+    ->name('organizations.billing-email.verify');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -47,10 +61,18 @@ Route::middleware('auth')->group(function () {
 
     /* ---------------- Organizácie ---------------- */
 
-    Route::resource('organizations', OrganizationController::class);
+    // Úprava je povolená aj pre záznam v koši (opraviť ho ešte pred
+    // návratom), takže binding musí vidieť aj zmazané.
+    Route::resource('organizations', OrganizationController::class)
+        ->withTrashed(['show', 'edit', 'update']);
 
     Route::post('organizations/{organization}/restore', [OrganizationController::class, 'restore'])
         ->name('organizations.restore');
+    Route::delete('organizations/{organization}/force', [OrganizationController::class, 'forceDelete'])
+        ->withTrashed()->name('organizations.force-delete');
+
+    Route::post('organizations/{organization}/billing-email/resend', [OrganizationController::class, 'resendBillingEmailVerification'])
+        ->name('organizations.billing-email.resend');
 
     Route::post('organizations/{organization}/products/{product}', [OrganizationController::class, 'toggleProduct'])
         ->name('organizations.products.toggle');
@@ -64,19 +86,33 @@ Route::middleware('auth')->group(function () {
     Route::post('organizations/{organization}/addresses', [OrganizationAddressController::class, 'store'])
         ->name('organizations.addresses.store');
     Route::patch('organizations/{organization}/addresses/{address}', [OrganizationAddressController::class, 'update'])
-        ->name('organizations.addresses.update');
+        ->withTrashed()->name('organizations.addresses.update');
     Route::delete('organizations/{organization}/addresses/{address}', [OrganizationAddressController::class, 'destroy'])
         ->name('organizations.addresses.destroy');
+    Route::post('organizations/{organization}/addresses/{address}/restore', [OrganizationAddressController::class, 'restore'])
+        ->withTrashed()->name('organizations.addresses.restore');
+    Route::delete('organizations/{organization}/addresses/{address}/force', [OrganizationAddressController::class, 'forceDelete'])
+        ->withTrashed()->name('organizations.addresses.force-delete');
 
     Route::post('organizations/{organization}/contacts', [OrganizationAddressController::class, 'storeContact'])
         ->name('organizations.contacts.store');
+    Route::patch('organizations/{organization}/contacts/{contact}', [OrganizationAddressController::class, 'updateContact'])
+        ->withTrashed()->name('organizations.contacts.update');
     Route::delete('organizations/{organization}/contacts/{contact}', [OrganizationAddressController::class, 'destroyContact'])
         ->name('organizations.contacts.destroy');
+    Route::post('organizations/{organization}/contacts/{contact}/restore', [OrganizationAddressController::class, 'restoreContact'])
+        ->withTrashed()->name('organizations.contacts.restore');
+    Route::delete('organizations/{organization}/contacts/{contact}/force', [OrganizationAddressController::class, 'forceDeleteContact'])
+        ->withTrashed()->name('organizations.contacts.force-delete');
 
     Route::post('organizations/{organization}/overrides', [OrganizationController::class, 'storeOverride'])
         ->name('organizations.overrides.store');
     Route::delete('organizations/{organization}/overrides/{override}', [OrganizationController::class, 'destroyOverride'])
         ->name('organizations.overrides.destroy');
+    Route::post('organizations/{organization}/overrides/{override}/restore', [OrganizationController::class, 'restoreOverride'])
+        ->withTrashed()->name('organizations.overrides.restore');
+    Route::delete('organizations/{organization}/overrides/{override}/force', [OrganizationController::class, 'forceDeleteOverride'])
+        ->withTrashed()->name('organizations.overrides.force-delete');
 
     /* ---------------- Registre (AJAX) ---------------- */
 
@@ -89,17 +125,31 @@ Route::middleware('auth')->group(function () {
 
     Route::get('products', [ProductController::class, 'index'])->name('products.index');
     Route::post('products', [ProductController::class, 'store'])->name('products.store');
-    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
-    Route::patch('products/{product}', [ProductController::class, 'update'])->name('products.update');
+    Route::get('products/{product}', [ProductController::class, 'show'])->withTrashed()->name('products.show');
+    Route::patch('products/{product}', [ProductController::class, 'update'])->withTrashed()->name('products.update');
     Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::post('products/{product}/restore', [ProductController::class, 'restore'])
+        ->withTrashed()->name('products.restore');
+    Route::delete('products/{product}/force', [ProductController::class, 'forceDelete'])
+        ->withTrashed()->name('products.force-delete');
 
     Route::post('products/{product}/features', [ProductController::class, 'storeFeature'])->name('products.features.store');
-    Route::patch('products/{product}/features/{feature}', [ProductController::class, 'updateFeature'])->name('products.features.update');
+    Route::patch('products/{product}/features/{feature}', [ProductController::class, 'updateFeature'])
+        ->withTrashed()->name('products.features.update');
     Route::delete('products/{product}/features/{feature}', [ProductController::class, 'destroyFeature'])->name('products.features.destroy');
+    Route::post('products/{product}/features/{feature}/restore', [ProductController::class, 'restoreFeature'])
+        ->withTrashed()->name('products.features.restore');
+    Route::delete('products/{product}/features/{feature}/force', [ProductController::class, 'forceDeleteFeature'])
+        ->withTrashed()->name('products.features.force-delete');
 
     Route::post('products/{product}/plans', [ProductController::class, 'storePlan'])->name('products.plans.store');
-    Route::patch('products/{product}/plans/{plan}', [ProductController::class, 'updatePlan'])->name('products.plans.update');
+    Route::patch('products/{product}/plans/{plan}', [ProductController::class, 'updatePlan'])
+        ->withTrashed()->name('products.plans.update');
     Route::delete('products/{product}/plans/{plan}', [ProductController::class, 'destroyPlan'])->name('products.plans.destroy');
+    Route::post('products/{product}/plans/{plan}/restore', [ProductController::class, 'restorePlan'])
+        ->withTrashed()->name('products.plans.restore');
+    Route::delete('products/{product}/plans/{plan}/force', [ProductController::class, 'forceDeletePlan'])
+        ->withTrashed()->name('products.plans.force-delete');
 
     /* ---------------- Fakturácia ---------------- */
 
@@ -141,10 +191,30 @@ Route::middleware('auth')->group(function () {
     /* ---------------- Tokeny a webhooky ---------------- */
 
     Route::get('developers', [DeveloperController::class, 'index'])->name('developers.index');
+
     Route::post('developers/tokens', [DeveloperController::class, 'storeToken'])->name('developers.tokens.store');
-    Route::delete('developers/tokens/{client}', [DeveloperController::class, 'revokeToken'])->name('developers.tokens.revoke');
+    // Aj token v koši sa dá otvoriť – opraviť oprávnenia pred obnovením
+    // je bežnejšie než najprv obnoviť a až potom zisťovať, čo mu chýba.
+    Route::get('developers/tokens/{client}/edit', [DeveloperController::class, 'editToken'])
+        ->withTrashed()->name('developers.tokens.edit');
+    Route::patch('developers/tokens/{client}', [DeveloperController::class, 'updateToken'])
+        ->withTrashed()->name('developers.tokens.update');
+    Route::post('developers/tokens/{client}/revoke', [DeveloperController::class, 'revokeToken'])->name('developers.tokens.revoke');
+    Route::post('developers/tokens/{client}/unrevoke', [DeveloperController::class, 'unrevokeToken'])->name('developers.tokens.unrevoke');
+    Route::delete('developers/tokens/{client}', [DeveloperController::class, 'destroyToken'])->name('developers.tokens.destroy');
+    Route::post('developers/tokens/{client}/restore', [DeveloperController::class, 'restoreToken'])
+        ->withTrashed()->name('developers.tokens.restore');
+    Route::delete('developers/tokens/{client}/force', [DeveloperController::class, 'forceDeleteToken'])
+        ->withTrashed()->name('developers.tokens.force-delete');
+
     Route::post('developers/webhooks', [DeveloperController::class, 'storeWebhook'])->name('developers.webhooks.store');
+    Route::patch('developers/webhooks/{endpoint}', [DeveloperController::class, 'updateWebhook'])
+        ->withTrashed()->name('developers.webhooks.update');
     Route::delete('developers/webhooks/{endpoint}', [DeveloperController::class, 'destroyWebhook'])->name('developers.webhooks.destroy');
+    Route::post('developers/webhooks/{endpoint}/restore', [DeveloperController::class, 'restoreWebhook'])
+        ->withTrashed()->name('developers.webhooks.restore');
+    Route::delete('developers/webhooks/{endpoint}/force', [DeveloperController::class, 'forceDeleteWebhook'])
+        ->withTrashed()->name('developers.webhooks.force-delete');
 
     /* ---------------- Nastavenia operátora ---------------- */
 
