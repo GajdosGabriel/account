@@ -15,6 +15,17 @@ return [
     'organization' => [
         'not_linked' => 'Organizácia nie je naviazaná na tento projekt.',
         'linked' => 'Organizácia bola naviazaná na projekt.',
+
+        // Názvy chýbajúcich fakturačných údajov. Vypisujú sa v zozname za
+        // dvojbodkou („chýba: sídlo, e-mail na faktúry“), preto malé písmeno
+        // a jednotné číslo. Vidí ich zákazník vo formulári projektu.
+        'billing_missing' => [
+            'ico' => 'IČO',
+            'address' => 'adresa',
+            'registered_address' => 'sídlo',
+            'billing_email' => 'e-mail na faktúry',
+            'vat_number' => 'IČ DPH',
+        ],
     ],
 
     'registry' => [

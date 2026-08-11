@@ -13,6 +13,14 @@ return [
     'organization' => [
         'not_linked' => 'Das Unternehmen ist mit diesem Projekt nicht verknüpft.',
         'linked' => 'Das Unternehmen wurde mit dem Projekt verknüpft.',
+
+        'billing_missing' => [
+            'ico' => 'Unternehmensnummer',
+            'address' => 'Adresse',
+            'registered_address' => 'Firmensitz',
+            'billing_email' => 'Rechnungs-E-Mail',
+            'vat_number' => 'USt-IdNr.',
+        ],
     ],
 
     'registry' => [

@@ -13,6 +13,14 @@ return [
     'organization' => [
         'not_linked' => 'Organizace není navázána na tento projekt.',
         'linked' => 'Organizace byla navázána na projekt.',
+
+        'billing_missing' => [
+            'ico' => 'IČO',
+            'address' => 'adresa',
+            'registered_address' => 'sídlo',
+            'billing_email' => 'e-mail pro faktury',
+            'vat_number' => 'DIČ (DPH)',
+        ],
     ],
 
     'registry' => [

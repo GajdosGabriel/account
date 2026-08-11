@@ -13,6 +13,14 @@ return [
     'organization' => [
         'not_linked' => 'The organization is not linked to this project.',
         'linked' => 'The organization has been linked to the project.',
+
+        'billing_missing' => [
+            'ico' => 'company number',
+            'address' => 'address',
+            'registered_address' => 'registered address',
+            'billing_email' => 'billing email',
+            'vat_number' => 'VAT number',
+        ],
     ],
 
     'registry' => [

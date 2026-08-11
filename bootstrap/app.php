@@ -8,6 +8,19 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
+use Illuminate\Support\Env;
+
+/*
+ * Premenné z .env len do $_ENV/$_SERVER, nie do prostredia procesu cez putenv().
+ *
+ * Apache na Windows (mpm_winnt) beží ako jeden proces s vláknami, takže putenv()
+ * vidia aj súbežné požiadavky ostatných aplikácií na tom istom serveri. Projekty
+ * volajú Account vnorenou HTTP požiadavkou a bez tohto riadku si navzájom
+ * podstrkujú DB_DATABASE — Account potom hľadá `service_clients` v databáze
+ * volajúceho. Superglobály sú na rozdiel od prostredia procesu viazané
+ * na požiadavku.
+ */
+Env::disablePutenv();
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(

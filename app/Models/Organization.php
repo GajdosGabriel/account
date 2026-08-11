@@ -309,8 +309,16 @@ class Organization extends Model
         return $query->whereHas('products', fn ($q) => $q->whereKey($product->id));
     }
 
-    /** Chýbajúce údaje, bez ktorých sa nedá vystaviť faktúra. */
-    /** @return array<int, string> */
+    /**
+     * Chýbajúce údaje, bez ktorých sa nedá vystaviť faktúra.
+     *
+     * Zoznam sa cez API dostane až do formulára pripojeného projektu, kde ho
+     * číta koncový zákazník — preto sú názvy preložené do jazyka požiadavky,
+     * nie do jazyka Accountu. Vo vlastnej administratíve rozhoduje prepínač
+     * jazyka, pri API požiadavke hlavička `Accept-Language` (viď SetLocale).
+     *
+     * @return array<int, string>
+     */
     public function missingBillingFields(): array
     {
         $missing = [];
@@ -319,19 +327,20 @@ class Organization extends Model
         // výnimky by mu doklad navždy hlásil chýbajúci údaj a nedal sa
         // vystaviť, hoci na faktúru pre súkromnú osobu stačí meno a adresa.
         if (blank($this->ico) && ! $this->isPerson()) {
-            $missing[] = 'IČO';
+            $missing[] = __('messages.organization.billing_missing.ico');
         }
 
         if (blank($this->street) || blank($this->city) || blank($this->postal_code)) {
-            $missing[] = $this->isPerson() ? 'adresa' : 'sídlo';
+            $missing[] = __('messages.organization.billing_missing.'
+                .($this->isPerson() ? 'address' : 'registered_address'));
         }
 
         if (blank($this->billing_email) && blank($this->email)) {
-            $missing[] = 'e-mail na faktúry';
+            $missing[] = __('messages.organization.billing_missing.billing_email');
         }
 
         if ($this->vat_mode?->hasVatNumber() && blank($this->ic_dph)) {
-            $missing[] = 'IČ DPH';
+            $missing[] = __('messages.organization.billing_missing.vat_number');
         }
 
         return $missing;

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Organization;
 use App\Models\Product;
 use App\Models\ServiceClient;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,6 +68,41 @@ class LocaleTest extends TestCase
         $response->assertStatus(422);
         // atribút `name` musí byť pomenovaný, nie surový kľúč
         $this->assertStringContainsString('name', strtolower($response->json('errors.name.0')));
+    }
+
+    /**
+     * `billing.missing` nie je chybová hláška, ale zoznam názvov polí — a aj
+     * ten číta zákazník vo formulári projektu, nie my.
+     */
+    public function test_chybajuce_fakturacne_udaje_su_v_jazyku_poziadavky(): void
+    {
+        $product = Product::factory()->create();
+        [, $token] = ServiceClient::issue($product, 'test');
+
+        $organization = Organization::factory()->create([
+            'ico' => null,
+            'street' => null,
+            'city' => null,
+            'postal_code' => null,
+            'email' => null,
+            'billing_email' => null,
+        ]);
+        $organization->linkTo($product);
+
+        $expected = [
+            'sk' => ['IČO', 'sídlo', 'e-mail na faktúry'],
+            'cs' => ['IČO', 'sídlo', 'e-mail pro faktury'],
+            'de' => ['Unternehmensnummer', 'Firmensitz', 'Rechnungs-E-Mail'],
+            'en' => ['company number', 'registered address', 'billing email'],
+        ];
+
+        foreach ($expected as $locale => $fields) {
+            $this->withToken($token)
+                ->withHeader('Accept-Language', $locale)
+                ->getJson("/api/v1/organizations/{$organization->uuid}")
+                ->assertOk()
+                ->assertJsonPath('data.billing.missing', $fields);
+        }
     }
 
     protected function token(): string
