@@ -26,15 +26,7 @@ enum InvoiceStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Draft => 'Koncept',
-            self::Issued => 'Vystavená',
-            self::Sent => 'Odoslaná',
-            self::PartiallyPaid => 'Čiastočne uhradená',
-            self::Paid => 'Uhradená',
-            self::Overdue => 'Po splatnosti',
-            self::Cancelled => 'Stornovaná',
-        };
+        return __('enums.invoice_status.'.$this->value);
     }
 
     /** Farba pre StatusBadge vo frontende. */

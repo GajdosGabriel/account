@@ -3,20 +3,24 @@ import { computed, ref, onMounted, onUnmounted } from 'vue';
 import { Link, router, usePage } from '@inertiajs/vue3';
 import Icon from '../Components/Icon.vue';
 import DropdownMenu from '../Components/DropdownMenu.vue';
+import FlashMessage from '../Components/FlashMessage.vue';
+import { t } from '../Composables/useLang';
 
 const page = usePage();
 const auth = computed(() => page.props.auth);
-const flash = computed(() => page.props.flash ?? {});
 const menuOpen = ref(false);
 
 // Prehľad tu nie je zámerne – na dashboard vedie logo vľavo a dva
 // odkazy na to isté miesto vedľa seba si človek prečíta ako chybu.
-const navigation = [
-    { name: 'Organizácie', href: '/organizations', icon: 'building' },
-    { name: 'Projekty', href: '/products', icon: 'card' },
-    { name: 'Faktúry', href: '/invoices', icon: 'invoice' },
-    { name: 'API a webhooky', href: '/developers', icon: 'code' },
-];
+//
+// Computed, nie konštanta: layout medzi návštevami prežíva, takže po
+// prepnutí jazyka by inak zostali popisky v pôvodnom jazyku.
+const navigation = computed(() => [
+    { name: t('common.nav.organizations'), href: '/organizations', icon: 'building' },
+    { name: t('common.nav.products'), href: '/products', icon: 'card' },
+    { name: t('common.nav.invoices'), href: '/invoices', icon: 'invoice' },
+    { name: t('common.nav.developers'), href: '/developers', icon: 'code' },
+]);
 
 const isCurrent = (href) => page.url.startsWith(href);
 
@@ -36,18 +40,15 @@ const logout = () => router.post('/logout');
 const locales = computed(() => page.props.locales ?? []);
 const currentLocale = computed(() => page.props.locale ?? 'sk');
 
-const localeShort = computed(
-    () => locales.value.find((item) => item.value === currentLocale.value)?.short ?? currentLocale.value.toUpperCase(),
-);
-
 // Voľba sa ukladá do session, preto POST a nie odkaz – po prepnutí
 // zostávaš na tej istej stránke, len v inom jazyku.
 const localeMenu = computed(() => locales.value.map((item) => ({
     label: item.label,
+    flag: item.value,
     method: 'post',
     url: '/locale',
     data: { locale: item.value },
-    badge: item.value === currentLocale.value ? '✓' : item.short,
+    badge: item.value === currentLocale.value ? '✓' : null,
 })));
 
 // Zatvorí otvorené menu pri kliknutí mimo neho.
@@ -89,7 +90,7 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
 
                 <div class="ml-auto flex items-center gap-2">
                     <!-- Jazyk rozhrania -->
-                    <DropdownMenu v-if="locales.length > 1" :items="localeMenu" :label="localeShort" />
+                    <DropdownMenu v-if="locales.length > 1" :items="localeMenu" :flag="currentLocale" />
 
                     <!-- Používateľské menu -->
                     <div class="relative" data-dropdown>
@@ -116,7 +117,7 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
                                 </div>
                                 <Link href="/settings" class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50">
                                     <Icon name="settings" :size="17" />
-                                    Nastavenia účtu
+                                    {{ t('common.nav.settings') }}
                                 </Link>
                                 <button
                                     type="button"
@@ -124,7 +125,7 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
                                     @click="logout"
                                 >
                                     <Icon name="logout" :size="17" />
-                                    Odhlásiť sa
+                                    {{ t('common.nav.logout') }}
                                 </button>
                             </div>
                         </transition>
@@ -147,29 +148,14 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
             </nav>
         </header>
 
-        <transition
-            enter-active-class="transition duration-200 ease-out"
-            enter-from-class="opacity-0 -translate-y-2"
-        >
-            <div v-if="flash.success || flash.error" class="mx-auto max-w-6xl px-4 pt-5">
-                <div
-                    class="flex items-start gap-3 rounded-2xl px-4 py-3 text-sm shadow-sm ring-1"
-                    :class="flash.error
-                        ? 'bg-rose-50 text-rose-800 ring-rose-600/15'
-                        : 'bg-emerald-50 text-emerald-800 ring-emerald-600/15'"
-                >
-                    <Icon :name="flash.error ? 'warning' : 'check'" :size="18" class="mt-0.5" />
-                    <span class="min-w-0 break-words">{{ flash.error || flash.success }}</span>
-                </div>
-            </div>
-        </transition>
+        <FlashMessage />
 
         <main class="mx-auto max-w-6xl px-4 py-8">
             <slot />
         </main>
 
         <footer class="mx-auto max-w-6xl px-4 pb-8 text-center text-xs text-slate-400">
-            Account · back-office pre organizácie, predplatné a limity
+            {{ t('common.footer') }}
         </footer>
     </div>
 </template>

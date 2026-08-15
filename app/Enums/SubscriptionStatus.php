@@ -12,13 +12,7 @@ enum SubscriptionStatus: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Trialing => 'Skúšobné obdobie',
-            self::Active => 'Aktívne',
-            self::PastDue => 'Po splatnosti',
-            self::Suspended => 'Pozastavené',
-            self::Cancelled => 'Zrušené',
-        };
+        return __('enums.subscription_status.'.$this->value);
     }
 
     /** Ma organizacia plny (zapisovaci) pristup k produktu? */

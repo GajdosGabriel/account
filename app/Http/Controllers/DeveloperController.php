@@ -57,6 +57,7 @@ class DeveloperController extends Controller
         return Inertia::render('Developers/Index', [
             'products' => $products,
             'available_events' => [
+                'organization.created',
                 'organization.updated',
                 'organization.deleted',
                 'subscription.status_changed',

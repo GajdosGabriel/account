@@ -16,19 +16,10 @@ enum LegalForm: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Sro => 'Spoločnosť s ručením obmedzeným',
-            self::Zivnost => 'Živnosť',
-            self::As => 'Akciová spoločnosť',
-            self::Ks => 'Komanditná spoločnosť',
-            self::Vos => 'Verejná obchodná spoločnosť',
-            self::Druzstvo => 'Družstvo',
-            self::Nezisk => 'Nezisková organizácia',
-            self::Fyzicka => 'Fyzická osoba',
-            self::Ine => 'Iné',
-        };
+        return __('enums.legal_form.'.$this->value);
     }
 
+    /** Skratky sú súčasťou obchodného mena, preto sa neprekladajú. */
     public function shortLabel(): string
     {
         return match ($this) {

@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue';
 import { Link } from '@inertiajs/vue3';
+import { t } from '../Composables/useLang';
 
 /**
  * Stránkovanie pre Laravel paginátor.
@@ -13,7 +14,8 @@ import { Link } from '@inertiajs/vue3';
 const props = defineProps({
     /** { data, links, from, to, total, current_page, last_page } */
     meta: { type: Object, required: true },
-    label: { type: String, default: 'záznamov' },
+    /** Názov záznamov v jazyku rozhrania, napríklad `t('invoices.records')`. */
+    label: { type: String, default: '' },
 });
 
 const show = computed(() => (props.meta?.last_page ?? 1) > 1);
@@ -36,10 +38,11 @@ const links = computed(() =>
     >
         <p class="text-sm text-slate-500">
             <template v-if="meta.total">
-                {{ meta.from }}–{{ meta.to }} z <strong class="font-medium text-slate-700">{{ meta.total }}</strong>
+                {{ meta.from }}–{{ meta.to }} {{ t('common.pagination.of') }}
+                <strong class="font-medium text-slate-700">{{ meta.total }}</strong>
                 {{ label }}
             </template>
-            <template v-else>Žiadne {{ label }}</template>
+            <template v-else>{{ t('common.pagination.empty') }}</template>
         </p>
 
         <nav v-if="show" class="flex flex-wrap gap-1">

@@ -1,6 +1,7 @@
 <script setup>
 import { computed, reactive, watch, onBeforeUnmount } from 'vue';
 import { router } from '@inertiajs/vue3';
+import { t } from '../Composables/useLang';
 
 /**
  * Filter zoznamu organizácií.
@@ -22,10 +23,11 @@ const props = defineProps({
     route: { type: String, default: '/organizations' },
 });
 
-const STATUS_LABELS = {
-    active: 'Aktívne',
-    suspended: 'Pozastavené',
-    archived: 'Archivované',
+const statusLabel = (status) => {
+    const key = `organizations.filter.statuses.${status}`;
+    const line = t(key);
+
+    return line === key ? status : line;
 };
 
 const form = reactive({
@@ -78,37 +80,37 @@ onBeforeUnmount(() => clearTimeout(timer));
         <input
             v-model="form.q"
             type="search"
-            placeholder="Hľadať podľa názvu alebo IČO…"
+            :placeholder="t('organizations.filter.search_placeholder')"
             class="max-w-xs!"
-            aria-label="Hľadať"
+            :aria-label="t('organizations.filter.search')"
         />
 
-        <select v-model="form.product" class="w-auto!" aria-label="Projekt">
-            <option value="">Všetky projekty</option>
+        <select v-model="form.product" class="w-auto!" :aria-label="t('organizations.filter.product')">
+            <option value="">{{ t('organizations.filter.all_products') }}</option>
             <option v-for="product in products" :key="product.key" :value="product.key">
                 {{ product.name }}
             </option>
         </select>
 
-        <select v-model="form.status" class="w-auto!" aria-label="Stav">
-            <option value="">Všetky stavy</option>
+        <select v-model="form.status" class="w-auto!" :aria-label="t('organizations.filter.status')">
+            <option value="">{{ t('organizations.filter.all_statuses') }}</option>
             <option v-for="status in statuses" :key="status" :value="status">
-                {{ STATUS_LABELS[status] ?? status }}
+                {{ statusLabel(status) }}
             </option>
             <!-- Kôš je stav zoznamu, nie stav firmy – preto až za oddeľovačom. -->
             <option v-if="trashedCount || filters.status === 'trashed'" value="trashed">
-                Kôš ({{ trashedCount }})
+                {{ t('organizations.filter.trashed', { count: trashedCount }) }}
             </option>
         </select>
 
-        <select v-model="form.linked" class="w-auto!" aria-label="Naviazanie na projekt">
-            <option value="">Naviazané aj bez projektu</option>
-            <option value="any">Len naviazané na projekt</option>
-            <option value="none">Len bez projektu</option>
+        <select v-model="form.linked" class="w-auto!" :aria-label="t('organizations.filter.linked')">
+            <option value="">{{ t('organizations.filter.linked_any') }}</option>
+            <option value="any">{{ t('organizations.filter.linked_only') }}</option>
+            <option value="none">{{ t('organizations.filter.linked_none') }}</option>
         </select>
 
         <button v-if="active" type="button" class="btn-secondary btn-sm" @click="reset">
-            Zrušiť filtre
+            {{ t('common.filter.reset') }}
         </button>
     </div>
 </template>

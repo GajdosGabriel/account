@@ -18,20 +18,12 @@ enum InvoiceType: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Invoice => 'Faktúra – daňový doklad',
-            self::Proforma => 'Zálohová faktúra',
-            self::CreditNote => 'Dobropis – opravný daňový doklad',
-        };
+        return __('enums.invoice_type.'.$this->value);
     }
 
     public function shortLabel(): string
     {
-        return match ($this) {
-            self::Invoice => 'Faktúra',
-            self::Proforma => 'Zálohová',
-            self::CreditNote => 'Dobropis',
-        };
+        return __('enums.invoice_type_short.'.$this->value);
     }
 
     /** Zálohová faktúra nevstupuje do priznania DPH ani do výnosov. */

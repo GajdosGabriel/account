@@ -7,6 +7,7 @@ import DropdownMenu from '../../Components/DropdownMenu.vue';
 import Pagination from '../../Components/Pagination.vue';
 import Icon from '../../Components/Icon.vue';
 import { invoiceMenu, money, shortDate } from '../../Composables/useInvoiceActions';
+import { t, tc } from '../../Composables/useLang';
 
 const props = defineProps({
     invoices: { type: Object, required: true },
@@ -45,34 +46,34 @@ const hasFilters = computed(() => Object.values(form.value).some((v) => v !== ''
 
 const cards = computed(() => [
     {
-        label: 'Koncepty',
+        label: t('invoices.stats.drafts'),
         value: props.stats.drafts ?? 0,
-        hint: 'čakajú na vystavenie',
+        hint: t('invoices.stats.drafts_hint'),
         icon: 'pencil',
         tone: 'bg-slate-100 text-slate-600',
         filter: 'draft',
     },
     {
-        label: 'Neuhradené',
+        label: t('invoices.stats.unpaid'),
         value: money(props.stats.unpaid_cents),
-        hint: `${props.stats.unpaid_count ?? 0} dokladov`,
+        hint: tc('invoices.documents', props.stats.unpaid_count ?? 0),
         icon: 'clock',
         tone: 'bg-sky-50 text-sky-600',
         filter: null,
     },
     {
-        label: 'Po splatnosti',
+        label: t('invoices.stats.overdue'),
         value: money(props.stats.overdue_cents),
-        hint: `${props.stats.overdue_count ?? 0} dokladov`,
+        hint: tc('invoices.documents', props.stats.overdue_count ?? 0),
         icon: 'warning',
         tone: 'bg-rose-50 text-rose-600',
         filter: 'overdue',
         alert: (props.stats.overdue_count ?? 0) > 0,
     },
     {
-        label: 'Uhradené tento mesiac',
+        label: t('invoices.stats.paid_month'),
         value: money(props.stats.paid_month_cents),
-        hint: 'prijaté platby',
+        hint: t('invoices.stats.paid_month_hint'),
         icon: 'check',
         tone: 'bg-emerald-50 text-emerald-600',
         filter: 'paid',
@@ -93,22 +94,22 @@ const exportUrl = computed(() => {
 </script>
 
 <template>
-    <Head title="Faktúry" />
+    <Head :title="t('invoices.title')" />
 
-    <PageHeader title="Faktúry" subtitle="Doklady, pohľadávky a exporty pre účtovníka">
+    <PageHeader :title="t('invoices.title')" :subtitle="t('invoices.subtitle')">
         <template #action>
             <DropdownMenu
                 v-if="can.export"
-                label="Export"
+                :label="t('invoices.export.label')"
                 align="right"
                 :items="[
-                    { label: 'CSV pre Excel', icon: 'download', onSelect: () => (window.location.href = exportUrl('csv')) },
-                    { label: 'XML pre účtovníctvo', icon: 'download', onSelect: () => (window.location.href = exportUrl('xml')) },
+                    { label: t('invoices.export.csv'), icon: 'download', onSelect: () => (window.location.href = exportUrl('csv')) },
+                    { label: t('invoices.export.xml'), icon: 'download', onSelect: () => (window.location.href = exportUrl('xml')) },
                 ]"
             />
             <Link v-if="can.create" href="/invoices/create" class="btn-primary">
                 <Icon name="plus" :size="16" />
-                Nový doklad
+                {{ t('invoices.create') }}
             </Link>
         </template>
     </PageHeader>
@@ -140,28 +141,30 @@ const exportUrl = computed(() => {
     <div class="card mb-5 p-4">
         <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
             <div class="lg:col-span-2">
-                <label class="sr-only">Hľadať</label>
-                <input v-model="form.search" type="text" placeholder="Číslo, VS, firma alebo IČO…" />
+                <label class="sr-only">{{ t('invoices.filter.search') }}</label>
+                <input v-model="form.search" type="text" :placeholder="t('invoices.filter.search_placeholder')" />
             </div>
             <select v-model="form.status" @change="submit">
-                <option :value="null">Všetky stavy</option>
-                <option value="overdue">Po splatnosti</option>
+                <option :value="null">{{ t('invoices.filter.all_statuses') }}</option>
+                <option value="overdue">{{ t('invoices.filter.overdue') }}</option>
                 <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
-                <option v-if="trashed_count" value="trashed">Kôš ({{ trashed_count }})</option>
+                <option v-if="trashed_count" value="trashed">
+                    {{ t('invoices.filter.trashed', { count: trashed_count }) }}
+                </option>
             </select>
             <select v-model="form.type" @change="submit">
-                <option :value="null">Všetky typy</option>
-                <option v-for="t in types" :key="t.value" :value="t.value">{{ t.label }}</option>
+                <option :value="null">{{ t('invoices.filter.all_types') }}</option>
+                <option v-for="type in types" :key="type.value" :value="type.value">{{ type.label }}</option>
             </select>
-            <input v-model="form.from" type="date" title="Vystavené od" @change="submit" />
-            <input v-model="form.to" type="date" title="Vystavené do" @change="submit" />
+            <input v-model="form.from" type="date" :title="t('invoices.filter.from')" @change="submit" />
+            <input v-model="form.to" type="date" :title="t('invoices.filter.to')" @change="submit" />
         </div>
 
         <div v-if="hasFilters" class="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">
             <button type="button" class="text-sm text-slate-500 hover:text-slate-900" @click="reset">
-                Zrušiť filtre
+                {{ t('common.filter.reset') }}
             </button>
-            <span class="text-sm text-slate-400">Nájdených: {{ invoices.total }}</span>
+            <span class="text-sm text-slate-400">{{ t('invoices.filter.found', { count: invoices.total }) }}</span>
         </div>
     </div>
 
@@ -171,12 +174,12 @@ const exportUrl = computed(() => {
             <table class="w-full text-sm">
                 <thead>
                     <tr class="border-b border-slate-200 bg-slate-50/70 text-left text-xs uppercase tracking-wide text-slate-500">
-                        <th class="px-4 py-3 font-semibold">Doklad</th>
-                        <th class="px-4 py-3 font-semibold">Odberateľ</th>
-                        <th class="px-4 py-3 font-semibold">Vystavené</th>
-                        <th class="px-4 py-3 font-semibold">Splatnosť</th>
-                        <th class="px-4 py-3 text-right font-semibold">Suma</th>
-                        <th class="px-4 py-3 font-semibold">Stav</th>
+                        <th class="px-4 py-3 font-semibold">{{ t('invoices.table.document') }}</th>
+                        <th class="px-4 py-3 font-semibold">{{ t('invoices.table.customer') }}</th>
+                        <th class="px-4 py-3 font-semibold">{{ t('invoices.table.issued') }}</th>
+                        <th class="px-4 py-3 font-semibold">{{ t('invoices.table.due') }}</th>
+                        <th class="px-4 py-3 text-right font-semibold">{{ t('invoices.table.total') }}</th>
+                        <th class="px-4 py-3 font-semibold">{{ t('invoices.table.status') }}</th>
                         <th class="w-12 px-2 py-3"></th>
                     </tr>
                 </thead>
@@ -188,7 +191,7 @@ const exportUrl = computed(() => {
                     >
                         <td class="px-4 py-3">
                             <Link :href="`/invoices/${invoice.id}`" class="font-semibold text-slate-900 hover:text-brand-700">
-                                {{ invoice.number ?? 'Koncept' }}
+                                {{ invoice.number ?? t('enums.invoice_status.draft') }}
                             </Link>
                             <div class="text-xs text-slate-400">
                                 {{ invoice.type_label }}
@@ -209,13 +212,13 @@ const exportUrl = computed(() => {
                                 {{ shortDate(invoice.due_at) }}
                             </span>
                             <div v-if="invoice.is_overdue" class="text-xs text-rose-500">
-                                {{ invoice.days_overdue }} dní po splatnosti
+                                {{ tc('invoices.table.days_overdue', invoice.days_overdue ?? 0) }}
                             </div>
                         </td>
                         <td class="px-4 py-3 text-right whitespace-nowrap">
                             <div class="font-semibold text-slate-900">{{ invoice.total }}</div>
                             <div v-if="invoice.paid_cents > 0 && invoice.outstanding_cents > 0" class="text-xs text-amber-600">
-                                zostáva {{ invoice.outstanding }}
+                                {{ t('invoices.table.outstanding', { amount: invoice.outstanding }) }}
                             </div>
                         </td>
                         <td class="px-4 py-3">
@@ -233,9 +236,9 @@ const exportUrl = computed(() => {
                     <tr v-if="!invoices.data.length">
                         <td colspan="7" class="px-4 py-14 text-center">
                             <Icon name="invoice" :size="32" class="mx-auto mb-3 text-slate-300" />
-                            <p class="font-medium text-slate-600">Žiadne doklady</p>
+                            <p class="font-medium text-slate-600">{{ t('invoices.empty.title') }}</p>
                             <p class="mt-1 text-sm text-slate-400">
-                                {{ hasFilters ? 'Skús uvoľniť filtre.' : 'Vystav prvú faktúru alebo spusti automatickú fakturáciu.' }}
+                                {{ hasFilters ? t('invoices.empty.filtered') : t('invoices.empty.none') }}
                             </p>
                         </td>
                     </tr>
@@ -243,6 +246,6 @@ const exportUrl = computed(() => {
             </table>
         </div>
 
-        <Pagination :meta="invoices" label="dokladov" />
+        <Pagination :meta="invoices" :label="t('invoices.records')" />
     </div>
 </template>

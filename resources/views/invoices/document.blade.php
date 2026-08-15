@@ -371,7 +371,8 @@
                         @if ($invoice->paid_at)
                             <tr><td>Uhradené dňa</td><td>{{ $invoice->paid_at->format('j. n. Y') }}</td></tr>
                         @endif
-                        <tr><td>Forma dokladu</td><td>{{ $invoice->type->shortLabel() }}</td></tr>
+                        {{-- Doklad je celý po slovensky, preto aj typ – nie v jazyku rozhrania. --}}
+                        <tr><td>Forma dokladu</td><td>{{ __('enums.invoice_type_short.'.$invoice->type->value, [], 'sk') }}</td></tr>
                     </table>
                 </div>
             </td>

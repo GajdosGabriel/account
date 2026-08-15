@@ -5,6 +5,7 @@ import Icon from '../../Components/Icon.vue';
 import OrganizationFilter from '../../Components/OrganizationFilter.vue';
 import Pagination from '../../Components/Pagination.vue';
 import RowActions from '../../Components/RowActions.vue';
+import { t } from '../../Composables/useLang';
 
 defineProps({
     organizations: { type: Object, required: true },
@@ -24,13 +25,13 @@ const statusStyles = {
 </script>
 
 <template>
-    <Head title="Organizácie" />
+    <Head :title="t('organizations.title')" />
 
-    <PageHeader title="Organizácie" subtitle="Jeden zdroj pravdy pre všetky pripojené projekty.">
+    <PageHeader :title="t('organizations.title')" :subtitle="t('organizations.subtitle')">
         <template #action>
             <Link href="/organizations/create" class="btn-primary">
                 <Icon name="plus" :size="17" />
-                Nová organizácia
+                {{ t('organizations.create') }}
             </Link>
         </template>
     </PageHeader>
@@ -46,12 +47,12 @@ const statusStyles = {
         <table class="w-full text-left text-sm">
             <thead class="bg-slate-50/80 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
-                    <th class="px-5 py-3 font-medium">Názov</th>
-                    <th class="px-5 py-3 font-medium">IČO</th>
-                    <th class="px-5 py-3 font-medium">IČ DPH</th>
-                    <th class="px-5 py-3 font-medium">Mesto</th>
-                    <th class="px-5 py-3 font-medium">Stav</th>
-                    <th class="px-5 py-3 text-right font-medium">Projektov</th>
+                    <th class="px-5 py-3 font-medium">{{ t('organizations.table.name') }}</th>
+                    <th class="px-5 py-3 font-medium">{{ t('organizations.table.ico') }}</th>
+                    <th class="px-5 py-3 font-medium">{{ t('organizations.table.vat_number') }}</th>
+                    <th class="px-5 py-3 font-medium">{{ t('organizations.table.city') }}</th>
+                    <th class="px-5 py-3 font-medium">{{ t('organizations.table.status') }}</th>
+                    <th class="px-5 py-3 text-right font-medium">{{ t('organizations.table.products') }}</th>
                     <th class="w-12 px-2 py-3"></th>
                 </tr>
             </thead>
@@ -66,14 +67,16 @@ const statusStyles = {
                         <Link :href="`/organizations/${org.id}`" class="font-medium text-slate-900 hover:text-brand-700 hover:underline">
                             {{ org.name }}
                         </Link>
-                        <span v-if="org.verified" class="ml-2 text-xs text-emerald-600">overené</span>
+                        <span v-if="org.verified" class="ml-2 text-xs text-emerald-600">
+                            {{ t('organizations.table.verified') }}
+                        </span>
                     </td>
                     <td class="px-5 py-3 text-slate-600">{{ org.ico ?? '—' }}</td>
                     <td class="px-5 py-3 text-slate-600">{{ org.ic_dph ?? '—' }}</td>
                     <td class="px-5 py-3 text-slate-600">{{ org.city ?? '—' }}</td>
                     <td class="px-5 py-3">
                         <span class="rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset" :class="statusStyles[org.status]">
-                            {{ org.status }}
+                            {{ t(`enums.organization_status.${org.status}`) }}
                         </span>
                     </td>
                     <td class="px-5 py-3 text-right font-medium text-slate-700">{{ org.products_count }}</td>
@@ -91,15 +94,15 @@ const statusStyles = {
                     <!-- Prázdny výpis pri zapnutom filtri vyzerá rovnako ako prázdna
                          evidencia — bez rozlíšenia človek hľadá chybu v dátach. -->
                     <td colspan="7" class="px-5 py-12 text-center text-slate-500">
-                        <template v-if="trashed">V koši nie je žiadna organizácia.</template>
+                        <template v-if="trashed">{{ t('organizations.empty.trashed') }}</template>
                         <template v-else>
-                            {{ Object.keys(filters).length ? 'Filtru nezodpovedá žiadna organizácia.' : 'Zatiaľ tu nie je žiadna organizácia.' }}
+                            {{ Object.keys(filters).length ? t('organizations.empty.filtered') : t('organizations.empty.none') }}
                         </template>
                     </td>
                 </tr>
             </tbody>
         </table>
 
-        <Pagination :meta="organizations" label="organizácií" />
+        <Pagination :meta="organizations" :label="t('organizations.records')" />
     </div>
 </template>

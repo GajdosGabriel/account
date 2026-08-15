@@ -14,22 +14,12 @@ enum VatMode: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::NonPayer => 'Neplatiteľ DPH',
-            self::Payer => 'Platiteľ DPH (§ 4)',
-            self::Registered7 => 'Registrovaný podľa § 7',
-            self::Registered7a => 'Registrovaný podľa § 7a',
-        };
+        return __('enums.vat_mode.'.$this->value.'.label');
     }
 
     public function description(): string
     {
-        return match ($this) {
-            self::NonPayer => 'Na faktúre sa DPH neuvádza.',
-            self::Payer => 'Bežný platiteľ, fakturuje s DPH.',
-            self::Registered7 => 'Nadobúdanie tovaru z EÚ nad limit. Nie je platiteľ, ale má IČ DPH.',
-            self::Registered7a => 'Prijímanie alebo dodávanie služieb z/do EÚ. Nie je platiteľ, ale má IČ DPH.',
-        };
+        return __('enums.vat_mode.'.$this->value.'.description');
     }
 
     /** Má firma IČ DPH? Pri § 7 a § 7a áno, hoci nie je platiteľ. */

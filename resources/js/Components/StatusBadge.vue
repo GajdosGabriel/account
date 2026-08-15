@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue';
+import { t } from '../Composables/useLang';
 
 const props = defineProps({
     status: { type: String, default: 'none' },
@@ -35,24 +36,23 @@ const statusTones = {
     overdue: 'rose',
 };
 
-const labels = {
-    trialing: 'Skúšobné obdobie',
-    active: 'Aktívne',
-    past_due: 'Po splatnosti',
-    suspended: 'Pozastavené',
-    cancelled: 'Zrušené',
-    none: 'Bez predplatného',
+/**
+ * Bez popisku zo servera si ho nájdeme v lang – najprv medzi stavmi
+ * predplatného, potom medzi stavmi dokladu. `t()` vracia pri chýbajúcom
+ * kľúči jeho meno, takže neznámy stav skončí pri svojej vlastnej hodnote.
+ */
+const translate = (group) => {
+    const key = `enums.${group}.${props.status}`;
+    const line = t(key);
 
-    draft: 'Koncept',
-    issued: 'Vystavená',
-    sent: 'Odoslaná',
-    partially_paid: 'Čiastočne uhradená',
-    paid: 'Uhradená',
-    overdue: 'Po splatnosti',
+    return line === key ? null : line;
 };
 
 const style = computed(() => tones[props.tone ?? statusTones[props.status]] ?? tones.slate);
-const text = computed(() => props.label ?? labels[props.status] ?? props.status);
+
+const text = computed(
+    () => props.label ?? translate('subscription_status') ?? translate('invoice_status') ?? props.status,
+);
 </script>
 
 <template>

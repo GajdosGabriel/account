@@ -37,6 +37,11 @@ class HandleInertiaRequests extends Middleware
             'translations' => fn () => [
                 'actions' => Lang::get('actions'),
                 'tokens' => Lang::get('tokens'),
+                'common' => Lang::get('common'),
+                'enums' => Lang::get('enums'),
+                'dashboard' => Lang::get('dashboard'),
+                'organizations' => Lang::get('organizations'),
+                'invoices' => Lang::get('invoices'),
             ],
         ]);
     }

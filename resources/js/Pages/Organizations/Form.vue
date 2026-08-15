@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import InputError from '../../Components/InputError.vue';
 import CardSection from '../../Components/CardSection.vue';
+import { t } from '../../Composables/useLang';
 
 const props = defineProps({
     organization: { type: Object, default: null },
@@ -134,14 +135,20 @@ const lookupIco = async () => {
                 lookupState.value = {
                     loading: false,
                     ok: true,
-                    message: `Údaje doplnené z registra ${data.source === 'ares' ? 'ARES' : 'RPO'}.`,
+                    message: t('organizations.form.lookup.filled', {
+                        register: data.source === 'ares' ? 'ARES' : 'RPO',
+                    }),
                 };
             }
         } else {
-            lookupState.value = { loading: false, ok: false, message: data.error ?? 'IČO sa nenašlo.' };
+            lookupState.value = {
+                loading: false,
+                ok: false,
+                message: data.error ?? t('organizations.form.lookup.not_found'),
+            };
         }
     } catch {
-        lookupState.value = { loading: false, ok: false, message: 'Register je nedostupný.' };
+        lookupState.value = { loading: false, ok: false, message: t('organizations.form.lookup.registry_down') };
     }
 };
 
@@ -154,10 +161,14 @@ const checkVat = async () => {
         const data = await post('/lookup/vat', { ic_dph: form.ic_dph });
 
         vatState.value = data.valid
-            ? { loading: false, ok: true, message: `Platné vo VIES${data.name ? ` · ${data.name}` : ''}` }
-            : { loading: false, ok: false, message: data.error ?? 'IČ DPH nie je platné.' };
+            ? {
+                loading: false,
+                ok: true,
+                message: `${t('organizations.form.lookup.vat_valid')}${data.name ? ` · ${data.name}` : ''}`,
+            }
+            : { loading: false, ok: false, message: data.error ?? t('organizations.form.lookup.vat_invalid') };
     } catch {
-        vatState.value = { loading: false, ok: false, message: 'VIES je nedostupný.' };
+        vatState.value = { loading: false, ok: false, message: t('organizations.form.lookup.vies_down') };
     }
 };
 
@@ -167,20 +178,22 @@ const submit = () => {
 </script>
 
 <template>
-    <Head :title="isEdit ? 'Úprava organizácie' : 'Nová organizácia'" />
+    <Head :title="isEdit ? t('organizations.form.edit') : t('organizations.form.create')" />
 
     <form class="mx-auto max-w-3xl space-y-6" @submit.prevent="submit">
         <div>
             <h1 class="text-2xl font-semibold tracking-tight text-slate-900">
-                {{ isEdit ? 'Úprava organizácie' : 'Nová organizácia' }}
+                {{ isEdit ? t('organizations.form.edit') : t('organizations.form.create') }}
             </h1>
-            <p class="mt-1.5 text-sm text-slate-500">
-                Tieto údaje používajú všetky pripojené projekty aj fakturácia.
-            </p>
+            <p class="mt-1.5 text-sm text-slate-500">{{ t('organizations.form.intro') }}</p>
         </div>
 
         <!-- Typ zákazníka -->
-        <CardSection icon="user" title="Typ zákazníka" description="Od súkromnej osoby sa firemné údaje nepýtajú – IČO nikdy mať nebude.">
+        <CardSection
+            icon="user"
+            :title="t('organizations.form.subject.title')"
+            :description="t('organizations.form.subject.description')"
+        >
             <div class="flex flex-wrap gap-3">
                 <label
                     v-for="type in subject_types"
@@ -203,14 +216,14 @@ const submit = () => {
         <!-- Identifikácia -->
         <CardSection
             icon="building"
-            title="Identifikácia"
+            :title="t('organizations.form.identification.title')"
             :description="isPerson
-                ? 'Súkromnej osobe stačí meno. Na faktúru sa doplní adresa nižšie.'
-                : 'IČO načítame z registra (SK: RPO, CZ: ARES), IČ DPH overíme vo VIES.'"
+                ? t('organizations.form.identification.description_person')
+                : t('organizations.form.identification.description')"
         >
             <div class="grid gap-4 sm:grid-cols-6">
                 <div v-if="!isPerson" class="sm:col-span-2">
-                    <label for="ico">IČO</label>
+                    <label for="ico">{{ t('organizations.form.fields.ico') }}</label>
                     <div class="flex gap-2">
                         <input
                             id="ico"
@@ -226,7 +239,7 @@ const submit = () => {
                             :disabled="lookupState.loading || !form.ico"
                             @click="lookupIco"
                         >
-                            {{ lookupState.loading ? '…' : 'Načítať' }}
+                            {{ lookupState.loading ? '…' : t('organizations.form.lookup.fetch') }}
                         </button>
                     </div>
                     <p v-if="lookupState.message" class="mt-1.5 text-sm" :class="lookupState.ok ? 'text-emerald-600' : 'text-amber-600'">
@@ -239,34 +252,46 @@ const submit = () => {
                         class="mt-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm text-amber-800 ring-1 ring-amber-200/70"
                     >
                         <p>
-                            Firmu s týmto IČO už máme v databáze —
+                            {{ t('organizations.form.existing.intro') }}
                             <strong>{{ existing.name }}</strong>
-                            <span v-if="existing.status === 'deleted'"> (zmazaná)</span>
-                            <span v-else-if="existing.status === 'archived'"> (archivovaná)</span>
-                            <span v-else-if="existing.status === 'suspended'"> (pozastavená)</span>.
+                            <span v-if="existing.status === 'deleted'"> {{ t('organizations.form.existing.deleted') }}</span>
+                            <span v-else-if="existing.status === 'archived'"> {{ t('organizations.form.existing.archived') }}</span>
+                            <span v-else-if="existing.status === 'suspended'"> {{ t('organizations.form.existing.suspended') }}</span>.
                         </p>
                         <p class="mt-1">
-                            Údaje sme doplnili z nej.
-                            <a :href="existing.url" class="font-medium underline underline-offset-2">Otvoriť existujúcu</a>
-                            — nové uloženie by vytvorilo duplikát.
+                            {{ t('organizations.form.existing.filled') }}
+                            <a :href="existing.url" class="font-medium underline underline-offset-2">
+                                {{ t('organizations.form.existing.open') }}
+                            </a>
+                            {{ t('organizations.form.existing.duplicate') }}
                         </p>
                     </div>
                 </div>
 
                 <div :class="isPerson ? 'sm:col-span-6' : 'sm:col-span-4'">
-                    <label for="name">{{ isPerson ? 'Meno a priezvisko' : 'Zobrazovaný názov' }}</label>
+                    <label for="name">
+                        {{ isPerson ? t('organizations.form.fields.name_person') : t('organizations.form.fields.name') }}
+                    </label>
                     <input id="name" v-model="form.name" type="text" required />
                     <InputError :message="form.errors.name" />
                 </div>
 
                 <div v-if="!isPerson" class="sm:col-span-4">
-                    <label for="legal_name">Obchodné meno <span class="font-normal text-slate-400">— presne ako v registri</span></label>
-                    <input id="legal_name" v-model="form.legal_name" type="text" placeholder="Firma, s. r. o." />
+                    <label for="legal_name">
+                        {{ t('organizations.form.fields.legal_name') }}
+                        <span class="font-normal text-slate-400">{{ t('organizations.form.fields.legal_name_hint') }}</span>
+                    </label>
+                    <input
+                        id="legal_name"
+                        v-model="form.legal_name"
+                        type="text"
+                        :placeholder="t('organizations.form.placeholders.legal_name')"
+                    />
                     <InputError :message="form.errors.legal_name" />
                 </div>
 
                 <div v-if="!isPerson" class="sm:col-span-2">
-                    <label for="legal_form">Právna forma</label>
+                    <label for="legal_form">{{ t('organizations.form.fields.legal_form') }}</label>
                     <select id="legal_form" v-model="form.legal_form">
                         <option value="">—</option>
                         <option v-for="f in legal_forms" :key="f.value" :value="f.value">{{ f.label }}</option>
@@ -275,13 +300,13 @@ const submit = () => {
                 </div>
 
                 <div v-if="!isPerson" class="sm:col-span-2">
-                    <label for="dic">DIČ</label>
+                    <label for="dic">{{ t('organizations.form.fields.dic') }}</label>
                     <input id="dic" v-model="form.dic" type="text" placeholder="2020123456" />
                     <InputError :message="form.errors.dic" />
                 </div>
 
                 <div v-if="!isPerson" class="sm:col-span-4">
-                    <label for="vat_mode">Vzťah k DPH</label>
+                    <label for="vat_mode">{{ t('organizations.form.fields.vat_mode') }}</label>
                     <select id="vat_mode" v-model="form.vat_mode">
                         <option v-for="m in vat_modes" :key="m.value" :value="m.value">{{ m.label }}</option>
                     </select>
@@ -290,7 +315,7 @@ const submit = () => {
                 </div>
 
                 <div v-if="needsVatNumber && !isPerson" class="sm:col-span-3">
-                    <label for="ic_dph">IČ DPH</label>
+                    <label for="ic_dph">{{ t('organizations.form.fields.ic_dph') }}</label>
                     <div class="flex gap-2">
                         <input id="ic_dph" v-model="form.ic_dph" type="text" placeholder="SK2020123456" />
                         <button
@@ -299,7 +324,7 @@ const submit = () => {
                             :disabled="vatState.loading || !form.ic_dph"
                             @click="checkVat"
                         >
-                            {{ vatState.loading ? '…' : 'Overiť' }}
+                            {{ vatState.loading ? '…' : t('organizations.form.lookup.verify') }}
                         </button>
                     </div>
                     <p v-if="vatState.message" class="mt-1.5 text-sm" :class="vatState.ok ? 'text-emerald-600' : 'text-amber-600'">
@@ -311,30 +336,41 @@ const submit = () => {
                 <div v-if="needsVatNumber && !isPerson" class="sm:col-span-3 flex items-end pb-2.5">
                     <label class="flex items-center gap-2.5 text-sm font-normal text-slate-600">
                         <input v-model="form.oss_registered" type="checkbox" />
-                        Registrovaná v OSS (predaj do EÚ)
+                        {{ t('organizations.form.fields.oss') }}
                     </label>
                 </div>
             </div>
         </CardSection>
 
         <!-- Zápis v registri -->
-        <CardSection v-if="!isPerson" icon="shield" tone="slate" title="Zápis v registri" description="Povinný údaj v päticke faktúry aj obchodnej korešpondencie.">
+        <CardSection
+            v-if="!isPerson"
+            icon="shield"
+            tone="slate"
+            :title="t('organizations.form.register.title')"
+            :description="t('organizations.form.register.description')"
+        >
             <div class="grid gap-4 sm:grid-cols-6">
                 <div class="sm:col-span-3">
-                    <label for="register_court">Registrový súd / úrad</label>
-                    <input id="register_court" v-model="form.register_court" type="text" placeholder="Okresný súd Bratislava I" />
+                    <label for="register_court">{{ t('organizations.form.fields.register_court') }}</label>
+                    <input
+                        id="register_court"
+                        v-model="form.register_court"
+                        type="text"
+                        :placeholder="t('organizations.form.placeholders.register_court')"
+                    />
                     <InputError :message="form.errors.register_court" />
                 </div>
                 <div class="sm:col-span-1">
-                    <label for="register_section">Oddiel</label>
+                    <label for="register_section">{{ t('organizations.form.fields.register_section') }}</label>
                     <input id="register_section" v-model="form.register_section" type="text" placeholder="Sro" />
                 </div>
                 <div class="sm:col-span-1">
-                    <label for="register_insert">Vložka</label>
+                    <label for="register_insert">{{ t('organizations.form.fields.register_insert') }}</label>
                     <input id="register_insert" v-model="form.register_insert" type="text" placeholder="12345/B" />
                 </div>
                 <div class="sm:col-span-1">
-                    <label for="established_at">Vznik</label>
+                    <label for="established_at">{{ t('organizations.form.fields.established_at') }}</label>
                     <input id="established_at" v-model="form.established_at" type="date" class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
                     <InputError :message="form.errors.established_at" />
                 </div>
@@ -345,144 +381,164 @@ const submit = () => {
         <CardSection
             icon="home"
             tone="emerald"
-            :title="isPerson ? 'Adresa' : 'Sídlo / miesto podnikania'"
+            :title="isPerson ? t('organizations.form.address.title_person') : t('organizations.form.address.title')"
             :description="isPerson
-                ? 'Adresa trvalého bydliska – tlačí sa na faktúru.'
-                : 'Adresa ako na živnostenskom liste alebo vo výpise z obchodného registra.'"
+                ? t('organizations.form.address.description_person')
+                : t('organizations.form.address.description')"
         >
             <div class="grid gap-4 sm:grid-cols-6">
                 <div class="sm:col-span-4">
-                    <label for="street">Ulica</label>
-                    <input id="street" v-model="form.street" type="text" placeholder="Hlavná" />
+                    <label for="street">{{ t('organizations.form.fields.street') }}</label>
+                    <input
+                        id="street"
+                        v-model="form.street"
+                        type="text"
+                        :placeholder="t('organizations.form.placeholders.street')"
+                    />
                     <InputError :message="form.errors.street" />
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="street_no">Číslo</label>
+                    <label for="street_no">{{ t('organizations.form.fields.street_no') }}</label>
                     <input id="street_no" v-model="form.street_no" type="text" placeholder="12/A" />
                     <InputError :message="form.errors.street_no" />
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="postal_code">PSČ</label>
+                    <label for="postal_code">{{ t('organizations.form.fields.postal_code') }}</label>
                     <input id="postal_code" v-model="form.postal_code" type="text" placeholder="81101" />
                     <InputError :message="form.errors.postal_code" />
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="city">Mesto</label>
+                    <label for="city">{{ t('organizations.form.fields.city') }}</label>
                     <input id="city" v-model="form.city" type="text" />
                     <InputError :message="form.errors.city" />
                 </div>
                 <div class="sm:col-span-1">
-                    <label for="country">Krajina</label>
+                    <label for="country">{{ t('organizations.form.fields.country') }}</label>
                     <input id="country" v-model="form.country" type="text" maxlength="2" placeholder="SK" />
                     <InputError :message="form.errors.country" />
                 </div>
                 <div class="sm:col-span-3">
-                    <label for="region">Kraj</label>
-                    <input id="region" v-model="form.region" type="text" placeholder="Bratislavský kraj" />
+                    <label for="region">{{ t('organizations.form.fields.region') }}</label>
+                    <input
+                        id="region"
+                        v-model="form.region"
+                        type="text"
+                        :placeholder="t('organizations.form.placeholders.region')"
+                    />
                 </div>
             </div>
 
             <p v-if="isEdit" class="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 ring-1 ring-slate-200/70">
-                Adresu na zasielanie pošty, dodacie adresy a prevádzkarne pridáš na detaile organizácie.
+                {{ t('organizations.form.address.more') }}
             </p>
         </CardSection>
 
         <!-- Kontakt a banka -->
-        <CardSection icon="user" title="Kontakt a bankové spojenie">
+        <CardSection icon="user" :title="t('organizations.form.contact.title')">
             <div class="grid gap-4 sm:grid-cols-6">
                 <div class="sm:col-span-3">
-                    <label for="email">Všeobecný e-mail</label>
+                    <label for="email">{{ t('organizations.form.fields.email') }}</label>
                     <input id="email" v-model="form.email" type="email" />
                     <InputError :message="form.errors.email" />
                 </div>
                 <div class="sm:col-span-3">
-                    <label for="billing_email">E-mail na faktúry</label>
+                    <label for="billing_email">{{ t('organizations.form.fields.billing_email') }}</label>
                     <input id="billing_email" v-model="form.billing_email" type="email" />
                     <InputError :message="form.errors.billing_email" />
                 </div>
                 <div class="sm:col-span-3">
-                    <label for="phone">Telefón</label>
+                    <label for="phone">{{ t('organizations.form.fields.phone') }}</label>
                     <input id="phone" v-model="form.phone" type="text" placeholder="+421 900 000 000" />
                 </div>
                 <div class="sm:col-span-3">
-                    <label for="website">Web</label>
+                    <label for="website">{{ t('organizations.form.fields.website') }}</label>
                     <input id="website" v-model="form.website" type="url" placeholder="https://firma.sk" />
                     <InputError :message="form.errors.website" />
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="bank_name">Banka</label>
-                    <input id="bank_name" v-model="form.bank_name" type="text" placeholder="Tatra banka" />
+                    <label for="bank_name">{{ t('organizations.form.fields.bank_name') }}</label>
+                    <input
+                        id="bank_name"
+                        v-model="form.bank_name"
+                        type="text"
+                        :placeholder="t('organizations.form.placeholders.bank_name')"
+                    />
                 </div>
                 <div class="sm:col-span-3">
-                    <label for="iban">IBAN</label>
+                    <label for="iban">{{ t('organizations.form.fields.iban') }}</label>
                     <input id="iban" v-model="form.iban" type="text" placeholder="SK31 1200 0000 1987 4263 7541" />
                     <InputError :message="form.errors.iban" />
                 </div>
                 <div class="sm:col-span-1">
-                    <label for="swift">SWIFT</label>
+                    <label for="swift">{{ t('organizations.form.fields.swift') }}</label>
                     <input id="swift" v-model="form.swift" type="text" placeholder="TATRSKBX" />
                 </div>
             </div>
         </CardSection>
 
         <!-- Fakturačné preferencie -->
-        <CardSection icon="card" tone="amber" title="Fakturačné preferencie">
+        <CardSection icon="card" tone="amber" :title="t('organizations.form.billing.title')">
             <div class="grid gap-4 sm:grid-cols-6">
                 <div class="sm:col-span-2">
-                    <label for="payment_terms_days">Splatnosť (dni)</label>
+                    <label for="payment_terms_days">{{ t('organizations.form.fields.payment_terms_days') }}</label>
                     <input id="payment_terms_days" v-model.number="form.payment_terms_days" type="number" min="0" max="180" />
                     <InputError :message="form.errors.payment_terms_days" />
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="payment_method">Spôsob platby</label>
+                    <label for="payment_method">{{ t('organizations.form.fields.payment_method') }}</label>
                     <select id="payment_method" v-model="form.payment_method">
-                        <option value="transfer">Prevodom</option>
-                        <option value="card">Kartou</option>
-                        <option value="cash">Hotovosť</option>
-                        <option value="cod">Dobierka</option>
+                        <option value="transfer">{{ t('organizations.form.billing.payment_methods.transfer') }}</option>
+                        <option value="card">{{ t('organizations.form.billing.payment_methods.card') }}</option>
+                        <option value="cash">{{ t('organizations.form.billing.payment_methods.cash') }}</option>
+                        <option value="cod">{{ t('organizations.form.billing.payment_methods.cod') }}</option>
                     </select>
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="currency">Mena</label>
+                    <label for="currency">{{ t('organizations.form.fields.currency') }}</label>
                     <input id="currency" v-model="form.currency" type="text" maxlength="3" placeholder="EUR" />
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="invoice_delivery">Doručovanie faktúr</label>
+                    <label for="invoice_delivery">{{ t('organizations.form.fields.invoice_delivery') }}</label>
                     <select id="invoice_delivery" v-model="form.invoice_delivery">
-                        <option value="email">E-mailom</option>
-                        <option value="post">Poštou</option>
-                        <option value="both">E-mailom aj poštou</option>
+                        <option value="email">{{ t('organizations.form.billing.delivery.email') }}</option>
+                        <option value="post">{{ t('organizations.form.billing.delivery.post') }}</option>
+                        <option value="both">{{ t('organizations.form.billing.delivery.both') }}</option>
                     </select>
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="invoice_language">Jazyk faktúry</label>
+                    <label for="invoice_language">{{ t('organizations.form.fields.invoice_language') }}</label>
                     <select id="invoice_language" v-model="form.invoice_language">
-                        <option value="sk">Slovenčina</option>
-                        <option value="en">Angličtina</option>
-                        <option value="de">Nemčina</option>
+                        <option value="sk">{{ t('organizations.form.billing.languages.sk') }}</option>
+                        <option value="en">{{ t('organizations.form.billing.languages.en') }}</option>
+                        <option value="de">{{ t('organizations.form.billing.languages.de') }}</option>
                     </select>
                 </div>
                 <div class="sm:col-span-2">
-                    <label for="supplier_number">Naše číslo u zákazníka</label>
+                    <label for="supplier_number">{{ t('organizations.form.fields.supplier_number') }}</label>
                     <input id="supplier_number" v-model="form.supplier_number" type="text" placeholder="DOD-2024-118" />
                 </div>
             </div>
         </CardSection>
 
         <!-- Interné -->
-        <CardSection icon="settings" tone="slate" title="Interné" description="Vidí len prevádzkovateľ, do projektov sa neposiela.">
+        <CardSection
+            icon="settings"
+            tone="slate"
+            :title="t('organizations.form.internal.title')"
+            :description="t('organizations.form.internal.description')"
+        >
             <div class="grid gap-4">
                 <div class="sm:w-64">
-                    <label for="status">Stav organizácie</label>
+                    <label for="status">{{ t('organizations.form.fields.status') }}</label>
                     <select id="status" v-model="form.status">
-                        <option value="active">Aktívna</option>
-                        <option value="suspended">Pozastavená — projekty ju zamknú</option>
-                        <option value="archived">Archivovaná</option>
+                        <option value="active">{{ t('organizations.form.internal.statuses.active') }}</option>
+                        <option value="suspended">{{ t('organizations.form.internal.statuses.suspended') }}</option>
+                        <option value="archived">{{ t('organizations.form.internal.statuses.archived') }}</option>
                     </select>
                     <InputError :message="form.errors.status" />
                 </div>
                 <div>
-                    <label for="note">Poznámka</label>
+                    <label for="note">{{ t('organizations.form.fields.note') }}</label>
                     <textarea id="note" v-model="form.note" rows="3"></textarea>
                     <InputError :message="form.errors.note" />
                 </div>
@@ -490,9 +546,11 @@ const submit = () => {
         </CardSection>
 
         <div class="flex items-center justify-end gap-3 pb-4">
-            <Link href="/organizations" class="text-sm text-slate-500 hover:text-slate-900">Zrušiť</Link>
+            <Link href="/organizations" class="text-sm text-slate-500 hover:text-slate-900">
+                {{ t('common.form.cancel') }}
+            </Link>
             <button type="submit" class="btn-primary" :disabled="form.processing">
-                {{ form.processing ? 'Ukladám…' : 'Uložiť' }}
+                {{ form.processing ? t('common.form.saving') : t('common.form.save') }}
             </button>
         </div>
     </form>

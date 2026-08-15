@@ -224,6 +224,7 @@ php artisan accounts:issue-token projekt-1 "produkcny server"
 
 | Udalosť | Kedy | Čo má projekt spraviť |
 |---|---|---|
+| `organization.created` | vznik novej firmy | naviazať sa na ňu, ak ju pozná podľa IČO |
 | `organization.updated` | zmena firemných údajov | zrušiť cache |
 | `organization.deleted` | zmazanie firmy | zrušiť cache |
 | `subscription.status_changed` | zmena stavu predplatného | zrušiť cache entitlements |

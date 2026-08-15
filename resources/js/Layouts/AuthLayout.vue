@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import Icon from '../Components/Icon.vue';
 import DropdownMenu from '../Components/DropdownMenu.vue';
+import FlashMessage from '../Components/FlashMessage.vue';
 
 defineProps({
     title: { type: String, required: true },
@@ -10,23 +11,19 @@ defineProps({
 });
 
 const page = usePage();
-const flash = computed(() => page.props.flash ?? {});
 
 // Prihlasovacia obrazovka je prvé, čo človek uvidí – jazyk sa preto
 // prepína už tu, nielen po prihlásení.
 const locales = computed(() => page.props.locales ?? []);
 const currentLocale = computed(() => page.props.locale ?? 'sk');
 
-const localeShort = computed(
-    () => locales.value.find((item) => item.value === currentLocale.value)?.short ?? currentLocale.value.toUpperCase(),
-);
-
 const localeMenu = computed(() => locales.value.map((item) => ({
     label: item.label,
+    flag: item.value,
     method: 'post',
     url: '/locale',
     data: { locale: item.value },
-    badge: item.value === currentLocale.value ? '✓' : item.short,
+    badge: item.value === currentLocale.value ? '✓' : null,
 })));
 </script>
 
@@ -68,7 +65,7 @@ const localeMenu = computed(() => locales.value.map((item) => ({
         <!-- Formulár -->
         <main class="relative flex items-center justify-center px-4 py-12">
             <div v-if="locales.length > 1" class="absolute right-4 top-4">
-                <DropdownMenu :items="localeMenu" :label="localeShort" />
+                <DropdownMenu :items="localeMenu" :flag="currentLocale" />
             </div>
 
             <div class="w-full max-w-sm">
@@ -81,13 +78,7 @@ const localeMenu = computed(() => locales.value.map((item) => ({
                     <p v-if="subtitle" class="mt-1.5 text-sm text-slate-500">{{ subtitle }}</p>
                 </div>
 
-                <div
-                    v-if="flash.success"
-                    class="mb-5 flex items-start gap-2.5 rounded-2xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800 ring-1 ring-emerald-600/15"
-                >
-                    <Icon name="check" :size="18" class="mt-0.5" />
-                    <span>{{ flash.success }}</span>
-                </div>
+                <FlashMessage />
 
                 <slot />
             </div>

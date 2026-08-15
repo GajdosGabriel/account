@@ -46,6 +46,23 @@ class OrganizationObserver
         ]);
     }
 
+    /**
+     * Nová firma v Accounte.
+     *
+     * Projekt, ktorý ju práve založil, o nej vie z odpovede API – táto
+     * udalosť je pre tie ostatné. Bez nej sa druhý projekt dozvie o firme,
+     * ktorá k nemu patrí tiež, až keď ju niekto prvý raz upraví.
+     *
+     * Entitlements sa tu nezahadzujú, na rozdiel od `updated` – nová firma
+     * ešte nemá čo mať v cache.
+     */
+    public function created(Organization $organization): void
+    {
+        $this->dispatcher->dispatch('organization.created', [
+            'organization' => $this->payload($organization),
+        ]);
+    }
+
     public function updated(Organization $organization): void
     {
         $this->entitlements->flush($organization);

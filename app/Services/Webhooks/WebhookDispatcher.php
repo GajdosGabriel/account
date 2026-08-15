@@ -46,7 +46,12 @@ class WebhookDispatcher
                 'next_attempt_at' => now(),
             ]);
 
-            DeliverWebhook::dispatch($delivery->id);
+            // afterCommit, lebo `organization.created` vzniká vnútri transakcie,
+            // v ktorej sa firma zakladá. Bez neho by worker mohol udalosť
+            // doručiť skôr, než transakcia skončí – projekt by si prišiel po
+            // firmu, ktorá pre neho ešte neexistuje. Mimo transakcie sa job
+            // zaradí okamžite, takže to nič nespomaľuje.
+            DeliverWebhook::dispatch($delivery->id)->afterCommit();
 
             $deliveries[] = $delivery;
         }

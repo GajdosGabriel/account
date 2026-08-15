@@ -17,18 +17,12 @@ enum SubjectType: string
 
     public function label(): string
     {
-        return match ($this) {
-            self::Company => 'Organizácia',
-            self::Person => 'Súkromná osoba',
-        };
+        return __('enums.subject_type.'.$this->value.'.label');
     }
 
     public function description(): string
     {
-        return match ($this) {
-            self::Company => 'Firma, živnostník alebo nezisková organizácia s IČO.',
-            self::Person => 'Občan bez IČO. Stačí meno a adresa.',
-        };
+        return __('enums.subject_type.'.$this->value.'.description');
     }
 
     public function isPerson(): bool
@@ -39,7 +33,7 @@ enum SubjectType: string
     /** Názov poľa pre meno – u osoby je to meno človeka, nie firmy. */
     public function nameLabel(): string
     {
-        return $this->isPerson() ? 'Meno a priezvisko' : 'Názov firmy';
+        return __('enums.subject_type.'.$this->value.'.name_label');
     }
 
     /** @return array<int, array{value: string, label: string, description: string}> */

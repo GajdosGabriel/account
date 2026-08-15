@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, nextTick } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import Icon from './Icon.vue';
+import LocaleFlag from './LocaleFlag.vue';
 import { t } from '../Composables/useLang';
 
 /**
@@ -27,6 +28,12 @@ const props = defineProps({
     /** Zobraziť aj zakázané položky (neaktívne) namiesto ich skrytia */
     showDisabled: { type: Boolean, default: false },
     label: { type: String, default: null },
+    /**
+     * Kód jazyka na tlačidle – prepínač jazyka ukazuje vlajku namiesto
+     * popisku. Položky menu majú vlastné `flag` na tom istom mieste, kde
+     * ostatné menu kreslia `icon`.
+     */
+    flag: { type: String, default: null },
     size: { type: String, default: 'md' },
 });
 
@@ -155,15 +162,16 @@ onUnmounted(() => {
             type="button"
             class="inline-flex items-center gap-1.5 rounded-lg border border-transparent text-slate-500 transition hover:border-slate-200 hover:bg-white hover:text-slate-900"
             :class="[
-                label ? 'px-3 py-1.5 text-sm font-medium' : (size === 'sm' ? 'h-7 w-7 justify-center' : 'h-8 w-8 justify-center'),
+                label || flag ? 'px-3 py-1.5 text-sm font-medium' : (size === 'sm' ? 'h-7 w-7 justify-center' : 'h-8 w-8 justify-center'),
                 open ? 'border-slate-200 bg-white text-slate-900 shadow-sm' : '',
             ]"
             :aria-expanded="open"
             aria-haspopup="true"
             @click.stop="toggle"
         >
+            <LocaleFlag v-if="flag" :code="flag" />
             <span v-if="label">{{ label }}</span>
-            <Icon name="dots" :size="label ? 15 : 17" />
+            <Icon name="dots" :size="label || flag ? 15 : 17" />
         </button>
 
         <Teleport to="body">
@@ -190,7 +198,8 @@ onUnmounted(() => {
                         :class="item.danger ? 'text-rose-600 hover:bg-rose-50' : ''"
                         @click="open = false"
                     >
-                        <Icon v-if="item.icon" :name="item.icon" :size="16" class="text-slate-400" />
+                        <LocaleFlag v-if="item.flag" :code="item.flag" />
+                        <Icon v-else-if="item.icon" :name="item.icon" :size="16" class="text-slate-400" />
                         <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
                         <span v-if="item.badge" class="shrink-0 text-xs text-slate-400">{{ item.badge }}</span>
                     </Link>
@@ -210,7 +219,8 @@ onUnmounted(() => {
                         :title="item.disabled ? (item.disabledHint ?? t('actions.disabled')) : null"
                         @click="run(item)"
                     >
-                        <Icon v-if="item.icon" :name="item.icon" :size="16" :class="item.disabled ? 'text-slate-300' : 'text-slate-400'" />
+                        <LocaleFlag v-if="item.flag" :code="item.flag" />
+                        <Icon v-else-if="item.icon" :name="item.icon" :size="16" :class="item.disabled ? 'text-slate-300' : 'text-slate-400'" />
                         <span class="min-w-0 flex-1 truncate">{{ item.label }}</span>
                         <span v-if="item.badge" class="shrink-0 text-xs text-slate-400">{{ item.badge }}</span>
                     </button>
