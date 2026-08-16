@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->operator();
         $products = $this->products();
+        $this->connectedProjects();
         $this->demoData($products);
 
         // Doklady vo všetkých stavoch – vrátane dobropisu, storna a reverse charge.
@@ -135,6 +136,36 @@ class DatabaseSeeder extends Seeder
         }
 
         return $products;
+    }
+
+    /**
+     * Skutočné pripojené projekty (nie demo dáta) – ich token je pevný,
+     * lebo musí sedieť s `ACCOUNT_TOKEN` v `.env` daného projektu.
+     */
+    protected function connectedProjects(): void
+    {
+        $product = Product::updateOrCreate(
+            ['key' => 'samosprava'],
+            [
+                'name' => 'Samospráva',
+                'url' => env('SAMOSPRAVA_URL', 'http://samosprava.local'),
+                'is_active' => true,
+            ],
+        );
+
+        $plain = env('SAMOSPRAVA_SERVICE_TOKEN');
+
+        if (! $plain || $product->serviceClients()->whereNull('revoked_at')->exists()) {
+            return;
+        }
+
+        ServiceClient::create([
+            'product_id' => $product->id,
+            'name' => 'samosprava (produkcia)',
+            'token_prefix' => substr($plain, 0, 12),
+            'token_hash' => hash('sha256', $plain),
+            'abilities' => ['organizations:read', 'organizations:write'],
+        ]);
     }
 
     /**
