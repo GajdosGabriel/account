@@ -47,6 +47,11 @@ class OrganizationApiController extends ApiController
      * Kľúčové je, že podľa IČO firmu najprv HĽADÁME. Ak už existuje
      * z iného projektu, iba sa na ňu naviažeme – inak by si po čase
      * mal tri záznamy tej istej firmy a celá centralizácia by stratila zmysel.
+     *
+     * Bez IČO (napr. rozostavaná registrácia) sa hľadá aspoň podľa
+     * `external_ref` v rámci volajúceho projektu – inak by každé opakované
+     * volanie za tým istým rozostavaným používateľom vyrobilo ďalšiu
+     * prázdnu firmu.
      */
     public function store(OrganizationApiRequest $request): JsonResponse
     {
@@ -56,11 +61,25 @@ class OrganizationApiController extends ApiController
 
         $existing = filled($data['ico'] ?? null)
             ? Organization::withTrashed()->where('ico', $data['ico'])->first()
-            : null;
+            : (filled($data['external_ref'] ?? null)
+                ? Organization::withTrashed()
+                    ->whereHas('products', fn ($q) => $q->where('products.id', $product->id)
+                        ->where('organization_product.external_ref', $data['external_ref']))
+                    ->first()
+                : null);
 
         if ($existing) {
             if ($existing->trashed()) {
                 $existing->restore();
+            }
+
+            // Názov je verejný profil, ktorý si projekt mení najčastejšie.
+            // Bez tohto by po napojení na už existujúcu firmu (zhoda podľa
+            // IČO z iného projektu) zostal v Accounte navždy pôvodný názov,
+            // aj keď ho projekt neskôr v Evente premenuje.
+            if (filled($attributes['name'] ?? null) && $attributes['name'] !== $existing->name) {
+                $existing->name = $attributes['name'];
+                $existing->save();
             }
 
             $existing->linkTo($product, $data['external_ref'] ?? null);

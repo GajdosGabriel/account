@@ -178,7 +178,7 @@ class DatabaseSeeder extends Seeder
 
         // Firma, ktorá používa všetky tri projekty – ukážka toho,
         // prečo sa firemné údaje centralizujú.
-        $ukazka = Organization::firstOrCreate(
+        $ukazka = Organization::withTrashed()->firstOrCreate(
             ['ico' => '31333532'],
             [
                 'name' => 'Ukážka',
@@ -232,7 +232,7 @@ class DatabaseSeeder extends Seeder
         $usage->record($ukazka, $products['projekt-3'], ['users' => 8, 'storage_mb' => 220]);
 
         // Druhá firma len v jednom projekte
-        $mala = Organization::firstOrCreate(
+        $mala = Organization::withTrashed()->firstOrCreate(
             ['ico' => '35815256'],
             [
                 'name' => 'Malá firma',
@@ -248,6 +248,14 @@ class DatabaseSeeder extends Seeder
                 'payment_terms_days' => 30,
             ],
         );
+
+        if ($ukazka->trashed()) {
+            $ukazka->restore();
+        }
+
+        if ($mala->trashed()) {
+            $mala->restore();
+        }
 
         // Eshop má poštu inde než sídlo a k tomu dva sklady –
         // presne preto sú adresy vo vlastnej tabuľke.

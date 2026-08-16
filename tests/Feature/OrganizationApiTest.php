@@ -37,6 +37,29 @@ class OrganizationApiTest extends TestCase
         );
     }
 
+    /** Premenovanie v projekte, ktorý sa iba naviazal na existujúcu firmu, sa musí prejaviť aj v Accounte. */
+    public function test_napojenie_na_existujucu_firmu_aktualizuje_nazov(): void
+    {
+        $productA = Product::factory()->create(['key' => 'projekt-1']);
+        $productB = Product::factory()->create(['key' => 'projekt-2']);
+
+        [, $tokenA] = ServiceClient::issue($productA, 'test');
+        [, $tokenB] = ServiceClient::issue($productB, 'test');
+
+        $this->withToken($tokenA)
+            ->postJson('/api/v1/organizations', ['name' => 'Pôvodný názov s.r.o.', 'ico' => '31333532'])
+            ->assertCreated();
+
+        $second = $this->withToken($tokenB)
+            ->postJson('/api/v1/organizations', ['name' => 'Nový názov s.r.o.', 'ico' => '31333532']);
+
+        $second->assertOk()->assertJsonPath('created', false);
+        $second->assertJsonPath('data.name', 'Nový názov s.r.o.');
+
+        $this->assertSame(1, Organization::count());
+        $this->assertSame('Nový názov s.r.o.', Organization::first()->name);
+    }
+
     public function test_projekt_nevidi_firmy_ineho_projektu(): void
     {
         $mine = Product::factory()->create(['key' => 'projekt-1']);
