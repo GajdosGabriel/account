@@ -22,7 +22,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Model::preventSilentlyDiscardingAttributes(! app()->isProduction());
 
-        if (app()->isProduction()) {
+        // Schéma odkazov sa riadi APP_URL, nie tým, či ide o produkciu.
+        // Natvrdo vynútené https rozbilo nasadenie, kde je aplikácia dostupná
+        // len po HTTP na neštandardnom porte — presmerovanie na prihlásenie
+        // viedlo na https bez portu a skončilo na odmietnutom pripojení.
+        if (parse_url((string) config('app.url'), PHP_URL_SCHEME) === 'https') {
             URL::forceScheme('https');
         }
 
