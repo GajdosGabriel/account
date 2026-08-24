@@ -1,0 +1,5 @@
+# Laravel scheduler pre projekt account (bezi pod vlastnym uzivatelom)
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+* * * * * account cd /var/www/account && /usr/bin/php artisan schedule:run >> /var/www/account/storage/logs/cron.log 2>&1
