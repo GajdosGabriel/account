@@ -34,9 +34,9 @@ class DatabaseSeeder extends Seeder
     {
         $definitions = [
             [
-                'key' => 'projekt-1',
-                'name' => 'Projekt 1',
-                'url' => 'http://projekt1.local',
+                'key' => 'event',
+                'name' => 'Event',
+                'url' => 'http://event.local',
                 'features' => [
                     ['key' => 'max_records', 'name' => 'Počet záznamov', 'type' => 'limit', 'unit' => 'záznamov', 'metric' => 'records', 'default' => 10],
                     ['key' => 'export', 'name' => 'Export do XLSX', 'type' => 'flag', 'default' => false],
@@ -48,9 +48,9 @@ class DatabaseSeeder extends Seeder
                 ],
             ],
             [
-                'key' => 'projekt-2',
-                'name' => 'Projekt 2',
-                'url' => 'http://projekt2.local',
+                'key' => 'anonymizer',
+                'name' => 'Anonymizer',
+                'url' => 'http://anonymizer.local',
                 'features' => [
                     ['key' => 'max_projects', 'name' => 'Počet projektov', 'type' => 'limit', 'unit' => 'projektov', 'metric' => 'projects', 'default' => 3],
                     ['key' => 'api', 'name' => 'Prístup k API', 'type' => 'flag', 'default' => false],
@@ -61,9 +61,9 @@ class DatabaseSeeder extends Seeder
                 ],
             ],
             [
-                'key' => 'projekt-3',
-                'name' => 'Projekt 3',
-                'url' => 'http://projekt3.local',
+                'key' => 'samosprava',
+                'name' => 'Samospráva',
+                'url' => 'http://samosprava.local',
                 'features' => [
                     ['key' => 'max_users', 'name' => 'Počet používateľov', 'type' => 'limit', 'unit' => 'používateľov', 'metric' => 'users', 'default' => 5],
                     ['key' => 'storage_mb', 'name' => 'Úložisko', 'type' => 'limit', 'unit' => 'MB', 'metric' => 'storage_mb', 'default' => 500],
@@ -196,26 +196,26 @@ class DatabaseSeeder extends Seeder
             ],
         );
 
-        // projekt-1: aktívny Standard, blízko limitu
-        $ukazka->linkTo($products['projekt-1']);
-        $plan = Plan::whereRelation('product', 'key', 'projekt-1')->where('key', 'standard')->first();
+        // event: aktívny Standard, blízko limitu
+        $ukazka->linkTo($products['event']);
+        $plan = Plan::whereRelation('product', 'key', 'event')->where('key', 'standard')->first();
         $subscription = $manager->subscribe($ukazka, $plan);
         $manager->activate($subscription, 'seed');
-        $usage->record($ukazka, $products['projekt-1'], ['records' => 460]);
+        $usage->record($ukazka, $products['event'], ['records' => 460]);
 
-        // projekt-2: po splatnosti, beží grace perióda
-        $ukazka->linkTo($products['projekt-2']);
-        $plan = Plan::whereRelation('product', 'key', 'projekt-2')->where('key', 'team')->first();
+        // anonymizer: po splatnosti, beží grace perióda
+        $ukazka->linkTo($products['anonymizer']);
+        $plan = Plan::whereRelation('product', 'key', 'anonymizer')->where('key', 'team')->first();
         $subscription = $manager->subscribe($ukazka, $plan);
         $manager->markPastDue($subscription, 'seed');
-        $usage->record($ukazka, $products['projekt-2'], ['projects' => 12]);
+        $usage->record($ukazka, $products['anonymizer'], ['projects' => 12]);
 
-        // projekt-3: nad limitom po znížení plánu
-        $ukazka->linkTo($products['projekt-3']);
-        $plan = Plan::whereRelation('product', 'key', 'projekt-3')->where('key', 'starter')->first();
+        // samosprava: nad limitom po znížení plánu
+        $ukazka->linkTo($products['samosprava']);
+        $plan = Plan::whereRelation('product', 'key', 'samosprava')->where('key', 'starter')->first();
         $subscription = $manager->subscribe($ukazka, $plan);
         $manager->activate($subscription, 'seed');
-        $usage->record($ukazka, $products['projekt-3'], ['users' => 8, 'storage_mb' => 220]);
+        $usage->record($ukazka, $products['samosprava'], ['users' => 8, 'storage_mb' => 220]);
 
         // Druhá firma len v jednom projekte
         $mala = Organization::withTrashed()->firstOrCreate(
@@ -288,10 +288,10 @@ class DatabaseSeeder extends Seeder
             ['type' => 'billing', 'name' => 'Eva Kováčová', 'position' => 'účtovníčka'],
         );
 
-        $mala->linkTo($products['projekt-1']);
-        $plan = Plan::whereRelation('product', 'key', 'projekt-1')->where('key', 'free')->first();
+        $mala->linkTo($products['event']);
+        $plan = Plan::whereRelation('product', 'key', 'event')->where('key', 'free')->first();
         $manager->subscribe($mala, $plan);
-        $usage->record($mala, $products['projekt-1'], ['records' => 3]);
+        $usage->record($mala, $products['event'], ['records' => 3]);
 
         $this->command?->newLine();
         $this->command?->info('Demo: Ukážka s.r.o. používa všetky tri projekty v rôznych stavoch.');

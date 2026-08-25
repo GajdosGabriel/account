@@ -43,7 +43,7 @@ class InvoiceSeeder extends Seeder
             return;
         }
 
-        $plan = Plan::whereRelation('product', 'key', 'projekt-1')->where('key', 'standard')->first();
+        $plan = Plan::whereRelation('product', 'key', 'event')->where('key', 'standard')->first();
 
         /* ---------- 1. Uhradené faktúry za posledné tri mesiace ---------- */
 
@@ -52,7 +52,7 @@ class InvoiceSeeder extends Seeder
 
             $draft = $this->build($service, $ukazka, InvoiceType::Invoice, $date, [
                 [
-                    'description' => 'Projekt 1 – Standard',
+                    'description' => 'Event – Standard',
                     'detail' => 'Mesačné predplatné',
                     'unit' => 'mesiac',
                     'unit_price' => 290000,   // 29,00 € v stotinách centa
@@ -62,7 +62,7 @@ class InvoiceSeeder extends Seeder
                     'product_id' => $plan?->product_id,
                 ],
                 [
-                    'description' => 'Projekt 2 – Team',
+                    'description' => 'Anonymizer – Team',
                     'detail' => 'Mesačné predplatné',
                     'unit' => 'mesiac',
                     'unit_price' => 490000,
@@ -89,7 +89,7 @@ class InvoiceSeeder extends Seeder
 
         $overdue = $this->build($service, $ukazka, InvoiceType::Invoice, Carbon::today()->subDays(38), [
             [
-                'description' => 'Projekt 3 – Business',
+                'description' => 'Samospráva – Business',
                 'detail' => 'Mesačné predplatné',
                 'unit' => 'mesiac',
                 'unit_price' => 990000,
@@ -122,7 +122,7 @@ class InvoiceSeeder extends Seeder
 
         $partial = $this->build($service, $ukazka, InvoiceType::Invoice, Carbon::today()->subDays(12), [
             [
-                'description' => 'Ročné predplatné Projekt 1 – Pro',
+                'description' => 'Ročné predplatné Event – Pro',
                 'unit' => 'rok',
                 'unit_price' => 8690000,
                 'discount_percent' => 8,
@@ -145,7 +145,7 @@ class InvoiceSeeder extends Seeder
 
         $open = $this->build($service, $mala ?? $ukazka, InvoiceType::Invoice, Carbon::today()->subDays(3), [
             [
-                'description' => 'Projekt 1 – Standard',
+                'description' => 'Event – Standard',
                 'detail' => 'Prechod z Free na Standard',
                 'unit' => 'mesiac',
                 'unit_price' => 290000,
@@ -189,7 +189,7 @@ class InvoiceSeeder extends Seeder
         $draft = $service->draft($ukazka, InvoiceType::Invoice);
 
         $service->addItem($draft, [
-            'description' => 'Projekt 1 – Standard',
+            'description' => 'Event – Standard',
             'detail' => 'Nasledujúce obdobie',
             'unit' => 'mesiac',
             'unit_price' => 290000,
@@ -202,7 +202,7 @@ class InvoiceSeeder extends Seeder
         if ($zahranicna) {
             $eu = $this->build($service, $zahranicna, InvoiceType::Invoice, Carbon::today()->subDays(6), [
                 [
-                    'description' => 'Projekt 2 – Team',
+                    'description' => 'Anonymizer – Team',
                     'detail' => 'Monthly subscription',
                     'unit' => 'mesiac',
                     'unit_price' => 490000,
