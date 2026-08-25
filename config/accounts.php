@@ -80,4 +80,24 @@ return [
         'invoice_due_days' => 14,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Prvý operátor
+    |--------------------------------------------------------------------------
+    |
+    | Back-office nemá registráciu – /register neexistuje a ďalších operátorov
+    | zakladá až prihlásený človek v Nastaveniach. Prvý účet preto vyrobí
+    | seeder: php artisan db:seed --class=AdminUserSeeder
+    |
+    | Číta sa cez config, nie cez env() v seederi – na serveri beží
+    | `config:cache` a tam by env() vrátilo null.
+    |
+    */
+
+    'seed_admin' => [
+        'name' => env('SEED_ADMIN_NAME', 'Správca'),
+        'email' => env('SEED_ADMIN_EMAIL'),
+        'password' => env('SEED_ADMIN_PASSWORD'),
+    ],
+
 ];

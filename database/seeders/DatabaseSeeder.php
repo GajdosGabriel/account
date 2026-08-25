@@ -7,7 +7,6 @@ use App\Models\Plan;
 use App\Models\Product;
 use App\Models\ProductFeature;
 use App\Models\ServiceClient;
-use App\Models\User;
 use App\Services\Billing\SubscriptionManager;
 use App\Services\Usage\UsageRecorder;
 use Illuminate\Database\Seeder;
@@ -16,26 +15,13 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->operator();
+        $this->call(AdminUserSeeder::class);
         $products = $this->products();
         $this->connectedProjects();
         $this->demoData($products);
 
         // Doklady vo všetkých stavoch – vrátane dobropisu, storna a reverse charge.
         $this->call(InvoiceSeeder::class);
-    }
-
-    protected function operator(): void
-    {
-        $email = env('SEED_ADMIN_EMAIL', 'admin@account.local');
-        $password = env('SEED_ADMIN_PASSWORD', 'password');
-
-        User::updateOrCreate(
-            ['email' => $email],
-            ['name' => 'Správca', 'password' => $password, 'email_verified_at' => now()],
-        );
-
-        $this->command?->info("Prihlásenie: {$email} / {$password}");
     }
 
     /**
