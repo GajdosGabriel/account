@@ -4,6 +4,7 @@ import { Link, router, usePage } from '@inertiajs/vue3';
 import Icon from '../Components/Icon.vue';
 import DropdownMenu from '../Components/DropdownMenu.vue';
 import FlashMessage from '../Components/FlashMessage.vue';
+import SecretReveal from '../Components/SecretReveal.vue';
 import { t } from '../Composables/useLang';
 
 const page = usePage();
@@ -149,6 +150,7 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
         </header>
 
         <FlashMessage />
+        <SecretReveal />
 
         <main class="mx-auto max-w-6xl px-4 py-8">
             <slot />

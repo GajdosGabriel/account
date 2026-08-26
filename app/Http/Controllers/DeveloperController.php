@@ -81,8 +81,14 @@ class DeveloperController extends Controller
 
         [, $plain] = ServiceClient::issue($product, $data['name']);
 
-        // Token sa zobrazí iba raz – posielame ho cez flash session.
-        return back()->with('success', "Nový token (ulož si ho, už sa nezobrazí): {$plain}");
+        // Token sa zobrazí iba raz. Do textu hlásenia nepatrí: toast
+        // zmizne skôr, než ho stihneš označiť, a vyznačiť sa z neho dá
+        // len myšou. Ide preto do okna s tlačidlom na skopírovanie.
+        return back()->with('secret', [
+            'title' => __('tokens.issued'),
+            'hint' => __('tokens.issued_hint'),
+            'value' => $plain,
+        ]);
     }
 
     /**
@@ -227,7 +233,11 @@ class DeveloperController extends Controller
             'events' => $data['events'] ?? null,
         ]);
 
-        return back()->with('success', "Webhook pridaný. Podpisový kľúč: {$endpoint->secret}");
+        return back()->with('secret', [
+            'title' => __('tokens.webhook_secret'),
+            'hint' => __('tokens.webhook_secret_hint'),
+            'value' => $endpoint->secret,
+        ]);
     }
 
     public function updateWebhook(Request $request, WebhookEndpoint $endpoint): RedirectResponse

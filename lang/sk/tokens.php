@@ -27,6 +27,11 @@ return [
     'revoked' => 'Token bol zrušený.',
     'unrevoked' => 'Token je znovu povolený – projekt cez neho opäť prejde.',
 
+    'issued' => 'Nový service token',
+    'issued_hint' => 'Ulož si ho do konfigurácie projektu. V databáze z neho zostáva len hash, takže znovu ho ukázať nevieme – ak ho stratíš, vygeneruj nový.',
+    'webhook_secret' => 'Podpisový kľúč webhooku',
+    'webhook_secret_hint' => 'Kľúčom overuješ hlavičku X-Accounts-Signature. Ulož si ho, druhýkrát sa nezobrazí.',
+
     'state' => [
         'revoked' => 'Token je zrušený – projekt cez neho na API neprejde. Cez „Znovu povoliť token“ sa dá vrátiť do hry, hodnota tokenu zostáva rovnaká.',
         'trashed' => 'Token je v koši. Dá sa obnoviť alebo odstrániť natrvalo.',

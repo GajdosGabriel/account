@@ -24,6 +24,11 @@ return [
     'revoked' => 'Token revoked.',
     'unrevoked' => 'Token re-enabled – the project can use it again.',
 
+    'issued' => 'New service token',
+    'issued_hint' => 'Save it to the project configuration. Only a hash stays in the database, so we cannot show it again – if you lose it, issue a new one.',
+    'webhook_secret' => 'Webhook signing key',
+    'webhook_secret_hint' => 'Use it to verify the X-Accounts-Signature header. Save it, it will not be shown again.',
+
     'state' => [
         'revoked' => 'This token is revoked – the project cannot reach the API with it. "Re-enable token" brings it back with the same value as before.',
         'trashed' => 'This token is in the trash. It can be restored or deleted permanently.',

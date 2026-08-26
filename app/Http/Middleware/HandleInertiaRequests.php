@@ -29,6 +29,9 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                // Jednorazová hodnota (token, podpisový kľúč) nejde do textu
+                // hlásenia – toast zmizne a skopírovať sa z neho nedá.
+                'secret' => fn () => $request->session()->get('secret'),
             ],
             // Popisky akcií drží lang, nie šablóna – rovnaký text tak
             // vidí server aj Vue a preklad je na jednom mieste.

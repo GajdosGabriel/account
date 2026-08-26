@@ -24,6 +24,11 @@ return [
     'revoked' => 'Token wurde widerrufen.',
     'unrevoked' => 'Token ist wieder freigegeben – das Projekt kann ihn erneut verwenden.',
 
+    'issued' => 'Neues Service-Token',
+    'issued_hint' => 'Speichere es in der Projektkonfiguration. In der Datenbank bleibt nur ein Hash, wir können es nicht erneut anzeigen – bei Verlust ein neues erzeugen.',
+    'webhook_secret' => 'Signaturschlüssel des Webhooks',
+    'webhook_secret_hint' => 'Damit prüfst du den Header X-Accounts-Signature. Speichere ihn, er wird nicht erneut angezeigt.',
+
     'state' => [
         'revoked' => 'Dieser Token ist widerrufen – das Projekt kommt damit nicht an die API. Über „Token wieder freigeben“ kommt er mit demselben Wert zurück.',
         'trashed' => 'Dieser Token liegt im Papierkorb. Er kann wiederhergestellt oder endgültig gelöscht werden.',

@@ -24,6 +24,14 @@ return [
         'cancel' => 'Zrušit',
     ],
 
+    'secret' => [
+        'copy' => 'Kopírovat',
+        'copied' => 'Zkopírováno',
+        'done' => 'Hotovo',
+        'close' => 'Zavřít',
+        'once' => 'Hodnota se už podruhé nezobrazí.',
+    ],
+
     'filter' => [
         'reset' => 'Zrušit filtry',
     ],

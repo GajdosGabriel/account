@@ -24,6 +24,14 @@ return [
         'cancel' => 'Cancel',
     ],
 
+    'secret' => [
+        'copy' => 'Copy',
+        'copied' => 'Copied',
+        'done' => 'Done',
+        'close' => 'Close',
+        'once' => 'This value will not be shown again.',
+    ],
+
     'filter' => [
         'reset' => 'Clear filters',
     ],
