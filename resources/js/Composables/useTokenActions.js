@@ -1,7 +1,7 @@
 import { t } from './useLang';
 
 /**
- * Akcie tokenu, ktoré nepatria do štandardného menu (zobraziť/upraviť/kôš).
+ * Akcie tokenu, ktoré nepatria do štandardného menu (upraviť/zmazať).
  *
  * Zrušenie a jeho návrat sú dve strany tej istej mince a v menu sa nikdy
  * neobjavia naraz – rozhoduje ServiceClientPolicy podľa toho, či token

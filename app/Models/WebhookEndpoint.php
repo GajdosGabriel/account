@@ -5,13 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class WebhookEndpoint extends Model
 {
-    use SoftDeletes;
-
     protected $fillable = ['product_id', 'url', 'secret', 'events', 'is_active'];
 
     protected function casts(): array

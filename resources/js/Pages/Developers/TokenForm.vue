@@ -43,7 +43,6 @@ const toggleAll = () => {
             <Link href="/developers" class="btn-secondary">{{ t('tokens.back') }}</Link>
             <RowActions
                 :abilities="{ ...token.can, update: false }"
-                :trashed="!!token.deleted_at"
                 :base="`/developers/tokens/${token.id}`"
                 :name="token.name"
                 :label="t('actions.menu')"
@@ -53,15 +52,7 @@ const toggleAll = () => {
     </PageHeader>
 
     <div
-        v-if="token.deleted_at"
-        class="mb-5 flex items-start gap-2.5 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600"
-    >
-        <Icon name="trash" :size="18" class="mt-0.5 text-slate-400" />
-        <span>{{ t('tokens.state.trashed') }}</span>
-    </div>
-
-    <div
-        v-else-if="token.revoked"
+        v-if="token.revoked"
         class="mb-5 flex items-start gap-2.5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-600/15"
     >
         <Icon name="warning" :size="18" class="mt-0.5 text-amber-600" />

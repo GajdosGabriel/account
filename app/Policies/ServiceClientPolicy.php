@@ -2,12 +2,16 @@
 
 namespace App\Policies;
 
+use App\Models\ServiceClient;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
 /**
  * Token sa neotvára na detail, ale má vlastnú stránku úpravy –
- * v menu je preto úprava, zrušenie a kôš, nie „zobraziť“.
+ * v menu je preto úprava, zrušenie a zmazanie, nie „zobraziť“.
+ *
+ * Kôš tu nie je: token, ktorý má zostať v evidencii, sa zruší (revoke),
+ * nie zmaže. Zmazanie je preto natvrdo a bez návratu.
  */
 class ServiceClientPolicy extends BasePolicy
 {
@@ -19,13 +23,13 @@ class ServiceClientPolicy extends BasePolicy
     /**
      * Zrušenie tokenu nie je mazanie: záznam zostáva v evidencii
      * kvôli auditu, len ním už neprejde autentifikácia. Preto sa dá
-     * zrušiť raz a nikdy nie zo záznamu v koši.
+     * zrušiť len raz.
      *
-     * @param  \App\Models\ServiceClient  $model
+     * @param  ServiceClient  $model
      */
     public function revoke(User $user, Model $model): bool
     {
-        return ! $this->trashed($model) && ! $model->isRevoked();
+        return ! $model->isRevoked();
     }
 
     /**
@@ -35,10 +39,10 @@ class ServiceClientPolicy extends BasePolicy
      * povolenie – nemusí si nikam vymieňať hodnotu. Preto to nie je
      * vydanie nového tokenu, ale návrat toho istého.
      *
-     * @param  \App\Models\ServiceClient  $model
+     * @param  ServiceClient  $model
      */
     public function unrevoke(User $user, Model $model): bool
     {
-        return ! $this->trashed($model) && $model->isRevoked();
+        return $model->isRevoked();
     }
 }

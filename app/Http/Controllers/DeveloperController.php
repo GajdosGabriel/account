@@ -16,20 +16,16 @@ use Inertia\Response;
  * Správa pripojených projektov: service tokeny, webhook endpointy
  * a OAuth klienti. Prístupné iba super-adminovi (prevádzkovateľovi).
  *
- * Tokeny aj webhooky sa mažú mäkko – zmazaný záznam zostane v zozname
- * ako položka v koši, kým ho niekto nevráti alebo neodstráni natrvalo.
+ * Tokeny aj webhooky sa mažú natvrdo. Kôš tu nemá zmysel: token, ktorý
+ * má zostať v evidencii kvôli auditu, sa zruší (revoke), nie zmaže, a
+ * webhook je len kus konfigurácie – buď ho posielame, alebo nie.
  */
 class DeveloperController extends Controller
 {
     public function index(): Response
     {
         $products = Product::query()
-            // Zmazané sa nefiltrujú preč: bez nich by sa z koša nedali
-            // dostať späť a v UI by po zmazaní ticho zmizli.
-            ->with([
-                'serviceClients' => fn ($q) => $q->withTrashed(),
-                'webhookEndpoints' => fn ($q) => $q->withTrashed(),
-            ])
+            ->with(['serviceClients', 'webhookEndpoints'])
             ->get()
             ->map(fn (Product $product) => [
                 'key' => $product->key,
@@ -42,7 +38,7 @@ class DeveloperController extends Controller
                     'abilities' => $client->abilities ?? [],
                     'last_used_at' => $client->last_used_at?->diffForHumans(),
                     'revoked' => $client->isRevoked(),
-                    ...Abilities::payload($client, [...Abilities::STANDARD, 'revoke', 'unrevoke']),
+                    ...Abilities::payload($client, ['update', 'delete', 'revoke', 'unrevoke']),
                 ]),
                 'webhooks' => $product->webhookEndpoints->map(fn (WebhookEndpoint $endpoint) => [
                     'id' => $endpoint->id,
@@ -50,7 +46,7 @@ class DeveloperController extends Controller
                     'events' => $endpoint->events ?? ['*'],
                     'is_active' => $endpoint->is_active,
                     'secret_preview' => substr($endpoint->secret, 0, 12).'…',
-                    ...Abilities::payload($endpoint),
+                    ...Abilities::payload($endpoint, ['update', 'delete']),
                 ]),
             ]);
 
@@ -195,24 +191,6 @@ class DeveloperController extends Controller
         return back()->with('success', __('actions.flash.deleted'));
     }
 
-    public function restoreToken(ServiceClient $client): RedirectResponse
-    {
-        $this->authorize('restore', $client);
-
-        $client->restore();
-
-        return back()->with('success', __('actions.flash.restored'));
-    }
-
-    public function forceDeleteToken(ServiceClient $client): RedirectResponse
-    {
-        $this->authorize('forceDelete', $client);
-
-        $client->forceDelete();
-
-        return back()->with('success', __('actions.flash.force_deleted'));
-    }
-
     /* ---------------------------------------------------------------
      | Webhooky
      |---------------------------------------------------------------*/
@@ -267,23 +245,5 @@ class DeveloperController extends Controller
         $endpoint->delete();
 
         return back()->with('success', __('actions.flash.deleted'));
-    }
-
-    public function restoreWebhook(WebhookEndpoint $endpoint): RedirectResponse
-    {
-        $this->authorize('restore', $endpoint);
-
-        $endpoint->restore();
-
-        return back()->with('success', __('actions.flash.restored'));
-    }
-
-    public function forceDeleteWebhook(WebhookEndpoint $endpoint): RedirectResponse
-    {
-        $this->authorize('forceDelete', $endpoint);
-
-        $endpoint->forceDelete();
-
-        return back()->with('success', __('actions.flash.force_deleted'));
     }
 }

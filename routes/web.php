@@ -193,28 +193,15 @@ Route::middleware('auth')->group(function () {
     Route::get('developers', [DeveloperController::class, 'index'])->name('developers.index');
 
     Route::post('developers/tokens', [DeveloperController::class, 'storeToken'])->name('developers.tokens.store');
-    // Aj token v koši sa dá otvoriť – opraviť oprávnenia pred obnovením
-    // je bežnejšie než najprv obnoviť a až potom zisťovať, čo mu chýba.
-    Route::get('developers/tokens/{client}/edit', [DeveloperController::class, 'editToken'])
-        ->withTrashed()->name('developers.tokens.edit');
-    Route::patch('developers/tokens/{client}', [DeveloperController::class, 'updateToken'])
-        ->withTrashed()->name('developers.tokens.update');
+    Route::get('developers/tokens/{client}/edit', [DeveloperController::class, 'editToken'])->name('developers.tokens.edit');
+    Route::patch('developers/tokens/{client}', [DeveloperController::class, 'updateToken'])->name('developers.tokens.update');
     Route::post('developers/tokens/{client}/revoke', [DeveloperController::class, 'revokeToken'])->name('developers.tokens.revoke');
     Route::post('developers/tokens/{client}/unrevoke', [DeveloperController::class, 'unrevokeToken'])->name('developers.tokens.unrevoke');
     Route::delete('developers/tokens/{client}', [DeveloperController::class, 'destroyToken'])->name('developers.tokens.destroy');
-    Route::post('developers/tokens/{client}/restore', [DeveloperController::class, 'restoreToken'])
-        ->withTrashed()->name('developers.tokens.restore');
-    Route::delete('developers/tokens/{client}/force', [DeveloperController::class, 'forceDeleteToken'])
-        ->withTrashed()->name('developers.tokens.force-delete');
 
     Route::post('developers/webhooks', [DeveloperController::class, 'storeWebhook'])->name('developers.webhooks.store');
-    Route::patch('developers/webhooks/{endpoint}', [DeveloperController::class, 'updateWebhook'])
-        ->withTrashed()->name('developers.webhooks.update');
+    Route::patch('developers/webhooks/{endpoint}', [DeveloperController::class, 'updateWebhook'])->name('developers.webhooks.update');
     Route::delete('developers/webhooks/{endpoint}', [DeveloperController::class, 'destroyWebhook'])->name('developers.webhooks.destroy');
-    Route::post('developers/webhooks/{endpoint}/restore', [DeveloperController::class, 'restoreWebhook'])
-        ->withTrashed()->name('developers.webhooks.restore');
-    Route::delete('developers/webhooks/{endpoint}/force', [DeveloperController::class, 'forceDeleteWebhook'])
-        ->withTrashed()->name('developers.webhooks.force-delete');
 
     /* ---------------- Nastavenia operátora ---------------- */
 

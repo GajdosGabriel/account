@@ -31,7 +31,6 @@ return [
 
     'state' => [
         'revoked' => 'Dieser Token ist widerrufen – das Projekt kommt damit nicht an die API. Über „Token wieder freigeben“ kommt er mit demselben Wert zurück.',
-        'trashed' => 'Dieser Token liegt im Papierkorb. Er kann wiederhergestellt oder endgültig gelöscht werden.',
     ],
 
     'ability' => [

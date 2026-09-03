@@ -31,7 +31,6 @@ return [
 
     'state' => [
         'revoked' => 'This token is revoked – the project cannot reach the API with it. "Re-enable token" brings it back with the same value as before.',
-        'trashed' => 'This token is in the trash. It can be restored or deleted permanently.',
     ],
 
     'ability' => [

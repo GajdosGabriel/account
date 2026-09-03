@@ -18,6 +18,16 @@ use Illuminate\Support\Facades\Schema;
  *                                                       čistia sa dávkovo
  *   organization_product                              – pivot, väzba buď je,
  *                                                       alebo nie je
+ *   service_clients                                   – token sa zruší
+ *                                                       (revoked_at), nie
+ *                                                       zmaže; kôš tu nič
+ *                                                       nerieši
+ *   webhook_endpoints                                 – kus konfigurácie,
+ *                                                       buď posielame, alebo
+ *                                                       nie
+ *
+ * (service_clients a webhook_endpoints kôš krátko mali – odobrala ho
+ *  migrácia 2026_08_30_000000.)
  *
  * Ak by tieto tabuľky dostali `deleted_at`, každý dotaz by musel riešiť
  * scope navyše a nezískali by sme tým nič.
@@ -33,8 +43,6 @@ return new class extends Migration
         'product_features',
         'plans',
         'subscriptions',
-        'service_clients',
-        'webhook_endpoints',
         'entitlement_overrides',
         'invoices',
         'invoice_items',

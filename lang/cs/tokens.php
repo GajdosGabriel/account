@@ -31,7 +31,6 @@ return [
 
     'state' => [
         'revoked' => 'Token je zrušený – projekt přes něj na API neprojde. Přes „Znovu povolit token“ se dá vrátit do hry, hodnota tokenu zůstává stejná.',
-        'trashed' => 'Token je v koši. Lze jej obnovit nebo odstranit natrvalo.',
     ],
 
     'ability' => [

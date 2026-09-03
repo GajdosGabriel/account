@@ -365,7 +365,7 @@ class ProductController extends Controller
     {
         return $request->validate([
             'key' => [
-                'required', 'string', 'max:50', 'regex:/^[a-z0-9-]+$/',
+                'required', 'string', 'max:50', 'regex:/^[a-z0-9_-]+$/',
                 Rule::unique('plans', 'key')->where('product_id', $product->id)->ignore($plan?->id),
             ],
             'name' => ['required', 'string', 'max:255'],

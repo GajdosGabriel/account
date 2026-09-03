@@ -4,7 +4,6 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import RowActions from '../../Components/RowActions.vue';
-import { t } from '../../Composables/useLang';
 import { tokenMenu } from '../../Composables/useTokenActions';
 
 const props = defineProps({
@@ -100,16 +99,13 @@ const submitWebhook = (productKey) => {
                             <tr
                                 v-for="token in product.tokens"
                                 :key="token.id"
-                                :class="token.deleted_at ? 'opacity-50' : (token.revoked ? 'opacity-60' : '')"
+                                :class="token.revoked ? 'opacity-60' : ''"
                             >
                                 <td class="py-2.5 font-medium text-slate-900">
                                     <Link :href="`/developers/tokens/${token.id}/edit`" class="hover:text-brand-700">
                                         {{ token.name }}
                                     </Link>
-                                    <span v-if="token.deleted_at" class="ml-1.5 text-xs font-normal text-slate-400">
-                                        {{ t('actions.trashed') }}
-                                    </span>
-                                    <span v-else-if="token.revoked" class="ml-1.5 text-xs font-normal text-rose-500">zrušený</span>
+                                    <span v-if="token.revoked" class="ml-1.5 text-xs font-normal text-rose-500">zrušený</span>
                                 </td>
                                 <td class="py-2.5 font-mono text-xs text-slate-600">{{ token.prefix }}…</td>
                                 <td class="py-2.5 text-slate-600">{{ token.abilities.join(', ') }}</td>
@@ -117,7 +113,6 @@ const submitWebhook = (productKey) => {
                                 <td class="py-2.5 text-right">
                                     <RowActions
                                         :abilities="token.can"
-                                        :trashed="!!token.deleted_at"
                                         :base="`/developers/tokens/${token.id}`"
                                         :edit-href="`/developers/tokens/${token.id}/edit`"
                                         :name="token.name"
@@ -159,14 +154,10 @@ const submitWebhook = (productKey) => {
                             v-for="hook in product.webhooks"
                             :key="hook.id"
                             class="flex items-center justify-between gap-4 py-3"
-                            :class="hook.deleted_at ? 'opacity-50' : ''"
                         >
                             <div class="min-w-0">
                                 <p class="truncate font-mono text-sm text-slate-900">
                                     {{ hook.url }}
-                                    <span v-if="hook.deleted_at" class="ml-1.5 font-sans text-xs text-slate-400">
-                                        {{ t('actions.trashed') }}
-                                    </span>
                                 </p>
                                 <p class="mt-0.5 text-xs text-slate-500">
                                     {{ hook.events.join(', ') }} · kľúč {{ hook.secret_preview }}
@@ -174,7 +165,6 @@ const submitWebhook = (productKey) => {
                             </div>
                             <RowActions
                                 :abilities="hook.can"
-                                :trashed="!!hook.deleted_at"
                                 :base="`/developers/webhooks/${hook.id}`"
                                 :name="hook.url"
                                 size="sm"
