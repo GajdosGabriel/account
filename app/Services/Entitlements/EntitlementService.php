@@ -75,7 +75,11 @@ class EntitlementService
         $accessible = $organization->isActive() && $status?->grantsAccess();
         $readOnly = $organization->isActive() && ($status?->isReadOnly() ?? false);
 
-        // Pozastavené predplatné = žiadne platené funkcie, iba čítanie.
+        // Pozastavené predplatné = nič nové, ale na to, čo firma už vytvorila,
+        // musí ďalej vidieť. Preto sa zrážajú iba limity (na nulu, takže nový
+        // záznam nepribudne) a prepínače ostávajú, ako ich dáva plán — inak by
+        // projektu zmizli celé sekcie aj s dátami a zákazník by po zaplatení
+        // netušil, kde sa mu stratila práca. Zápis blokuje `read_only`.
         if ($readOnly) {
             $features = $this->downgradeToReadOnly($catalog, $features);
         }
@@ -139,8 +143,13 @@ class EntitlementService
     protected function downgradeToReadOnly($catalog, array $features): array
     {
         foreach ($catalog as $feature) {
-            // vypneme prepínače a limity zrazíme na nulu (nič nové sa nepridá)
-            $features[$feature->key] = $feature->isFlag() ? false : 0;
+            // Limity na nulu — nič nové sa nepridá. Prepínače sa nedotýkame:
+            // projekt podľa nich kreslí navigáciu a keby zhasli, zmizli by
+            // zákazníkovi z dohľadu jeho vlastné dáta. „Nesmie zapisovať"
+            // hovorí `read_only`, nie zhasnutý prepínač.
+            if ($feature->isLimit()) {
+                $features[$feature->key] = 0;
+            }
         }
 
         return $features;

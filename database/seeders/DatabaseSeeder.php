@@ -7,12 +7,48 @@ use App\Models\Plan;
 use App\Models\Product;
 use App\Models\ProductFeature;
 use App\Models\ServiceClient;
+use App\Models\WebhookEndpoint;
 use App\Services\Billing\SubscriptionManager;
 use App\Services\Usage\UsageRecorder;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * Projekty, ktoré sú naozaj pripojené — ich token aj webhookové tajomstvo
+     * určuje `.env` Accountu a tá istá hodnota musí byť v `.env` projektu.
+     *
+     * Kľúč poľa je kľúč produktu; produkt samotný aj s funkciami a plánmi je
+     * definovaný v products(), tu sa dopĺňa len pripojenie.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    protected const CONNECTED = [
+        'samosprava' => [
+            'name' => 'Samospráva',
+            'url' => 'http://samosprava.local',
+            'url_env' => 'SAMOSPRAVA_URL',
+            'token_env' => 'SAMOSPRAVA_SERVICE_TOKEN',
+            'webhook_url_env' => 'SAMOSPRAVA_WEBHOOK_URL',
+            'webhook_secret_env' => 'SAMOSPRAVA_WEBHOOK_SECRET',
+            'abilities' => ['organizations:read', 'organizations:write'],
+            'events' => ['*'],
+        ],
+        'anonymizer' => [
+            'name' => 'Anonymizer',
+            'url' => 'http://anonymizer.local',
+            'url_env' => 'ANONYMIZER_URL',
+            'token_env' => 'ANONYMIZER_SERVICE_TOKEN',
+            'webhook_url_env' => 'ANONYMIZER_WEBHOOK_URL',
+            'webhook_secret_env' => 'ANONYMIZER_WEBHOOK_SECRET',
+            // Anonymizér si ťahá aj entitlements (čo firma smie) a hlási
+            // spotrebu (koľko má členov), preto má oproti Samospráve dve
+            // oprávnenia navyše.
+            'abilities' => ['organizations:read', 'organizations:write', 'entitlements:read', 'usage:write'],
+            'events' => ['*'],
+        ],
+    ];
+
     public function run(): void
     {
         $this->call(AdminUserSeeder::class);
@@ -47,17 +83,30 @@ class DatabaseSeeder extends Seeder
                     ['key' => 'pro', 'name' => 'Pro', 'price' => 7900, 'trial' => 14, 'features' => ['max_records' => null, 'export' => true]],
                 ],
             ],
+            // Anonymizér je freemium: Free nikoho nezamyká, iba nemá úradné sekcie.
+            // Preto sa `default` hodnoty rovnajú plánu Free — firma, ktorá ešte
+            // žiadne predplatné nemá, dostane presne Free, nie prázdny zoznam.
             [
                 'key' => 'anonymizer',
                 'name' => 'Anonymizer',
-                'url' => 'http://anonymizer.local',
+                'url' => env('ANONYMIZER_URL', 'http://anonymizer.local'),
                 'features' => [
-                    ['key' => 'max_projects', 'name' => 'Počet projektov', 'type' => 'limit', 'unit' => 'projektov', 'metric' => 'projects', 'default' => 3],
-                    ['key' => 'api', 'name' => 'Prístup k API', 'type' => 'flag', 'default' => false],
+                    ['key' => 'cases', 'name' => 'Spisy', 'type' => 'flag', 'default' => false],
+                    ['key' => 'registry', 'name' => 'Podateľňa a rozdeľovník', 'type' => 'flag', 'default' => false],
+                    ['key' => 'approvals', 'name' => 'Schvaľovanie zverejnenia', 'type' => 'flag', 'default' => false],
+                    ['key' => 'embed', 'name' => 'Widget a verejný feed', 'type' => 'flag', 'default' => false],
+                    ['key' => 'max_members', 'name' => 'Počet členov organizácie', 'type' => 'limit', 'unit' => 'členov', 'metric' => 'members', 'default' => 3],
                 ],
                 'plans' => [
-                    ['key' => 'basic', 'name' => 'Basic', 'price' => 1900, 'trial' => 0, 'features' => ['max_projects' => 3, 'api' => false]],
-                    ['key' => 'team', 'name' => 'Team', 'price' => 4900, 'trial' => 14, 'features' => ['max_projects' => 25, 'api' => true]],
+                    ['key' => 'free', 'name' => 'Free', 'price' => 0, 'trial' => 0, 'features' => [
+                        'cases' => false, 'registry' => false, 'approvals' => false, 'embed' => false, 'max_members' => 3,
+                    ]],
+                    ['key' => 'standard', 'name' => 'Standard', 'price' => 2900, 'trial' => 14, 'features' => [
+                        'cases' => true, 'registry' => true, 'approvals' => false, 'embed' => false, 'max_members' => 15,
+                    ]],
+                    ['key' => 'pro', 'name' => 'Pro', 'price' => 7900, 'trial' => 14, 'features' => [
+                        'cases' => true, 'registry' => true, 'approvals' => true, 'embed' => true, 'max_members' => null,
+                    ]],
                 ],
             ],
             [
@@ -113,7 +162,13 @@ class DatabaseSeeder extends Seeder
                 );
             }
 
-            if ($product->serviceClients()->count() === 0) {
+            // Projektu s pevným tokenom demo token nevydávame. Inak by ho tu
+            // dostal ako prvý, poistka „už jeden token má" by neskôr v
+            // connectedProjects() zabrala a pevná hodnota zo `.env` by sa
+            // nikdy nezaregistrovala — projekt by dostával 401, hoci má v
+            // konfigurácii správny token.
+            if (! array_key_exists($definition['key'], self::CONNECTED)
+                && $product->serviceClients()->count() === 0) {
                 [, $plain] = ServiceClient::issue($product, 'lokálny vývoj');
                 $this->command?->line("  {$product->name}: {$plain}");
             }
@@ -127,31 +182,75 @@ class DatabaseSeeder extends Seeder
     /**
      * Skutočné pripojené projekty (nie demo dáta) – ich token je pevný,
      * lebo musí sedieť s `ACCOUNT_TOKEN` v `.env` daného projektu.
+     *
+     * Pravda o tokene je v `.env`, nie v databáze. Preto databázu môžeš
+     * kedykoľvek premazať a po seede sa tá istá hodnota zaregistruje znova.
      */
     protected function connectedProjects(): void
     {
-        $product = Product::updateOrCreate(
-            ['key' => 'samosprava'],
-            [
-                'name' => 'Samospráva',
-                'url' => env('SAMOSPRAVA_URL', 'http://samosprava.local'),
-                'is_active' => true,
-            ],
-        );
+        foreach (self::CONNECTED as $key => $project) {
+            $product = Product::updateOrCreate(
+                ['key' => $key],
+                [
+                    'name' => $project['name'],
+                    'url' => env($project['url_env'], $project['url']),
+                    'is_active' => true,
+                ],
+            );
 
-        $plain = env('SAMOSPRAVA_SERVICE_TOKEN');
+            $this->fixedToken($product, $project);
+            $this->webhookEndpoint($product, $project);
+        }
+    }
 
+    /**
+     * @param  array<string, mixed>  $project
+     */
+    protected function fixedToken(Product $product, array $project): void
+    {
+        $plain = env($project['token_env']);
+
+        // Poistka proti duplicitám pri opakovanom seede. Pozor: práve kvôli nej
+        // sa v products() demo token pripojeným projektom nevydáva.
         if (! $plain || $product->serviceClients()->whereNull('revoked_at')->exists()) {
             return;
         }
 
         ServiceClient::create([
             'product_id' => $product->id,
-            'name' => 'samosprava (produkcia)',
+            'name' => "{$product->key} (pevný token)",
             'token_prefix' => substr($plain, 0, 12),
             'token_hash' => hash('sha256', $plain),
-            'abilities' => ['organizations:read', 'organizations:write'],
+            'abilities' => $project['abilities'],
         ]);
+
+        $this->command?->line("  {$product->name}: pevný token zo `.env` zaregistrovaný");
+    }
+
+    /**
+     * Opačný smer: kam má Account posielať oznámenia o zmene predplatného.
+     *
+     * `secret` je to isté tajomstvo, ktoré projekt pozná ako
+     * `ACCOUNT_WEBHOOK_SECRET` – bez zhody projekt podpis neoverí a webhook
+     * zahodí ako podvrh.
+     *
+     * @param  array<string, mixed>  $project
+     */
+    protected function webhookEndpoint(Product $product, array $project): void
+    {
+        $url = env($project['webhook_url_env']);
+        $secret = env($project['webhook_secret_env']);
+
+        if (! $url || ! $secret) {
+            return;
+        }
+
+        WebhookEndpoint::updateOrCreate(
+            ['product_id' => $product->id, 'url' => $url],
+            ['secret' => $secret, 'events' => $project['events'], 'is_active' => true],
+        );
+
+        $this->command?->line("  {$product->name}: webhook → {$url}");
     }
 
     /**
@@ -205,10 +304,10 @@ class DatabaseSeeder extends Seeder
 
         // anonymizer: po splatnosti, beží grace perióda
         $ukazka->linkTo($products['anonymizer']);
-        $plan = Plan::whereRelation('product', 'key', 'anonymizer')->where('key', 'team')->first();
+        $plan = Plan::whereRelation('product', 'key', 'anonymizer')->where('key', 'standard')->first();
         $subscription = $manager->subscribe($ukazka, $plan);
         $manager->markPastDue($subscription, 'seed');
-        $usage->record($ukazka, $products['anonymizer'], ['projects' => 12]);
+        $usage->record($ukazka, $products['anonymizer'], ['members' => 9]);
 
         // samosprava: nad limitom po znížení plánu
         $ukazka->linkTo($products['samosprava']);

@@ -52,7 +52,7 @@ class EntitlementTest extends TestCase
         $this->assertSame(15, $resolved['usage']['records']);
     }
 
-    public function test_pozastavene_predplatne_vypne_funkcie(): void
+    public function test_pozastavene_predplatne_zrazi_limity_ale_necha_prepinace(): void
     {
         [$organization, $product] = $this->scenario(['max_records' => 100, 'export' => true]);
 
@@ -66,8 +66,12 @@ class EntitlementTest extends TestCase
 
         $this->assertFalse($resolved['access']);
         $this->assertTrue($resolved['read_only']);
-        $this->assertFalse($resolved['features']['export']);
+        // Limit na nule = nič nové nepribudne.
         $this->assertSame(0, $resolved['features']['max_records']);
+        // Prepínač ostáva zapnutý: projekt podľa neho kreslí navigáciu a
+        // zákazník musí na svoje dáta vidieť aj počas pozastavenia. Zápis
+        // blokuje `read_only`, nie zhasnutý prepínač.
+        $this->assertTrue($resolved['features']['export']);
     }
 
     public function test_firma_bez_vazby_na_projekt_nema_pristup(): void
