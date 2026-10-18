@@ -95,13 +95,17 @@ sudo chown gabriel:account bootstrap/cache/config.php && sudo chmod 640 bootstra
 sudo systemctl restart php8.4-fpm
 ```
 
-Frontend je Inertia + Vite a `public/build` je v `.gitignore`, takže **build sa
-robí lokálne a nahráva sa cez `scp`**:
+Frontend je Inertia + Vite. Node na serveri nainštalovaný nie je, preto sa
+**`public/build` commituje** a na server ide spolu s kódom cez `git pull`.
+
+Build robí lokálne git hook `.githooks/pre-commit`: keď commit mení
+`resources/js`, `resources/css`, `resources/views`, `package*.json` alebo
+`vite.config.js`, spustí `npm run build` a pridá `public/build` do commitu.
+Zapnutie (raz na klon):
 
 ```bash
-npm run build
-scp -r public/build gabriel@78.47.38.184:/var/www/account/public/
+git config core.hooksPath .githooks
 ```
 
-Node na serveri nainštalovaný nie je. Build trvá ~2 s a má ~420 KB, takže sa to
-neoplatí meniť.
+Bez hooku sa zmena vo Vue na web nedostane a nič na to neupozorní — server
+ďalej servíruje starý `app.js` (tak „zmizol“ inbox).

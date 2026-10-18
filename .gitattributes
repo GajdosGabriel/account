@@ -1,0 +1,6 @@
+# Výstup Vite sa commituje (deploy je git pull, na serveri nie je Node).
+# Bez prevodu koncov riadkov a bez diffu – je to generovaný súbor.
+public/build/** -text -diff linguist-generated
+
+# Hook musí mať na serveri aj u ďalších vývojárov LF, inak ho sh nespustí.
+.githooks/* text eol=lf

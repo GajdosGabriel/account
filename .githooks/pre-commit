@@ -1,0 +1,33 @@
+#!/bin/sh
+# Prestavia public/build, keď commit mení frontend.
+#
+# Na serveri nie je Node a deploy robí git pull, takže public/build sa
+# commituje. Zmena vo Vue bez nového buildu by sa na web nedostala –
+# a nič by na to neupozornilo (tak „zmizol“ inbox).
+#
+# Zapnutie (raz na klon): git config core.hooksPath .githooks
+# Preskočenie v núdzi:    git commit --no-verify
+
+# resources/views kvôli Tailwindu – triedy z Blade šablón idú do CSS.
+UI_PATHS="resources/js resources/css resources/views package.json package-lock.json vite.config.js"
+
+staged=$(git diff --cached --name-only -- $UI_PATHS)
+[ -z "$staged" ] && exit 0
+
+# Build berie pracovný strom, nie index. Keby bola časť zmien nestagnutá,
+# build by obsahoval niečo iné, než čo ide do commitu.
+unstaged=$(git diff --name-only -- $UI_PATHS)
+if [ -n "$unstaged" ]; then
+  echo "pre-commit: vo frontende sú nestagnuté zmeny, build by nesedel s commitom:" >&2
+  echo "$unstaged" | sed 's/^/  /' >&2
+  echo "Pridaj ich (git add) alebo odlož (git stash --keep-index)." >&2
+  exit 1
+fi
+
+echo "pre-commit: zmena vo frontende, staviam public/build…"
+npm run build --silent -- --logLevel warn || {
+  echo "pre-commit: build zlyhal, commit sa nevytvoril." >&2
+  exit 1
+}
+
+git add -A public/build
