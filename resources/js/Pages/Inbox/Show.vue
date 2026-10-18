@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import CardSection from '../../Components/CardSection.vue';
 import StatusBadge from '../../Components/StatusBadge.vue';
@@ -52,6 +52,25 @@ const body = (message) => {
     return message.text;
 };
 
+const title = computed(() => props.conversation.ref_label || props.conversation.subject || props.conversation.contact_email);
+
+// Predmet správy ukážeme len vtedy, keď hovorí niečo iné ako nadpis vlákna.
+const normalize = (text) => (text ?? '').replace(/^\s*((re|fw|fwd|aw|wg|odp|tr)\s*:\s*)+/i, '').trim().toLowerCase();
+const showSubject = (message) => message.subject && !normalize(title.value).includes(normalize(message.subject));
+
+const replySubject = computed(() => {
+    const subject = props.conversation.subject ?? '';
+
+    return /^re:/i.test(subject) ? subject : `Re: ${subject}`;
+});
+
+// Ctrl/⌘ + Enter odošle odpoveď bez siahania po myši.
+const sendShortcut = (event) => {
+    if ((event.ctrlKey || event.metaKey) && !replyForm.processing && replyForm.text.trim()) {
+        sendReply();
+    }
+};
+
 const hasQuote = (message) => message.direction === 'in'
     && message.reply_text
     && message.text
@@ -59,7 +78,7 @@ const hasQuote = (message) => message.direction === 'in'
 </script>
 
 <template>
-    <Head :title="conversation.contact_email" />
+    <Head :title="title" />
 
     <div class="mb-6">
         <Link href="/inbox" class="text-sm text-slate-500 hover:text-slate-900">‹ {{ t('messaging.inbox.back') }}</Link>
@@ -67,7 +86,7 @@ const hasQuote = (message) => message.direction === 'in'
         <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
             <div class="min-w-0">
                 <h1 class="truncate text-2xl font-semibold tracking-tight text-slate-900">
-                    {{ conversation.ref_label || conversation.subject || conversation.contact_email }}
+                    {{ title }}
                 </h1>
                 <p class="mt-1.5 text-sm text-slate-500">
                     <span class="font-medium text-slate-700">{{ conversation.contact_name || conversation.contact_email }}</span>
@@ -84,7 +103,7 @@ const hasQuote = (message) => message.direction === 'in'
                     <Icon name="external" :size="15" />
                     {{ t('messaging.inbox.open_in_project') }}
                 </a>
-                <select :value="conversation.status" class="w-auto py-1.5" :title="t('messaging.inbox.change_status')" @change="changeStatus">
+                <select :value="conversation.status" class="w-auto py-1.5" :title="t('messaging.inbox.change_status')" :aria-label="t('messaging.inbox.change_status')" @change="changeStatus">
                     <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                 </select>
             </div>
@@ -129,12 +148,12 @@ const hasQuote = (message) => message.direction === 'in'
                         </p>
                     </div>
                     <div class="flex items-center gap-2">
-                        <span class="text-xs text-slate-400">{{ when(message.created_at) }}</span>
+                        <time :datetime="message.created_at" class="text-xs text-slate-500">{{ when(message.created_at) }}</time>
                         <StatusBadge :status="message.status" :label="message.status_label" :tone="message.status_tone" />
                     </div>
                 </header>
 
-                <p v-if="message.subject" class="mt-3 text-sm font-medium text-slate-700">{{ message.subject }}</p>
+                <p v-if="showSubject(message)" class="mt-3 text-sm font-medium text-slate-700">{{ message.subject }}</p>
                 <div class="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-slate-800">{{ body(message) }}</div>
 
                 <button v-if="hasQuote(message)" type="button" class="mt-2 text-xs text-slate-500 hover:text-slate-900" @click="toggle(message.id)">
@@ -163,14 +182,23 @@ const hasQuote = (message) => message.direction === 'in'
                 <form v-else class="space-y-3" @submit.prevent="sendReply">
                     <div>
                         <label for="reply_subject">{{ t('messaging.inbox.reply_subject') }}</label>
-                        <input id="reply_subject" v-model="replyForm.subject" type="text" :placeholder="/^re:/i.test(conversation.subject ?? '') ? conversation.subject : `Re: ${conversation.subject ?? ''}`" />
+                        <input id="reply_subject" v-model="replyForm.subject" type="text" :placeholder="replySubject" />
                         <InputError :message="replyForm.errors.subject" />
                     </div>
                     <div>
-                        <textarea v-model="replyForm.text" rows="6" :placeholder="t('messaging.inbox.reply_placeholder')" required></textarea>
+                        <label for="reply_text">{{ t('messaging.inbox.reply_text') }}</label>
+                        <textarea
+                            id="reply_text"
+                            v-model="replyForm.text"
+                            rows="6"
+                            :placeholder="t('messaging.inbox.reply_placeholder')"
+                            required
+                            @keydown.enter="sendShortcut"
+                        ></textarea>
                         <InputError :message="replyForm.errors.text" />
                     </div>
-                    <div class="flex justify-end">
+                    <div class="flex items-center justify-end gap-3">
+                        <span class="hidden text-xs text-slate-500 sm:inline">{{ t('messaging.inbox.reply_shortcut') }}</span>
                         <button type="submit" class="btn-primary" :disabled="replyForm.processing || !replyForm.text.trim()">
                             <Icon name="send" :size="16" />
                             {{ replyForm.processing ? t('messaging.inbox.reply_sending') : t('messaging.inbox.reply_send') }}
@@ -181,6 +209,30 @@ const hasQuote = (message) => message.direction === 'in'
         </div>
 
         <aside class="space-y-4">
+            <CardSection :title="t('messaging.inbox.details_title')">
+                <dl class="-my-1 space-y-2.5 text-sm">
+                    <div>
+                        <dt class="text-xs text-slate-500">{{ t('messaging.inbox.contact') }}</dt>
+                        <dd class="break-words text-slate-800">
+                            <span v-if="conversation.contact_name" class="font-medium">{{ conversation.contact_name }}<br /></span>
+                            <a :href="`mailto:${conversation.contact_email}`" class="link font-normal">{{ conversation.contact_email }}</a>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt class="text-xs text-slate-500">{{ t('messaging.inbox.product') }}</dt>
+                        <dd class="text-slate-800">{{ conversation.product }}</dd>
+                    </div>
+                    <div v-if="conversation.organization">
+                        <dt class="text-xs text-slate-500">{{ t('messaging.inbox.organization') }}</dt>
+                        <dd><Link :href="`/organizations/${conversation.organization_id}`" class="link font-normal">{{ conversation.organization }}</Link></dd>
+                    </div>
+                    <div v-if="conversation.mailbox">
+                        <dt class="text-xs text-slate-500">{{ t('messaging.inbox.mailbox') }}</dt>
+                        <dd class="break-words text-slate-800">{{ conversation.mailbox }}</dd>
+                    </div>
+                </dl>
+            </CardSection>
+
             <CardSection :title="t('messaging.inbox.related_title')">
                 <ul v-if="related.length" class="-my-2 divide-y divide-slate-100">
                     <li v-for="c in related" :key="c.id" class="py-2">
@@ -196,9 +248,6 @@ const hasQuote = (message) => message.direction === 'in'
                 <p v-else class="text-sm text-slate-500">{{ t('messaging.inbox.related_empty') }}</p>
             </CardSection>
 
-            <div v-if="conversation.mailbox" class="px-1 text-xs text-slate-400">
-                {{ t('messaging.inbox.mailbox') }}: {{ conversation.mailbox }}
-            </div>
         </aside>
     </div>
 </template>

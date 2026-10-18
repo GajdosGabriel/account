@@ -32,9 +32,18 @@ const submit = () => {
     router.get('/inbox', query, { preserveState: true, preserveScroll: true, replace: true });
 };
 
+// Záložky sa správajú ako záložky – klik na aktívnu nič nezruší.
 const setStatus = (status) => {
-    form.value.status = form.value.status === status ? null : status;
+    if (form.value.status === status) return;
+    form.value.status = status;
     submit();
+};
+
+const clearFilters = () => {
+    const hadSearch = form.value.search !== '';
+    form.value = { search: '', product: null, status: null };
+    // Zmenu hľadania odošle watcher, inak treba odoslať hneď.
+    if (!hadSearch) submit();
 };
 
 const hasFilters = computed(() => Object.values(form.value).some((v) => v !== '' && v != null));
@@ -46,15 +55,22 @@ const tabs = computed(() => [
     { value: 'unassigned', label: t('messaging.inbox.unassigned'), count: props.counts.unassigned },
 ]);
 
+// Dnes len čas, tento rok bez roka, staršie s celým rokom.
 const when = (iso) => {
     if (!iso) return '';
     const date = new Date(iso);
-    const today = new Date().toDateString() === date.toDateString();
+    const now = new Date();
+    const today = now.toDateString() === date.toDateString();
+    const thisYear = now.getFullYear() === date.getFullYear();
 
     return new Intl.DateTimeFormat(locale(), today
         ? { hour: '2-digit', minute: '2-digit' }
-        : { day: 'numeric', month: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' }).format(date);
+        : { day: 'numeric', month: 'numeric', ...(thisYear ? {} : { year: 'numeric' }), hour: '2-digit', minute: '2-digit' }).format(date);
 };
+
+// Predmet „Re: Objednávka …“ len zopakuje názov veci – vtedy ho netreba.
+const normalize = (text) => (text ?? '').replace(/^\s*((re|fw|fwd|aw|wg|odp|tr)\s*:\s*)+/i, '').trim().toLowerCase();
+const showSubject = (c) => c.subject && (!c.assigned || !normalize(c.ref_label).includes(normalize(c.subject)));
 </script>
 
 <template>
@@ -79,6 +95,7 @@ const when = (iso) => {
                 :class="form.status === tab.value
                     ? 'bg-brand-600 text-white'
                     : 'border border-slate-200 text-slate-700 hover:bg-slate-50'"
+                :aria-pressed="form.status === tab.value"
                 @click="setStatus(tab.value)"
             >
                 {{ tab.label }}
@@ -92,16 +109,17 @@ const when = (iso) => {
 
         <div class="grid gap-3 md:grid-cols-3">
             <div class="md:col-span-2">
-                <input v-model="form.search" type="text" :placeholder="t('messaging.inbox.search_placeholder')" />
+                <input v-model="form.search" type="search" :placeholder="t('messaging.inbox.search_placeholder')" :aria-label="t('messaging.inbox.search_placeholder')" />
             </div>
-            <select v-model="form.product" @change="submit">
+            <select v-model="form.product" :aria-label="t('messaging.inbox.product')" @change="submit">
                 <option :value="null">{{ t('messaging.inbox.all_products') }}</option>
                 <option v-for="p in products" :key="p.key" :value="p.key">{{ p.name }}</option>
             </select>
         </div>
 
-        <p v-if="hasFilters" class="mt-3 text-sm text-slate-400">
+        <p v-if="hasFilters" class="mt-3 flex items-center gap-3 text-sm text-slate-500">
             {{ t('messaging.inbox.found', { count: conversations.total }) }}
+            <button type="button" class="link" @click="clearFilters">{{ t('messaging.inbox.clear_filters') }}</button>
         </p>
     </div>
 
@@ -116,7 +134,7 @@ const when = (iso) => {
                     <span
                         class="mt-1.5 h-2 w-2 shrink-0 rounded-full"
                         :class="c.unread ? 'bg-amber-500' : 'bg-transparent'"
-                    ></span>
+                    ><span v-if="c.unread" class="sr-only">{{ t('messaging.inbox.unread') }}</span></span>
 
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-baseline gap-x-2">
@@ -130,13 +148,13 @@ const when = (iso) => {
                             <span v-else class="rounded bg-rose-50 px-1.5 py-0.5 text-xs font-medium text-rose-700">
                                 {{ t('messaging.inbox.unassigned_badge') }}
                             </span>
-                            <span v-if="c.subject" class="text-slate-400"> · {{ c.subject }}</span>
+                            <span v-if="showSubject(c)" class="text-slate-500"> · {{ c.subject }}</span>
                         </div>
                         <div v-if="c.organization" class="mt-0.5 truncate text-xs text-slate-400">{{ c.organization }}</div>
                     </div>
 
                     <div class="flex shrink-0 flex-col items-end gap-1.5">
-                        <span class="text-xs text-slate-400">{{ when(c.last_message_at) }}</span>
+                        <time :datetime="c.last_message_at" class="text-xs text-slate-500">{{ when(c.last_message_at) }}</time>
                         <div class="flex items-center gap-1.5">
                             <span class="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-600">{{ c.product }}</span>
                             <StatusBadge :status="c.status" :label="c.status_label" :tone="c.status_tone" />
@@ -144,8 +162,12 @@ const when = (iso) => {
                     </div>
                 </Link>
             </li>
-            <li v-if="conversations.data.length === 0" class="px-4 py-10 text-center text-sm text-slate-500">
-                {{ t('messaging.inbox.empty') }}
+            <li v-if="conversations.data.length === 0" class="px-4 py-12 text-center text-sm text-slate-500">
+                <span class="chip mx-auto mb-3 h-11 w-11 bg-slate-100 text-slate-400"><Icon name="inbox" :size="20" /></span>
+                {{ hasFilters ? t('messaging.inbox.empty_filtered') : t('messaging.inbox.empty') }}
+                <div v-if="hasFilters" class="mt-3">
+                    <button type="button" class="btn-secondary btn-sm" @click="clearFilters">{{ t('messaging.inbox.clear_filters') }}</button>
+                </div>
             </li>
         </ul>
 
