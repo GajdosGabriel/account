@@ -14,6 +14,9 @@ cez Composer – je to obyčajný kód, ktorý si prispôsobíš.
 | `Http/OrganizationProxyController.php` | `app/Http/Controllers/` |
 | `Http/AccountWebhookController.php` | `app/Http/Controllers/` |
 | `ReportUsage.php` | `app/Console/Commands/` |
+| `Services/AccountMessageRejected.php` | `app/Services/` |
+| `Notifications/AccountMailChannel.php` | `app/Notifications/` |
+| `Events/AccountMessageEvent.php` | `app/Events/` |
 
 ## Nastavenie
 
@@ -74,6 +77,70 @@ nie stratiť prístup k vlastnej práci.
     </div>
 @endif
 ```
+
+## Komunikácia s klientmi (e-maily cez Account)
+
+Mail, na ktorý čakáš odpoveď, pošli cez Account. Odpoveď ti príde webhookom a operátor ju
+uvidí v spoločnom Inboxe. Token potrebuje `messages:write` a `messages:read`, webhook
+endpoint udalosti `message.*`. Projekt musí mať v Accounte schránku (Inbox → Schránky).
+
+Existujúca notifikácia sa mení len v `via()` a pribudne `accountRef()`:
+
+```php
+class CanalContactNotice extends Notification implements ShouldQueue
+{
+    public function via($notifiable): array
+    {
+        return [AccountMailChannel::class];
+    }
+
+    public function toMail($notifiable): MailMessage   // ostáva, ako bola
+    {
+        return (new MailMessage)->subject('Overenie kontaktu')->view('mail.contact', [...]);
+    }
+
+    public function accountRef($notifiable): array
+    {
+        return [
+            'type' => 'canal',
+            'id' => $this->canal->id,
+            'label' => 'Kanál: '.$this->canal->name,            // toto uvidíš v Inboxe
+            'url' => config('app.admin_url').'/canals/'.$this->canal->id,
+        ];
+    }
+
+    public function accountKind(): string { return 'canal.contact_verify'; }   // voliteľné
+}
+
+Notification::route('mail', $email)->notify(new CanalContactNotice($canal));
+```
+
+Notifikácia má byť `ShouldQueue`. Keď Account nebeží, fronta to skúsi znova. Blokovanú
+adresu (`suppressed`) kanál len zaloguje a neopakuje.
+
+Odpovede spracuje listener:
+
+```php
+// AppServiceProvider::boot()
+Event::listen(function (AccountMessageEvent $e) {
+    if ($e->refType() !== 'canal' || ! $canal = Canal::find($e->refId())) {
+        return;                       // nie je naše / vec medzičasom zmizla
+    }
+
+    match ($e->event) {
+        'message.received' => app(CanalEmails::class)->recordReply($canal, $e->email()),
+        'message.bounced'  => app(CanalEmails::class)->recordBounce($canal, $e->email(), $e->message['bounce_type'] ?? 'hard'),
+        default => null,
+    };
+});
+```
+
+Vlákno k veci si projekt môže zobraziť aj u seba: `AccountClient::conversations('canal', $id)`
+a `AccountClient::conversation($uuid)`. Odhlásenie z e-mailov nahlás cez
+`AccountClient::suppress($email)`.
+
+**Čo cez Account neposielať:** reset hesla, overenie registrácie, hromadné kampane. Tie
+majú fungovať aj vtedy, keď Account nebeží.
 
 ## Jazyk hlášok
 

@@ -53,5 +53,13 @@ return [
             'label' => 'Hlásenie spotreby',
             'description' => 'Zápis nameranej spotreby k metrikám z katalógu.',
         ],
+        'messages:write' => [
+            'label' => 'Odosielanie správ',
+            'description' => 'Odoslanie e-mailu klientovi cez schránku projektu a správa blokovaných adries.',
+        ],
+        'messages:read' => [
+            'label' => 'Čítanie konverzácií',
+            'description' => 'Konverzácie a správy k veciam projektu, stav blokovania adresy.',
+        ],
     ],
 ];

@@ -10,6 +10,7 @@ return [
         'products' => 'Projekty',
         'invoices' => 'Faktúry',
         'developers' => 'API a webhooky',
+        'inbox' => 'Inbox',
         'settings' => 'Nastavenia účtu',
         'logout' => 'Odhlásiť sa',
     ],

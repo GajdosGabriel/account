@@ -5,6 +5,8 @@ use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeveloperController;
+use App\Http\Controllers\InboxController;
+use App\Http\Controllers\MailboxController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OrganizationAddressController;
@@ -39,6 +41,12 @@ Route::get('organizations/{organization}/billing-email/verify', [OrganizationCon
     ->middleware(['signed', 'throttle:10,1'])
     ->withTrashed()
     ->name('organizations.billing-email.verify');
+
+// Príloha správy. Odkaz dostane aj projekt vo webhooku, preto podpis
+// namiesto prihlásenia – platí len pár dní.
+Route::get('messaging/attachments/{attachment}', [InboxController::class, 'attachment'])
+    ->middleware(['signed', 'throttle:60,1'])
+    ->name('messaging.attachments.download');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -187,6 +195,21 @@ Route::middleware('auth')->group(function () {
     // Výstupy
     Route::get('invoices/{invoice}/preview', [InvoiceController::class, 'preview'])->name('invoices.preview');
     Route::get('invoices/{invoice}/pdf', [InvoiceController::class, 'download'])->name('invoices.pdf');
+
+    /* ---------------- Komunikácia s klientmi ---------------- */
+
+    // Schránky musia byť pred {conversation}, inak by "mailboxes" spadlo do bindingu.
+    Route::get('inbox/mailboxes', [MailboxController::class, 'index'])->name('mailboxes.index');
+    Route::post('inbox/mailboxes', [MailboxController::class, 'store'])->name('mailboxes.store');
+    Route::patch('inbox/mailboxes/{mailbox}', [MailboxController::class, 'update'])->name('mailboxes.update');
+    Route::delete('inbox/mailboxes/{mailbox}', [MailboxController::class, 'destroy'])->name('mailboxes.destroy');
+    Route::post('inbox/mailboxes/{mailbox}/test', [MailboxController::class, 'test'])->name('mailboxes.test');
+
+    Route::get('inbox', [InboxController::class, 'index'])->name('inbox.index');
+    Route::get('inbox/{conversation}', [InboxController::class, 'show'])->name('inbox.show');
+    Route::post('inbox/{conversation}/reply', [InboxController::class, 'reply'])->name('inbox.reply');
+    Route::post('inbox/{conversation}/status', [InboxController::class, 'status'])->name('inbox.status');
+    Route::post('inbox/{conversation}/merge', [InboxController::class, 'merge'])->name('inbox.merge');
 
     /* ---------------- Tokeny a webhooky ---------------- */
 

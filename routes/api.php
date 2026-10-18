@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\EntitlementApiController;
+use App\Http\Controllers\Api\MessageApiController;
 use App\Http\Controllers\Api\OrganizationApiController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\UsageApiController;
@@ -40,6 +41,19 @@ Route::prefix('v1')->group(function () {
 
     Route::middleware('service:usage:write')->group(function () {
         Route::post('organizations/{organization}/usage', [UsageApiController::class, 'store']);
+    });
+
+    // Konverzačné maily: Account odošle, prijme odpoveď a vráti ju webhookom
+    Route::middleware('service:messages:write')->group(function () {
+        Route::post('messages', [MessageApiController::class, 'store']);
+        Route::post('suppressions', [MessageApiController::class, 'suppress']);
+        Route::delete('suppressions/{email}', [MessageApiController::class, 'unsuppress']);
+    });
+
+    Route::middleware('service:messages:read')->group(function () {
+        Route::get('conversations', [MessageApiController::class, 'index']);
+        Route::get('conversations/{conversation}', [MessageApiController::class, 'show']);
+        Route::get('suppressions/{email}', [MessageApiController::class, 'suppression']);
     });
 });
 

@@ -83,4 +83,20 @@ return [
         'archived' => 'Archiviert',
         'deleted' => 'Gelöscht',
     ],
+
+    'conversation_status' => [
+        'open' => 'Wartet auf uns',
+        'waiting' => 'Wartet auf Kunden',
+        'answered' => 'Beantwortet',
+        'closed' => 'Erledigt',
+    ],
+
+    'message_status' => [
+        'queued' => 'In Warteschlange',
+        'sent' => 'Gesendet',
+        'failed' => 'Nicht gesendet',
+        'bounced' => 'Unzustellbar',
+        'received' => 'Empfangen',
+        'auto_reply' => 'Automatische Antwort',
+    ],
 ];

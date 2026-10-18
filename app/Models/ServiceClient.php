@@ -23,6 +23,8 @@ class ServiceClient extends Model
         'organizations:write',
         'entitlements:read',
         'usage:write',
+        'messages:write',
+        'messages:read',
     ];
 
     protected $fillable = [

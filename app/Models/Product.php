@@ -70,6 +70,18 @@ class Product extends Model
         return $this->hasMany(UsageReport::class);
     }
 
+    /** @return HasMany<Mailbox, $this> */
+    public function mailboxes(): HasMany
+    {
+        return $this->hasMany(Mailbox::class);
+    }
+
+    /** @return HasMany<Conversation, $this> */
+    public function conversations(): HasMany
+    {
+        return $this->hasMany(Conversation::class);
+    }
+
     public function defaultPlan(): ?Plan
     {
         return $this->plans()->where('is_active', true)->first();

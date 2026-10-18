@@ -69,6 +69,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Komunikácia s klientmi projektov
+    |--------------------------------------------------------------------------
+    |
+    | Account posiela maily v mene projektov a číta odpovede z ich IMAP
+    | schránok. Prílohy prichádzajúcich mailov idú na `attachments_disk`.
+    |
+    */
+
+    'messaging' => [
+        'attachments_disk' => env('MESSAGING_ATTACHMENTS_DISK', env('FILESYSTEM_DISK', 'local')),
+        // koľko správ zo schránky spracovať naraz
+        'fetch_batch' => (int) env('MESSAGING_FETCH_BATCH', 50),
+        'max_send_attempts' => 5,
+        'send_backoff' => [60, 300, 900, 3600],
+        'imap_timeout' => 30,
+        // maximálna veľkosť prílohy uloženej z prichádzajúceho mailu (bajty)
+        'max_attachment_size' => 15 * 1024 * 1024,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Fakturacia
     |--------------------------------------------------------------------------
     */

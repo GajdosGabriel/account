@@ -88,4 +88,20 @@ return [
         'archived' => 'Archivovaná',
         'deleted' => 'Zmazaná',
     ],
+
+    'conversation_status' => [
+        'open' => 'Čaká na nás',
+        'waiting' => 'Čaká na klienta',
+        'answered' => 'Zodpovedané',
+        'closed' => 'Vybavené',
+    ],
+
+    'message_status' => [
+        'queued' => 'Vo fronte',
+        'sent' => 'Odoslané',
+        'failed' => 'Neodoslané',
+        'bounced' => 'Nedoručené',
+        'received' => 'Prijaté',
+        'auto_reply' => 'Automatická odpoveď',
+    ],
 ];

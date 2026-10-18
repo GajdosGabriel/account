@@ -17,6 +17,7 @@ const menuOpen = ref(false);
 // Computed, nie konštanta: layout medzi návštevami prežíva, takže po
 // prepnutí jazyka by inak zostali popisky v pôvodnom jazyku.
 const navigation = computed(() => [
+    { name: t('common.nav.inbox'), href: '/inbox', icon: 'inbox', badge: page.props.inbox_unread || null },
     { name: t('common.nav.organizations'), href: '/organizations', icon: 'building' },
     { name: t('common.nav.products'), href: '/products', icon: 'card' },
     { name: t('common.nav.invoices'), href: '/invoices', icon: 'invoice' },
@@ -86,6 +87,7 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
                     >
                         <Icon :name="item.icon" :size="17" />
                         {{ item.name }}
+                        <span v-if="item.badge" class="rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">{{ item.badge }}</span>
                     </Link>
                 </nav>
 
@@ -145,6 +147,7 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
                 >
                     <Icon :name="item.icon" :size="16" />
                     {{ item.name }}
+                    <span v-if="item.badge" class="rounded-full bg-amber-500 px-1.5 text-xs font-semibold text-white">{{ item.badge }}</span>
                 </Link>
             </nav>
         </header>

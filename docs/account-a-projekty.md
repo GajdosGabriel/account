@@ -294,7 +294,62 @@ v dátach a dve verzie tej istej firmy sa potom zlučujú veľmi ťažko.
 
 ---
 
-## 10. Čo spraviť
+## 10. Komunikácia s klientmi projektov
+
+Projekty neposielajú konverzačné maily samy. Mail, na ktorý sa čaká odpoveď (overenie
+kontaktu kanála, grafika na schválenie, otázka k objednávke), pošlú cez Account. Account ho
+odošle zo schránky projektu, prečíta odpoveď a vráti ju projektu webhookom. Všetky
+konverzácie vidí operátor v jednom **Inboxe**.
+
+**Systémové maily ostávajú v projektoch.** Reset hesla, overenie registrácie a hromadné
+kampane sa neposielajú cez Account. Pri výpadku Accountu by inak prestali fungovať aj
+prihlásenia.
+
+### Čo Account vie a čo nie
+
+Account nevie, čo je kanál ani objednávka. Projekt ku každej správe pošle `ref`:
+
+```json
+{ "type": "canal", "id": "123", "label": "Kanál: KC Senica", "url": "https://event.sk/admin/canals/123" }
+```
+
+Konverzácia je kľúčovaná ako **(projekt, ref.type, ref.id, e-mail)**. Ten istý človek
+v dvoch projektoch má dve konverzácie, Account osoby nezlučuje. Inbox ich len označí ako
+„iné konverzácie s týmto kontaktom“. `label` je povinný, inak by v inboxe stálo iba `canal:123`.
+
+### Tok jednej správy
+
+1. Projekt zavolá `POST /api/v1/messages` (cez `AccountMailChannel`). Account založí alebo
+   nájde konverzáciu a mail odošle s vlastným `Message-ID` a hlavičkami `In-Reply-To`/`References`.
+2. Klient odpovie zo svojej pošty na adresu schránky (Reply-To).
+3. Každé 2 minúty `messaging:fetch` prečíta nové maily cez IMAP a spáruje ich:
+   `In-Reply-To`/`References` → hlavička `X-Conversation` → odosielateľ, ak má v projekte
+   práve jednu konverzáciu → inak sa správa označí ako **nepriradená** a priradí ju operátor.
+4. Projekt dostane webhook `message.received` (aj s textom bez citácie, `reply_text`)
+   a urobí, čo treba: potvrdí kontakt, zapíše správu k objednávke…
+5. Operátor odpíše v Inboxe. Account mail pošle do toho istého vlákna a projekt dostane
+   `message.sent` so `source: inbox`.
+
+Správa o nedoručení (bounce) sa rozpozná automaticky. Pri trvalej chybe (5.x.x) sa adresa
+v projekte zablokuje a projekt dostane `message.bounced`. Automatické odpovede
+(„som na dovolenke“) sa uložia, ale konverzáciu neotvoria.
+
+### Nastavenie
+
+| Kde | Čo |
+|---|---|
+| Account → Inbox → Schránky | Pridať schránku projektu: adresa, IMAP (čítanie) a voliteľne SMTP (odosielanie). Pri Gmaile heslo aplikácie. |
+| Account → API a webhooky | Tokenu doplniť `messages:write` a `messages:read`. Webhooku `message.*`. |
+| Server Accountu | Bežiaci plánovač (`schedule:run`) a pre produkciu fronta `QUEUE_CONNECTION=database` s workerom. |
+| Projekt | `AccountMailChannel`, `AccountMessageEvent` a listener – pozri `klient-pre-projekty/README.md`. |
+
+Pri prvom čítaní schránky sa stará pošta preskočí, Account si zapamätá posledné UID. Na
+načítanie histórie slúži `php artisan messaging:fetch --backfill`. Správy v schránke ostávajú
+neprečítané, schránka sa dá ďalej používať aj v bežnom poštovom programe.
+
+---
+
+## 11. Čo spraviť
 
 1. **Rozhodnúť, či majú byť na produkcii demo dáta.** Ak má produkcia ostať čistá, treba
    oddeliť demo seeder od produkčného.

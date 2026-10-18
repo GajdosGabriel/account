@@ -50,5 +50,13 @@ return [
             'label' => 'Hlášení spotřeby',
             'description' => 'Zápis naměřené spotřeby k metrikám z katalogu.',
         ],
+        'messages:write' => [
+            'label' => 'Odesílání zpráv',
+            'description' => 'Odeslání e-mailu klientovi přes schránku projektu a správa blokovaných adres.',
+        ],
+        'messages:read' => [
+            'label' => 'Čtení konverzací',
+            'description' => 'Konverzace a zprávy k věcem projektu, stav blokování adresy.',
+        ],
     ],
 ];

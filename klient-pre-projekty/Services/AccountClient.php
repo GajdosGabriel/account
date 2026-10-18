@@ -179,6 +179,102 @@ class AccountClient
     }
 
     /* ---------------------------------------------------------------
+     | Komunikácia s klientmi
+     |---------------------------------------------------------------*/
+
+    /**
+     * Odošle e-mail klientovi cez schránku projektu v Accounte.
+     *
+     * Odpoveď klienta príde späť webhookom `message.received` s rovnakým
+     * `ref`. Zlyhanie sa vyhadzuje – volaj z fronty (notifikácia
+     * s ShouldQueue), nech sa pri výpadku Accountu skúsi znova.
+     *
+     * Blokovaná adresa (nedoručiteľná, odhlásená) vyhodí
+     * AccountMessageRejected s dôvodom `suppressed` – tú už neopakuj.
+     *
+     * @param  array{
+     *     to: string, subject: string, html?: string, text?: string, to_name?: string,
+     *     ref: array{type: string, id: string|int, label: string, url?: string},
+     *     kind?: string, organization_id?: string, mailbox?: string, conversation?: string,
+     *     meta?: array<string, mixed>, attachments?: array<int, array{filename: string, mime?: string, content: string}>
+     * }  $message  `attachments.*.content` je base64
+     * @return array{conversation: array<string, mixed>, message: array<string, mixed>}
+     */
+    public function sendMessage(array $message): array
+    {
+        $response = $this->request()->timeout(30)->post('/api/v1/messages', $message);
+
+        if ($response->status() === 422 && $response->json('reason')) {
+            throw new AccountMessageRejected($response->json('reason'), (string) $response->json('message'));
+        }
+
+        $this->throwValidationErrors($response);
+
+        return $response->throw()->json('data');
+    }
+
+    /**
+     * Konverzácie k veci v projekte (napr. ku kanálu alebo objednávke).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function conversations(string $refType, string|int $refId): array
+    {
+        try {
+            return $this->request()
+                ->get('/api/v1/conversations', ['ref_type' => $refType, 'ref_id' => (string) $refId])
+                ->throw()
+                ->json('data');
+        } catch (\Throwable $e) {
+            Log::warning('Account: konverzacie sa nepodarilo nacitat', ['error' => $e->getMessage()]);
+
+            return [];
+        }
+    }
+
+    /**
+     * Celé vlákno so správami.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function conversation(string $uuid): ?array
+    {
+        try {
+            return $this->request()->get("/api/v1/conversations/{$uuid}")->throw()->json('data');
+        } catch (\Throwable $e) {
+            Log::warning('Account: konverzaciu sa nepodarilo nacitat', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /** Je adresa v tomto projekte blokovaná (nedoručiteľná, odhlásená)? */
+    public function isSuppressed(string $email): bool
+    {
+        try {
+            return (bool) $this->request()->get('/api/v1/suppressions/'.rawurlencode($email))
+                ->throw()
+                ->json('data.suppressed');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /** Odhlásenie z e-mailov projektu – Account na adresu prestane posielať. */
+    public function suppress(string $email, string $reason = 'unsubscribed', ?string $note = null): void
+    {
+        $this->request()->post('/api/v1/suppressions', array_filter([
+            'email' => $email, 'reason' => $reason, 'note' => $note,
+        ]))->throw();
+    }
+
+    /** Adresa je znova v poriadku (klient ju opravil). */
+    public function unsuppress(string $email): void
+    {
+        $this->request()->delete('/api/v1/suppressions/'.rawurlencode($email))->throw();
+    }
+
+    /* ---------------------------------------------------------------
      | Pomocné
      |---------------------------------------------------------------*/
 

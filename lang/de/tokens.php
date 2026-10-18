@@ -50,5 +50,13 @@ return [
             'label' => 'Verbrauch melden',
             'description' => 'Gemessenen Verbrauch zu Metriken aus dem Katalog schreiben.',
         ],
+        'messages:write' => [
+            'label' => 'Nachrichten senden',
+            'description' => 'E-Mail an Kunden über das Postfach des Projekts senden und gesperrte Adressen verwalten.',
+        ],
+        'messages:read' => [
+            'label' => 'Konversationen lesen',
+            'description' => 'Konversationen und Nachrichten zu Objekten des Projekts, Sperrstatus einer Adresse.',
+        ],
     ],
 ];

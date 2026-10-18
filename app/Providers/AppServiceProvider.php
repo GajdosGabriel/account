@@ -6,6 +6,8 @@ use App\Events\SubscriptionStatusChanged;
 use App\Listeners\BroadcastSubscriptionChange;
 use App\Models\Organization;
 use App\Observers\OrganizationObserver;
+use App\Services\Messaging\ImapMailboxReader;
+use App\Services\Messaging\MailboxReader;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\URL;
@@ -15,7 +17,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind(MailboxReader::class, ImapMailboxReader::class);
     }
 
     public function boot(): void

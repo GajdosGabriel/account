@@ -7,6 +7,7 @@ return [
         'products' => 'Projekte',
         'invoices' => 'Rechnungen',
         'developers' => 'API und Webhooks',
+        'inbox' => 'Posteingang',
         'settings' => 'Kontoeinstellungen',
         'logout' => 'Abmelden',
     ],

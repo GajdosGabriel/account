@@ -50,5 +50,13 @@ return [
             'label' => 'Report usage',
             'description' => 'Record measured usage against metrics from the catalogue.',
         ],
+        'messages:write' => [
+            'label' => 'Send messages',
+            'description' => 'Send e-mail to a client through the project mailbox and manage blocked addresses.',
+        ],
+        'messages:read' => [
+            'label' => 'Read conversations',
+            'description' => 'Conversations and messages about project items, address block status.',
+        ],
     ],
 ];

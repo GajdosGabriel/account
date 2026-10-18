@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Conversation;
 use App\Support\Locales;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Lang;
@@ -45,7 +46,10 @@ class HandleInertiaRequests extends Middleware
                 'dashboard' => Lang::get('dashboard'),
                 'organizations' => Lang::get('organizations'),
                 'invoices' => Lang::get('invoices'),
+                'messaging' => Lang::get('messaging'),
             ],
+            // Odznak pri položke Inbox v navigácii
+            'inbox_unread' => fn () => $user ? Conversation::where('unread_count', '>', 0)->count() : 0,
         ]);
     }
 }

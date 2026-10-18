@@ -7,6 +7,7 @@ return [
         'products' => 'Projects',
         'invoices' => 'Invoices',
         'developers' => 'API and webhooks',
+        'inbox' => 'Inbox',
         'settings' => 'Account settings',
         'logout' => 'Sign out',
     ],
