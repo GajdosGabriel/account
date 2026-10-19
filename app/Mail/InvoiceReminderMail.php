@@ -53,6 +53,9 @@ class InvoiceReminderMail extends Mailable implements ShouldQueue
                 'supplier' => $this->invoice->supplier_snapshot ?: config('invoicing.supplier'),
                 'tone' => $this->tone,
                 'daysOverdue' => $this->invoice->daysOverdue(),
+                'graceDays' => (int) config('invoicing.reminders.final_grace_days', 7),
+                'pdfAttached' => config('invoicing.reminders.attach_pdf', true)
+                    && app(InvoiceRenderer::class)->pdfAvailable(),
             ],
         );
     }
@@ -62,7 +65,7 @@ class InvoiceReminderMail extends Mailable implements ShouldQueue
     {
         $renderer = app(InvoiceRenderer::class);
 
-        if (! $renderer->pdfAvailable()) {
+        if (! config('invoicing.reminders.attach_pdf', true) || ! $renderer->pdfAvailable()) {
             return [];
         }
 

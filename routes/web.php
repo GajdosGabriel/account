@@ -8,6 +8,7 @@ use App\Http\Controllers\DeveloperController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\MailboxController;
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\InvoiceSettingsController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OrganizationAddressController;
 use App\Http\Controllers\OrganizationController;
@@ -161,8 +162,12 @@ Route::middleware('auth')->group(function () {
 
     /* ---------------- Fakturácia ---------------- */
 
-    // Export musí byť pred {invoice}, inak by "export" spadlo do model bindingu.
+    // Export a nastavenia musia byť pred {invoice}, inak by spadli do model bindingu.
     Route::get('invoices/export', [InvoiceController::class, 'export'])->name('invoices.export');
+
+    Route::get('invoices/settings', [InvoiceSettingsController::class, 'edit'])->name('invoices.settings.edit');
+    Route::put('invoices/settings', [InvoiceSettingsController::class, 'update'])->name('invoices.settings.update');
+    Route::delete('invoices/settings', [InvoiceSettingsController::class, 'reset'])->name('invoices.settings.reset');
 
     Route::get('invoices', [InvoiceController::class, 'index'])->name('invoices.index');
     Route::get('invoices/create', [InvoiceController::class, 'create'])->name('invoices.create');

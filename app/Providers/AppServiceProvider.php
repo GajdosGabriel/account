@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Events\SubscriptionStatusChanged;
 use App\Listeners\BroadcastSubscriptionChange;
 use App\Models\Organization;
+use App\Models\Setting;
 use App\Observers\OrganizationObserver;
 use App\Services\Messaging\ImapMailboxReader;
 use App\Services\Messaging\MailboxReader;
@@ -31,6 +32,9 @@ class AppServiceProvider extends ServiceProvider
         if (parse_url((string) config('app.url'), PHP_URL_SCHEME) === 'https') {
             URL::forceScheme('https');
         }
+
+        // Nastavenia z back-office (/invoices/settings) majú prednosť pred .env.
+        Setting::applyToConfig();
 
         Organization::observe(OrganizationObserver::class);
 

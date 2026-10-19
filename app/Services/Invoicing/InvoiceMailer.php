@@ -50,7 +50,14 @@ class InvoiceMailer
             $this->renderer->store($invoice);
         }
 
-        Mail::to($recipient)->send(new InvoiceMail($invoice, $message));
+        $mail = Mail::to($recipient);
+
+        // Skrytá kópia pre účtovníka / archív (Faktúry → Nastavenia).
+        if (filled($bcc = config('invoicing.sending.bcc'))) {
+            $mail->bcc($bcc);
+        }
+
+        $mail->send(new InvoiceMail($invoice, $message));
 
         $invoice->forceFill([
             'status' => $invoice->status === InvoiceStatus::Issued ? InvoiceStatus::Sent : $invoice->status,

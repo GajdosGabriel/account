@@ -94,7 +94,9 @@ class InvoiceController extends Controller
             'can' => [
                 'create' => $request->user()->can('create', Invoice::class),
                 'export' => $request->user()->can('export', Invoice::class),
+                'settings' => $request->user()->can('settings', Invoice::class),
             ],
+            'reminders_enabled' => (bool) config('invoicing.reminders.enabled'),
         ]);
     }
 

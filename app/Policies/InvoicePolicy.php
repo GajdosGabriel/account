@@ -126,6 +126,12 @@ class InvoicePolicy
         return true;
     }
 
+    /** Nastavenia fakturácie (upomienky, predvolené hodnoty…). */
+    public function settings(User $user): bool
+    {
+        return true;
+    }
+
     /* ---------------------------------------------------------------
      | Kôš
      |---------------------------------------------------------------*/

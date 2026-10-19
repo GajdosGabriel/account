@@ -32,13 +32,14 @@ class SendInvoiceReminders extends Command
         }
 
         if (! config('invoicing.reminders.enabled')) {
-            $this->warn('Upomienky sú vypnuté (invoicing.reminders.enabled).');
+            $this->warn('Upomienky sú vypnuté (Faktúry → Nastavenia alebo INVOICE_REMINDERS_ENABLED).');
 
             return self::SUCCESS;
         }
 
         $schedule = config('invoicing.reminders.schedule', []);
         $max = (int) config('invoicing.reminders.max', 3);
+        $minimum = (int) config('invoicing.reminders.min_outstanding_cents', 0);
 
         krsort($schedule); // od najprísnejšej úrovne – aby sa nepreskočila
 
@@ -48,8 +49,13 @@ class SendInvoiceReminders extends Command
         Invoice::query()
             ->overdue()
             ->with(['organization', 'items'])
-            ->each(function (Invoice $invoice) use ($schedule, $max, $dryRun, $mailer, &$sent, &$failed) {
+            ->each(function (Invoice $invoice) use ($schedule, $max, $minimum, $dryRun, $mailer, &$sent, &$failed) {
                 if ($invoice->reminder_count >= $max) {
+                    return;
+                }
+
+                // Nedoplatok pod hranicou sa nevymáha.
+                if ($minimum > 0 && $invoice->outstandingCents() < $minimum) {
                     return;
                 }
 

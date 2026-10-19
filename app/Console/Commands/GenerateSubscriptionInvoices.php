@@ -35,7 +35,7 @@ class GenerateSubscriptionInvoices extends Command
     public function handle(InvoiceService $invoices, InvoiceMailer $mailer): int
     {
         $dryRun = (bool) $this->option('dry-run');
-        $send = (bool) $this->option('send');
+        $send = $this->option('send') || config('invoicing.billing_run.auto_send');
         $issue = $send || $this->option('issue') || config('invoicing.billing_run.auto_issue');
 
         $days = (int) ($this->option('days') ?? config('invoicing.billing_run.issue_days_before', 7));

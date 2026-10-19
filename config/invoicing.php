@@ -117,6 +117,9 @@ return [
     | `php artisan invoices:remind` posiela vždy najviac jednu upomienku denne
     | a nikdy nie tú istú úroveň dvakrát.
     |
+    | Toto a väčšina ďalších hodnôt sa dá prepísať v back-office
+    | (Faktúry → Nastavenia); uložené hodnoty majú prednosť pred .env.
+    |
     */
 
     /*
@@ -149,6 +152,28 @@ return [
         ],
         'max' => 3,
         'copy_to_supplier' => filter_var(env('INVOICE_REMINDERS_COPY', false), FILTER_VALIDATE_BOOL),
+
+        // Drobné nedoplatky (zaokrúhlenie, poplatok banky) sa nevymáhajú.
+        'min_outstanding_cents' => (int) env('INVOICE_REMINDERS_MIN_CENTS', 0),
+
+        // Lehota v poslednej výzve: „ak úhradu neevidujeme do X dní…“
+        'final_grace_days' => (int) env('INVOICE_REMINDERS_FINAL_GRACE_DAYS', 7),
+
+        'attach_pdf' => filter_var(env('INVOICE_REMINDERS_ATTACH_PDF', true), FILTER_VALIDATE_BOOL),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Odosielanie dokladov
+    |--------------------------------------------------------------------------
+    |
+    | Skrytá kópia každej odoslanej faktúry – typicky schránka účtovníka
+    | alebo archív. Prázdne = nikam.
+    |
+    */
+
+    'sending' => [
+        'bcc' => env('INVOICE_BCC', null),
     ],
 
     /*

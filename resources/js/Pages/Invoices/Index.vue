@@ -18,6 +18,7 @@ const props = defineProps({
     organizations: { type: Array, default: () => [] },
     trashed_count: { type: Number, default: 0 },
     can: { type: Object, default: () => ({}) },
+    reminders_enabled: { type: Boolean, default: true },
 });
 
 const form = ref({ ...props.filters });
@@ -98,6 +99,16 @@ const exportUrl = computed(() => {
 
     <PageHeader :title="t('invoices.title')" :subtitle="t('invoices.subtitle')">
         <template #action>
+            <Link
+                v-if="can.settings"
+                href="/invoices/settings"
+                class="btn-secondary"
+                :title="reminders_enabled ? null : t('invoices.settings.reminders.disabled_note')"
+            >
+                <Icon name="settings" :size="16" />
+                {{ t('invoices.settings.link') }}
+                <span v-if="!reminders_enabled" class="h-2 w-2 rounded-full bg-amber-400" aria-hidden="true"></span>
+            </Link>
             <DropdownMenu
                 v-if="can.export"
                 :label="t('invoices.export.label')"

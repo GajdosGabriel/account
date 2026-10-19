@@ -33,7 +33,7 @@
         @if ($tone === 'final')
             faktúra č. <strong style="color:#0f172a;">{{ $invoice->number }}</strong> je
             <strong style="color:{{ $accent }};">{{ $daysOverdue }} dní po splatnosti</strong>.
-            Ak úhradu neevidujeme do siedmich dní, budeme nútení dočasne pozastaviť
+            Ak úhradu neevidujeme do {{ $graceDays }} {{ $graceDays === 1 ? 'dňa' : 'dní' }}, budeme nútení dočasne pozastaviť
             prístup k službe. Radi by sme sa tomu vyhli – ak niečo bráni úhrade,
             ozvite sa nám a nájdeme riešenie.
         @elseif ($tone === 'firm')
@@ -98,7 +98,10 @@
     @endif
 
     <p style="margin:0; font-size:13px; line-height:1.6; color:#64748b;">
-        Kópiu faktúry prikladáme v PDF. Ak je niečo nejasné, stačí odpovedať na tento e-mail.
+        @if ($pdfAttached ?? true)
+            Kópiu faktúry prikladáme v PDF.
+        @endif
+        Ak je niečo nejasné, stačí odpovedať na tento e-mail.
     </p>
 
     <p style="margin:20px 0 0; font-size:14px; color:#475569;">
