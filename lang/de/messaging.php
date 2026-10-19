@@ -61,6 +61,8 @@ return [
         'sent_by' => 'Beantwortet von :name',
         'show_full' => 'Ganze Nachricht anzeigen',
         'hide_full' => 'Zitat ausblenden',
+        'show_as_text' => 'Als Text anzeigen',
+        'show_as_html' => 'Als E-Mail anzeigen',
         'attachments' => 'Anhänge',
         'source' => [
             'project' => 'aus dem Projekt',

@@ -61,6 +61,8 @@ return [
         'sent_by' => 'Replied by :name',
         'show_full' => 'Show full message',
         'hide_full' => 'Hide quote',
+        'show_as_text' => 'Show as text',
+        'show_as_html' => 'Show as email',
         'attachments' => 'Attachments',
         'source' => [
             'project' => 'from project',

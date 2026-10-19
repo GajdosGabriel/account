@@ -5,6 +5,7 @@ import CardSection from '../../Components/CardSection.vue';
 import StatusBadge from '../../Components/StatusBadge.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
+import EmailHtmlFrame from '../../Components/EmailHtmlFrame.vue';
 import { locale, t } from '../../Composables/useLang';
 
 const props = defineProps({
@@ -23,7 +24,14 @@ const toggle = (id) => {
     expanded.value[id] = !expanded.value[id];
 };
 
-const sendReply = () => replyForm.post(`/inbox/${props.conversation.id}/reply`, {
+// Odoslané e-maily ukazujeme tak, ako ich videl klient; text je na prepnutie.
+const asText = ref({});
+const toggleText = (id) => {
+    asText.value[id] = !asText.value[id];
+};
+const showHtml = (message) => message.html && !asText.value[message.id];
+
+const sendReply =() => replyForm.post(`/inbox/${props.conversation.id}/reply`, {
     preserveScroll: true,
     onSuccess: () => replyForm.reset(),
 });
@@ -155,7 +163,12 @@ const hasQuote = (message) => message.direction === 'in'
                 </header>
 
                 <p v-if="showSubject(message)" class="mt-3 text-sm font-medium text-slate-700">{{ message.subject }}</p>
-                <div class="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-slate-800">{{ body(message) }}</div>
+                <EmailHtmlFrame v-if="showHtml(message)" :html="message.html" class="mt-3" />
+                <div v-else class="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-slate-800">{{ body(message) }}</div>
+
+                <button v-if="message.html" type="button" class="mt-2 text-xs text-slate-500 hover:text-slate-900" @click="toggleText(message.id)">
+                    {{ asText[message.id] ? t('messaging.inbox.show_as_html') : t('messaging.inbox.show_as_text') }}
+                </button>
 
                 <button v-if="hasQuote(message)" type="button" class="mt-2 text-xs text-slate-500 hover:text-slate-900" @click="toggle(message.id)">
                     {{ expanded[message.id] ? t('messaging.inbox.hide_full') : t('messaging.inbox.show_full') }}

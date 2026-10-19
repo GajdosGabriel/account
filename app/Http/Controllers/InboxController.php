@@ -116,6 +116,8 @@ class InboxController extends Controller
                     'subject' => $m->subject,
                     'reply_text' => $m->reply_text,
                     'text' => $m->body_text,
+                    // HTML len pri odoslaných – prijaté HTML (vzdialené obrázky, pixely) neukazujeme.
+                    'html' => $m->direction === 'out' ? $m->body_html : null,
                     'error' => $m->error,
                     'sent_by' => $m->sender?->name,
                     'created_at' => $m->created_at?->toIso8601String(),

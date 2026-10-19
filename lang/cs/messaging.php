@@ -61,6 +61,8 @@ return [
         'sent_by' => 'Odepsal :name',
         'show_full' => 'Zobrazit celou zprávu',
         'hide_full' => 'Skrýt citaci',
+        'show_as_text' => 'Zobrazit jako text',
+        'show_as_html' => 'Zobrazit jako e-mail',
         'attachments' => 'Přílohy',
         'source' => [
             'project' => 'z projektu',

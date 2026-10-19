@@ -63,6 +63,8 @@ return [
         'sent_by' => 'Odpísal :name',
         'show_full' => 'Zobraziť celú správu',
         'hide_full' => 'Skryť citáciu',
+        'show_as_text' => 'Zobraziť ako text',
+        'show_as_html' => 'Zobraziť ako e-mail',
         'attachments' => 'Prílohy',
         'source' => [
             'project' => 'z projektu',
