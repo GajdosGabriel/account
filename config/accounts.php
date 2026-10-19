@@ -79,6 +79,9 @@ return [
 
     'messaging' => [
         'attachments_disk' => env('MESSAGING_ATTACHMENTS_DISK', env('FILESYSTEM_DISK', 'local')),
+        // SMTP schránky sa použije len na produkcii; inde ide pošta cez
+        // MAIL_MAILER Accountu (lokálne Mailtrap), nikdy skutočným klientom
+        'use_mailbox_smtp' => filter_var(env('MESSAGING_USE_MAILBOX_SMTP', env('APP_ENV') === 'production'), FILTER_VALIDATE_BOOL),
         // koľko správ zo schránky spracovať naraz
         'fetch_batch' => (int) env('MESSAGING_FETCH_BATCH', 50),
         'max_send_attempts' => 5,

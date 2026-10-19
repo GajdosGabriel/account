@@ -66,10 +66,15 @@ class OutboundMailer
         });
     }
 
-    /** Vlastné SMTP schránky, alebo predvolený mailer Accountu. */
+    /**
+     * Vlastné SMTP schránky, alebo predvolený mailer Accountu.
+     *
+     * Mimo produkcie ide všetko cez predvolený mailer (Mailtrap, log), aby
+     * z lokálnej databázy neodišiel mail skutočnému zákazníkovi.
+     */
     public function mailer(Mailbox $mailbox): Mailer
     {
-        if (! $mailbox->hasOwnSmtp()) {
+        if (! $mailbox->hasOwnSmtp() || ! config('accounts.messaging.use_mailbox_smtp')) {
             return Mail::mailer();
         }
 

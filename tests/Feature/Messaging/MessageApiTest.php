@@ -214,8 +214,19 @@ class MessageApiTest extends TestCase
             ->assertJsonPath('data.suppressed', false);
     }
 
+    public function test_mimo_produkcie_ide_mail_cez_predvoleny_mailer_nie_smtp_schranky(): void
+    {
+        config(['accounts.messaging.use_mailbox_smtp' => false]);
+        Mailbox::query()->update(['smtp_host' => '127.0.0.1', 'smtp_port' => 1]);
+
+        $this->send()->assertStatus(202)->assertJsonPath('data.message.status', 'sent');
+
+        $this->assertCount(1, $this->sentEmails());
+    }
+
     public function test_chyba_smtp_necha_spravu_vo_fronte_na_dalsi_pokus(): void
     {
+        config(['accounts.messaging.use_mailbox_smtp' => true]);
         Mailbox::query()->update(['smtp_host' => '127.0.0.1', 'smtp_port' => 1]);
 
         $this->send()->assertStatus(202)->assertJsonPath('data.message.status', 'queued');

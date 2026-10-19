@@ -220,6 +220,8 @@ class ConversationService
     /**
      * Nepriradenú konverzáciu zlúči do konverzácie k veci v projekte.
      * Projekt potom dostane prijaté správy ako `message.received`.
+     * Presúvajú sa aj odpovede operátora – na všeobecnú správu sa dá
+     * odpovedať ešte pred priradením.
      */
     public function mergeInto(Conversation $source, Conversation $target): Conversation
     {

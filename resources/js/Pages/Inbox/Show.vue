@@ -112,11 +112,12 @@ const hasQuote = (message) => message.direction === 'in'
 
     <div class="grid gap-6 lg:grid-cols-3">
         <div class="space-y-4 lg:col-span-2">
-            <!-- Nepriradená správa -->
-            <div v-if="!conversation.assigned" class="card border-rose-200 p-5">
-                <h2 class="font-semibold text-rose-700">{{ t('messaging.inbox.unassigned_title') }}</h2>
+            <!-- Všeobecná správa – priradenie k veci v projekte je voliteľné -->
+            <div v-if="!conversation.assigned" class="card border-amber-200 p-5">
+                <h2 class="font-semibold text-amber-800">{{ t('messaging.inbox.unassigned_title') }}</h2>
                 <p class="mt-1 text-sm text-slate-600">{{ t('messaging.inbox.unassigned_hint') }}</p>
-                <form class="mt-4 flex flex-wrap items-end gap-3" @submit.prevent="merge">
+                <p v-if="!targets.length" class="mt-3 text-sm text-slate-500">{{ t('messaging.inbox.merge_none') }}</p>
+                <form v-else class="mt-4 flex flex-wrap items-end gap-3" @submit.prevent="merge">
                     <div class="min-w-64 flex-1">
                         <label for="merge_target">{{ t('messaging.inbox.merge_label') }}</label>
                         <select id="merge_target" v-model="mergeForm.target" required>
@@ -178,8 +179,7 @@ const hasQuote = (message) => message.direction === 'in'
 
             <!-- Odpoveď -->
             <CardSection :title="t('messaging.inbox.reply_title')" icon="send">
-                <p v-if="!conversation.assigned" class="text-sm text-slate-500">{{ t('messaging.inbox.reply_unassigned') }}</p>
-                <form v-else class="space-y-3" @submit.prevent="sendReply">
+                <form class="space-y-3" @submit.prevent="sendReply">
                     <div>
                         <label for="reply_subject">{{ t('messaging.inbox.reply_subject') }}</label>
                         <input id="reply_subject" v-model="replyForm.subject" type="text" :placeholder="replySubject" />

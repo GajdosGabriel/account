@@ -75,7 +75,9 @@ class InboundProcessor
         $email = strtolower($from['email'] ?? 'neznamy@odosielatel');
         $autoReply = $this->isAutoReply($mail);
         $conversation = $this->match($mailbox, $mail, $email);
-        $unassigned = $conversation === null;
+        // Aj odpoveď do všeobecnej konverzácie (operátor odpovedal pred
+        // priradením) – projekt ju dostane až pri priradení.
+        $unassigned = $conversation === null || ! $conversation->isAssigned();
 
         $conversation ??= $this->unassignedConversation($mailbox, $email, $from['name'] ?? null, $mail->getSubject());
 

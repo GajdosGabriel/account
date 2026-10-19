@@ -306,6 +306,43 @@ class InboundProcessorTest extends TestCase
         $this->assertSame($operator->name, $delivery->payload['data']['message']['sent_by']);
     }
 
+    public function test_na_vseobecnu_spravu_sa_da_odpovedat_a_neskor_priradit(): void
+    {
+        $this->assertSame(
+            InboundProcessor::RESULT_UNASSIGNED,
+            $this->process($this->reply(from: 'novy@klient.test', body: 'Objednávam zástavu SR.')),
+        );
+
+        $general = Conversation::unassigned()->sole();
+
+        $this->actingAs(User::factory()->create())
+            ->post("/inbox/{$general->uuid}/reply", ['text' => 'Ďakujeme, aký rozmer?'])
+            ->assertRedirect();
+
+        $reply = ConversationMessage::where('source', 'inbox')->sole();
+        $this->assertSame($general->id, $reply->conversation_id);
+        $this->assertSame(ConversationStatus::Answered, $general->fresh()->status);
+
+        // Klient odpovie na našu odpoveď – ostane vo všeobecnej konverzácii.
+        $this->assertSame(
+            InboundProcessor::RESULT_UNASSIGNED,
+            $this->process($this->reply(from: 'novy@klient.test', inReplyTo: $reply->message_id, body: '150 × 100 cm.')),
+        );
+        $this->assertSame(2, $general->messages()->where('direction', 'in')->count());
+        $this->assertSame(0, WebhookDelivery::count());
+
+        // Projekt neskôr založí objednávku – priradenie presunie celé vlákno.
+        $order = $this->sendOrderMessage('5678', 'novy@klient.test')->conversation;
+
+        $this->actingAs(User::factory()->create())
+            ->post("/inbox/{$general->uuid}/merge", ['target' => $order->uuid])
+            ->assertRedirect("/inbox/{$order->uuid}");
+
+        $this->assertNull(Conversation::find($general->id));
+        $this->assertSame(1, $order->messages()->where('source', 'inbox')->count());
+        $this->assertSame(2, WebhookDelivery::where('event', 'message.received')->count());
+    }
+
     /* ------------------------------------------------------------- */
 
     private function sendOrderMessage(string $order, string $email): ConversationMessage
