@@ -82,6 +82,24 @@ class Product extends Model
         return $this->hasMany(Conversation::class);
     }
 
+    /** @return HasMany<MailingContact, $this> */
+    public function mailingContacts(): HasMany
+    {
+        return $this->hasMany(MailingContact::class);
+    }
+
+    /** @return HasMany<MailingCampaign, $this> */
+    public function mailingCampaigns(): HasMany
+    {
+        return $this->hasMany(MailingCampaign::class);
+    }
+
+    /** @return HasMany<MailingTrigger, $this> */
+    public function mailingTriggers(): HasMany
+    {
+        return $this->hasMany(MailingTrigger::class)->orderBy('id');
+    }
+
     public function defaultPlan(): ?Plan
     {
         return $this->plans()->where('is_active', true)->first();

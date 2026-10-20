@@ -58,5 +58,13 @@ return [
             'label' => 'Konversationen lesen',
             'description' => 'Konversationen und Nachrichten zu Objekten des Projekts, Sperrstatus einer Adresse.',
         ],
+        'mailing:write' => [
+            'label' => 'Ereignisse für E-Mailing melden',
+            'description' => 'Ereignisse für automatische Kampagnen, Stornieren wartender E-Mails, Ereignisliste und Kontakte mit Einwilligung.',
+        ],
+        'mailing:read' => [
+            'label' => 'E-Mailing-Kontakte lesen',
+            'description' => 'Status eines Kontakts im E-Mailing (Abmeldung, Unzustellbarkeit).',
+        ],
     ],
 ];

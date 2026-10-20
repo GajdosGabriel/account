@@ -93,6 +93,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Hromadný emailing (ponuky a automatizácie)
+    |--------------------------------------------------------------------------
+    |
+    | Plánovač každú minútu odošle najviac `batch_size` e-mailov. Limit za
+    | hodinu platí pre každú schránku zvlášť – poskytovatelia SMTP obmedzujú
+    | odosielateľa, nie Account. V `dry_run` prebehne všetko okrem samotného
+    | odoslania (vykreslenie, meranie, stavy).
+    |
+    */
+
+    'mailing' => [
+        'enabled' => filter_var(env('MAILING_ENABLED', true), FILTER_VALIDATE_BOOL),
+        'dry_run' => filter_var(env('MAILING_DRY_RUN', false), FILTER_VALIDATE_BOOL),
+        'hourly_limit' => (int) env('MAILING_HOURLY_LIMIT', 100),
+        'batch_size' => min(50, max(1, (int) env('MAILING_BATCH_SIZE', 10))),
+        // Klik a otvorenie sa počítajú len pri správach mladších ako toto
+        'measure_days' => 90,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Fakturacia
     |--------------------------------------------------------------------------
     */

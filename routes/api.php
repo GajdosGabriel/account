@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\EntitlementApiController;
+use App\Http\Controllers\Api\MailingApiController;
 use App\Http\Controllers\Api\MessageApiController;
 use App\Http\Controllers\Api\OrganizationApiController;
 use App\Http\Controllers\Api\StripeWebhookController;
@@ -54,6 +55,18 @@ Route::prefix('v1')->group(function () {
         Route::get('conversations', [MessageApiController::class, 'index']);
         Route::get('conversations/{conversation}', [MessageApiController::class, 'show']);
         Route::get('suppressions/{email}', [MessageApiController::class, 'suppression']);
+    });
+
+    // Hromadný emailing: kampane sú v Accounte, projekt hlási udalosti a kontakty
+    Route::middleware('service:mailing:write')->group(function () {
+        Route::post('mailing/events', [MailingApiController::class, 'event']);
+        Route::post('mailing/events/cancel', [MailingApiController::class, 'cancel']);
+        Route::put('mailing/triggers', [MailingApiController::class, 'triggers']);
+        Route::post('mailing/contacts', [MailingApiController::class, 'contacts']);
+    });
+
+    Route::middleware('service:mailing:read')->group(function () {
+        Route::get('mailing/contacts/{email}', [MailingApiController::class, 'contact']);
     });
 });
 

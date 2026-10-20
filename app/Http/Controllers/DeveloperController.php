@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ServiceClient;
 use App\Models\WebhookEndpoint;
+use App\Services\Mailing\MailingWebhooks;
 use App\Services\Messaging\MessagingWebhooks;
 use App\Support\Abilities;
 use Illuminate\Http\RedirectResponse;
@@ -60,6 +61,7 @@ class DeveloperController extends Controller
                 'subscription.status_changed',
                 'entitlements.changed',
                 ...MessagingWebhooks::EVENTS,
+                ...MailingWebhooks::EVENTS,
             ],
         ]);
     }

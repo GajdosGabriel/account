@@ -7,7 +7,11 @@ use App\Enums\MessageStatus;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Mailbox;
+use App\Models\MailingDelivery;
 use App\Models\MailSuppression;
+use App\Services\Mailing\BounceClassifier;
+use App\Services\Mailing\MailingSender;
+use App\Services\Mailing\MailingWebhooks;
 use Illuminate\Support\Facades\DB;
 use ZBateson\MailMimeParser\Header\AddressHeader;
 use ZBateson\MailMimeParser\IMessage;
@@ -268,6 +272,8 @@ class InboundProcessor
             $suppression->save();
         }
 
+        $this->bounceMailing($mailbox, $raw, $recipient, $hard, trim(($status ? $status.' ' : '').$reason));
+
         if (! $original) {
             return self::RESULT_BOUNCE;
         }
@@ -290,12 +296,7 @@ class InboundProcessor
      */
     private function bouncedMessage(Mailbox $mailbox, string $raw): ?ConversationMessage
     {
-        preg_match_all('/^(?:Message-ID|In-Reply-To|References)\s*:\s*(.+(?:\r?\n[ \t].+)*)/im', $raw, $matches);
-
-        $ids = [];
-        foreach ($matches[1] as $value) {
-            array_push($ids, ...MessageIds::parseList($value));
-        }
+        $ids = $this->quotedIds($raw);
 
         if ($ids === []) {
             return null;
@@ -303,10 +304,51 @@ class InboundProcessor
 
         return ConversationMessage::query()
             ->where('direction', ConversationMessage::OUT)
-            ->whereIn('message_id', array_unique($ids))
+            ->whereIn('message_id', $ids)
             ->whereHas('conversation', fn ($q) => $q->where('product_id', $mailbox->product_id))
             ->latest('id')
             ->first();
+    }
+
+    /**
+     * Nedoručený e-mail kampane – ponuka nemá konverzáciu, páruje sa
+     * cez Message-ID uložený pri doručení. Trvalý bounce už zablokoval
+     * adresu vyššie; dočasný sa pripočíta kontaktu.
+     */
+    private function bounceMailing(Mailbox $mailbox, string $raw, ?string $recipient, bool $hard, string $reason): void
+    {
+        $ids = $this->quotedIds($raw);
+
+        $delivery = $ids === [] ? null : MailingDelivery::query()
+            ->whereIn('message_id', $ids)
+            ->whereHas('campaign', fn ($q) => $q->where('product_id', $mailbox->product_id))
+            ->latest('id')
+            ->first();
+
+        if (! $delivery) {
+            return;
+        }
+
+        if (! $hard) {
+            app(MailingSender::class)->recordBounce($mailbox->product, $recipient ?? $delivery->email, BounceClassifier::SOFT, $reason);
+        }
+
+        $delivery->forceFill(['status' => MailingDelivery::BOUNCED, 'error' => mb_substr($reason, 0, 255)])->save();
+
+        app(MailingWebhooks::class)->delivery('mailing.delivery.bounced', $delivery);
+    }
+
+    /** @return array<int, string> naše Message-ID citované v správe o nedoručení */
+    private function quotedIds(string $raw): array
+    {
+        preg_match_all('/^(?:Message-ID|In-Reply-To|References)\s*:\s*(.+(?:\r?\n[ \t].+)*)/im', $raw, $matches);
+
+        $ids = [];
+        foreach ($matches[1] as $value) {
+            array_push($ids, ...MessageIds::parseList($value));
+        }
+
+        return array_values(array_unique($ids));
     }
 
     private function dsnRecipient(string $raw): ?string

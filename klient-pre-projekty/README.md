@@ -17,6 +17,7 @@ cez Composer – je to obyčajný kód, ktorý si prispôsobíš.
 | `Services/AccountMessageRejected.php` | `app/Services/` |
 | `Notifications/AccountMailChannel.php` | `app/Notifications/` |
 | `Events/AccountMessageEvent.php` | `app/Events/` |
+| `Jobs/ReportMailingEvent.php` | `app/Jobs/` |
 
 ## Nastavenie
 
@@ -139,8 +140,45 @@ Vlákno k veci si projekt môže zobraziť aj u seba: `AccountClient::conversati
 a `AccountClient::conversation($uuid)`. Odhlásenie z e-mailov nahlás cez
 `AccountClient::suppress($email)`.
 
-**Čo cez Account neposielať:** reset hesla, overenie registrácie, hromadné kampane. Tie
-majú fungovať aj vtedy, keď Account nebeží.
+**Čo cez Account neposielať:** reset hesla a overenie registrácie. Tie majú fungovať aj
+vtedy, keď Account nebeží. Hromadné ponuky idú cez emailing nižšie.
+
+## Emailing (ponuky a automatizácie)
+
+Kampane, šablóny, kontakty, odhlásenie a meranie sú v Accounte (menu Emailing). Projekt
+len hlási, čo sa stalo. Token potrebuje `mailing:write` (a `mailing:read` na stav kontaktu),
+webhook endpoint podľa potreby `mailing.*`.
+
+1. **Zaregistruj udalosti**, napr. v deploy príkaze. Bez toho ich operátor nevie vybrať:
+
+```php
+app(AccountClient::class)->registerMailingTriggers([
+    ['key' => 'order_created', 'label' => 'Po vytvorení objednávky', 'short_label' => 'Po objednávke',
+     'variables' => ['cislo_objednavky', 'firma', 'odkaz_objednavky'],
+     // `kind` systémového mailu z /api/v1/messages – odpoveď vo vlákne ho zacituje
+     'quote_kind' => 'order.OrderCreated'],
+]);
+```
+
+2. **Hlás udalosti** cez frontu (`Jobs/ReportMailingEvent.php`). Premenné sa dosadia do textu
+   kampane ako `{cislo_objednavky}`. Opakovanie s rovnakým `dedupeKey` nič nezdvojí:
+
+```php
+ReportMailingEvent::dispatch('order_created', $order->email,
+    ['type' => 'order', 'id' => $order->id, 'label' => 'Objednávka '.$order->number, 'url' => $adminUrl],
+    ['cislo_objednavky' => $order->number], "order:{$order->id}", $order->created_at)->afterCommit();
+```
+
+3. **Pri storne** zruš čakajúce maily: `AccountClient::cancelMailing('order', $order->id, except: ['order_cancelled'])`.
+
+4. **Kontakty so súhlasom** (newsletter na webe, import zákazníkov):
+   `AccountClient::upsertMailingContacts([['email' => …, 'permission_note' => 'registrácia na webe']])`.
+   Ponuku dostane len kontakt so súhlasom. Servisná *odpoveď vo vlákne* ide každému adresátovi veci.
+
+Odhlásenie rieši Account (odkaz v päte a `List-Unsubscribe`) a dá vedieť webhookom
+`mailing.unsubscribed`. Platí len pre ponuky. Potvrdenia objednávok cez `/api/v1/messages`
+chodia ďalej. Odoslaný mail k veci príde ako `mailing.delivery.sent` s `ref`, `subject` a `html`,
+takže si ho projekt môže zapísať do histórie.
 
 ## Jazyk hlášok
 

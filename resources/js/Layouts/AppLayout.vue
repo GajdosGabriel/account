@@ -18,6 +18,7 @@ const menuOpen = ref(false);
 // prepnutí jazyka by inak zostali popisky v pôvodnom jazyku.
 const navigation = computed(() => [
     { name: t('common.nav.inbox'), href: '/inbox', icon: 'inbox', badge: page.props.inbox_unread || null },
+    { name: t('common.nav.mailing'), href: '/mailing', icon: 'send' },
     { name: t('common.nav.organizations'), href: '/organizations', icon: 'building' },
     { name: t('common.nav.products'), href: '/products', icon: 'card' },
     { name: t('common.nav.invoices'), href: '/invoices', icon: 'invoice' },

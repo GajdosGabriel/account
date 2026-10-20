@@ -41,6 +41,9 @@ return Application::configure(basePath: dirname(__DIR__))
             SetLocale::class,
         ]);
 
+        // Odhlásenie z kampane jedným klikom: POST z poštového klienta nemá CSRF token.
+        $middleware->validateCsrfTokens(except: ['m/u/*']);
+
         $middleware->alias([
             'service' => ServiceTokenAuthentication::class,
         ]);

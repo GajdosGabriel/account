@@ -275,6 +275,89 @@ class AccountClient
     }
 
     /* ---------------------------------------------------------------
+     | Emailing (kampane sú v Accounte, projekt hlási udalosti)
+     |---------------------------------------------------------------*/
+
+    /**
+     * Nastala udalosť – aktívne automatizácie v Accounte zaradia maily.
+     * Volaj z fronty (ReportMailingEvent), nie priamo v požiadavke.
+     *
+     * @param  array{type: string, id: string|int, label?: string, url?: string}|null  $ref
+     * @param  array<string, scalar|null>  $variables  dosadia sa do textu ako {kluc}
+     * @return int počet zaradených mailov
+     */
+    public function mailingEvent(
+        string $event,
+        string $email,
+        ?array $ref = null,
+        array $variables = [],
+        ?string $dedupeKey = null,
+        ?\DateTimeInterface $occurredAt = null,
+        ?string $name = null,
+        ?string $threadId = null,
+    ): int {
+        return (int) $this->request()->post('/api/v1/mailing/events', array_filter([
+            'event' => $event,
+            'email' => $email,
+            'name' => $name,
+            'ref' => $ref,
+            'variables' => $variables ?: null,
+            'dedupe_key' => $dedupeKey,
+            'occurred_at' => $occurredAt?->format(DATE_ATOM),
+            'thread_id' => $threadId,
+        ], fn ($v) => $v !== null))->throw()->json('data.queued');
+    }
+
+    /**
+     * Vec sa zrušila (storno) – čakajúce maily k nej sa neodošlú, okrem
+     * kampaní na udalosti v `$except`.
+     *
+     * @param  array<int, string>  $except
+     */
+    public function cancelMailing(string $refType, string|int $refId, array $except = []): int
+    {
+        return (int) $this->request()->post('/api/v1/mailing/events/cancel', [
+            'ref' => ['type' => $refType, 'id' => (string) $refId],
+            'except' => $except,
+        ])->throw()->json('data.skipped');
+    }
+
+    /**
+     * Udalosti, ktoré projekt hlási – v Accounte z nich operátor vyberá
+     * spúšťač automatizácie. Celý zoznam nahradí doterajší.
+     *
+     * @param  array<int, array{key: string, label: string, short_label?: string, variables?: array<int, string>, quote_kind?: string}>  $triggers
+     */
+    public function registerMailingTriggers(array $triggers): void
+    {
+        $this->request()->put('/api/v1/mailing/triggers', ['triggers' => $triggers])->throw();
+    }
+
+    /**
+     * Kontakty so súhlasom so zasielaním ponúk (max. 1000 naraz).
+     * Odhláseného človeka to späť neprihlási.
+     *
+     * @param  array<int, array{email: string, name?: string, permission_note: string, permission_at?: string, organization_id?: string}>  $contacts
+     * @return array{added: int, updated: int}
+     */
+    public function upsertMailingContacts(array $contacts): array
+    {
+        return $this->request()->post('/api/v1/mailing/contacts', ['contacts' => $contacts])->throw()->json('data');
+    }
+
+    /** @return array<string, mixed>|null stav kontaktu (odhlásený, nedoručiteľný…) */
+    public function mailingContact(string $email): ?array
+    {
+        try {
+            return $this->request()->get('/api/v1/mailing/contacts/'.rawurlencode($email))->throw()->json('data');
+        } catch (\Throwable $e) {
+            Log::warning('Account: kontakt emailingu sa nepodarilo nacitat', ['error' => $e->getMessage()]);
+
+            return null;
+        }
+    }
+
+    /* ---------------------------------------------------------------
      | Pomocné
      |---------------------------------------------------------------*/
 

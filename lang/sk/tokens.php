@@ -61,5 +61,13 @@ return [
             'label' => 'Čítanie konverzácií',
             'description' => 'Konverzácie a správy k veciam projektu, stav blokovania adresy.',
         ],
+        'mailing:write' => [
+            'label' => 'Hlásenie udalostí pre emailing',
+            'description' => 'Udalosti pre automatické kampane, zrušenie čakajúcich mailov, zoznam udalostí a kontakty so súhlasom.',
+        ],
+        'mailing:read' => [
+            'label' => 'Čítanie kontaktov emailingu',
+            'description' => 'Stav kontaktu v emailingu (odhlásenie, nedoručiteľnosť).',
+        ],
     ],
 ];

@@ -8,6 +8,7 @@ return [
         'invoices' => 'Rechnungen',
         'developers' => 'API und Webhooks',
         'inbox' => 'Posteingang',
+        'mailing' => 'E-Mailing',
         'settings' => 'Kontoeinstellungen',
         'logout' => 'Abmelden',
     ],

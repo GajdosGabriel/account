@@ -301,9 +301,9 @@ kontaktu kanála, grafika na schválenie, otázka k objednávke), pošlú cez Ac
 odošle zo schránky projektu, prečíta odpoveď a vráti ju projektu webhookom. Všetky
 konverzácie vidí operátor v jednom **Inboxe**.
 
-**Systémové maily ostávajú v projektoch.** Reset hesla, overenie registrácie a hromadné
-kampane sa neposielajú cez Account. Pri výpadku Accountu by inak prestali fungovať aj
-prihlásenia.
+**Systémové maily ostávajú v projektoch.** Reset hesla a overenie registrácie sa neposielajú
+cez Account. Pri výpadku Accountu by inak prestali fungovať aj prihlásenia. Hromadné ponuky
+idú cez emailing v Accounte (kapitola 11).
 
 ### Čo Account vie a čo nie
 
@@ -349,7 +349,52 @@ neprečítané, schránka sa dá ďalej používať aj v bežnom poštovom progr
 
 ---
 
-## 11. Čo spraviť
+## 11. Emailing: ponuky a automatizácie
+
+Kampane sú pre všetky projekty v Accounte (menu **Emailing**). Patria tam kontakty so súhlasom,
+šablóny, layouty, odosielanie po dávkach, meranie kliknutí a otvorení, odhlásenie aj bounce.
+Projekt robí len dve veci:
+
+- **zaregistruje udalosti**, ktoré vie hlásiť (`PUT /api/v1/mailing/triggers`),
+- **hlási ich**, keď nastanú (`POST /api/v1/mailing/events`), a pri storne zruší čakajúce
+  maily (`POST /api/v1/mailing/events/cancel`).
+
+Pri udalosti posiela premenné (`{cislo_objednavky}`…), ktoré sa dosadia do textu. Čo je
+objednávka, Account nevie ani tu.
+
+Kampaň je jedného z dvoch druhov:
+
+| | Jednorazová ponuka | Automatizácia po udalosti |
+|---|---|---|
+| Adresáti | všetky oslovitelné kontakty projektu v čase spustenia | kontakt, pre ktorého projekt nahlásil udalosť |
+| Kedy | hneď alebo v naplánovaný čas | `delay_hours` od času udalosti |
+
+Automatizácia môže byť aj **odpoveď vo vlákne**, teda servisná správa ako odpoveď na systémový
+mail (napr. potvrdenie objednávky). Ide každému adresátovi veci, aj bez súhlasu s ponukami,
+bez odhlásenia a merania. Odchádza ako správa konverzácie, takže ju vidno v Inboxe a odpoveď
+zákazníka sa spáruje s vecou. Citovaný mail si Account nájde sám podľa `quote_kind` udalosti
+medzi správami, ktoré projekt poslal cez `/api/v1/messages`.
+
+**Odhlásenie a blokovanie.** Odhlásenie z ponúk je pri kontakte a platí len pre ponuky
+projektu. Potvrdenia objednávok chodia ďalej. Trvalý bounce sa zapíše do `mail_suppressions`
+a blokuje všetky maily projektu. Dočasný bounce vylúči kontakt z ponúk až po troch zlyhaniach
+za sebou.
+
+**Prevádzka.** Plánovač každú minútu spustí `mailing:send`. Nastavenia v `.env`:
+
+| Premenná | Význam |
+|---|---|
+| `MAILING_ENABLED` | vypínač (predvolene zapnutý) |
+| `MAILING_DRY_RUN` | všetko prebehne, len sa nevolá SMTP |
+| `MAILING_HOURLY_LIMIT` | maily za hodinu na projekt (predvolene 100) |
+| `MAILING_BATCH_SIZE` | maily na jeden beh plánovača (predvolene 10, max 50) |
+
+Webhooky: `mailing.unsubscribed`, `mailing.delivery.sent|failed|bounced`. Doručenia
+posielame len pri automatizáciách k veci, nie pri hromadnej ponuke.
+
+---
+
+## 12. Čo spraviť
 
 1. **Rozhodnúť, či majú byť na produkcii demo dáta.** Ak má produkcia ostať čistá, treba
    oddeliť demo seeder od produkčného.

@@ -6,6 +6,7 @@ use App\Console\Commands\RetryConversationMessages;
 use App\Console\Commands\ProcessSubscriptionLifecycle;
 use App\Console\Commands\RetryWebhookDeliveries;
 use App\Console\Commands\SendInvoiceReminders;
+use App\Console\Commands\SendMailingBatch;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command(ProcessSubscriptionLifecycle::class)->dailyAt('03:00');
@@ -23,6 +24,9 @@ Schedule::command(RetryWebhookDeliveries::class)->everyFiveMinutes();
 
 Schedule::command(FetchMailboxes::class)->everyTwoMinutes()->withoutOverlapping(10);
 Schedule::command(RetryConversationMessages::class)->everyFiveMinutes();
+
+// Kampane po malých dávkach – hodinový limit projektu stráži MailingSender.
+Schedule::command(SendMailingBatch::class)->everyMinute()->withoutOverlapping(10);
 
 /*
 |--------------------------------------------------------------------------

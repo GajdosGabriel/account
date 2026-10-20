@@ -8,6 +8,7 @@ return [
         'invoices' => 'Faktury',
         'developers' => 'API a webhooky',
         'inbox' => 'Inbox',
+        'mailing' => 'E-mailing',
         'settings' => 'Nastavení účtu',
         'logout' => 'Odhlásit se',
     ],

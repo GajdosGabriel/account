@@ -11,6 +11,7 @@ return [
         'invoices' => 'Faktúry',
         'developers' => 'API a webhooky',
         'inbox' => 'Inbox',
+        'mailing' => 'Emailing',
         'settings' => 'Nastavenia účtu',
         'logout' => 'Odhlásiť sa',
     ],

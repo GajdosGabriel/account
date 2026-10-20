@@ -47,6 +47,7 @@ class HandleInertiaRequests extends Middleware
                 'organizations' => Lang::get('organizations'),
                 'invoices' => Lang::get('invoices'),
                 'messaging' => Lang::get('messaging'),
+                'mailing' => Lang::get('mailing'),
             ],
             // Odznak pri položke Inbox v navigácii
             'inbox_unread' => fn () => $user ? Conversation::where('unread_count', '>', 0)->count() : 0,

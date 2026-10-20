@@ -58,5 +58,13 @@ return [
             'label' => 'Read conversations',
             'description' => 'Conversations and messages about project items, address block status.',
         ],
+        'mailing:write' => [
+            'label' => 'Report mailing events',
+            'description' => 'Events for automated campaigns, cancelling pending e-mails, event list and contacts with consent.',
+        ],
+        'mailing:read' => [
+            'label' => 'Read mailing contacts',
+            'description' => 'Contact status in mailing (unsubscribed, undeliverable).',
+        ],
     ],
 ];

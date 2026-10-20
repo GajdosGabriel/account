@@ -7,6 +7,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeveloperController;
 use App\Http\Controllers\InboxController;
 use App\Http\Controllers\MailboxController;
+use App\Http\Controllers\MailingController;
+use App\Http\Controllers\MailingPublicController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\InvoiceSettingsController;
 use App\Http\Controllers\LocaleController;
@@ -48,6 +50,16 @@ Route::get('organizations/{organization}/billing-email/verify', [OrganizationCon
 Route::get('messaging/attachments/{attachment}', [InboxController::class, 'attachment'])
     ->middleware(['signed', 'throttle:60,1'])
     ->name('messaging.attachments.download');
+
+// Odkazy v e-mailoch kampaní. Adresát sa neprihlasuje, kľúčom je token.
+// Odhlásenie jedným klikom (RFC 8058) posiela POST bez CSRF tokenu –
+// výnimka je v bootstrap/app.php.
+Route::match(['get', 'post'], 'm/u/{token}', [MailingPublicController::class, 'unsubscribe'])
+    ->middleware('throttle:60,1')->name('mailing.unsubscribe');
+Route::get('m/c/{token}', [MailingPublicController::class, 'click'])
+    ->middleware('throttle:120,1')->name('mailing.click');
+Route::get('m/o/{token}.gif', [MailingPublicController::class, 'open'])
+    ->middleware('throttle:120,1')->name('mailing.open');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
@@ -215,6 +227,39 @@ Route::middleware('auth')->group(function () {
     Route::post('inbox/{conversation}/reply', [InboxController::class, 'reply'])->name('inbox.reply');
     Route::post('inbox/{conversation}/status', [InboxController::class, 'status'])->name('inbox.status');
     Route::post('inbox/{conversation}/merge', [InboxController::class, 'merge'])->name('inbox.merge');
+
+    /* ---------------- Emailing (kampane) ---------------- */
+
+    // Pevné cesty musia byť pred {campaign}, inak by spadli do bindingu.
+    Route::get('mailing', [MailingController::class, 'index'])->name('mailing.index');
+    Route::get('mailing/create', [MailingController::class, 'create'])->name('mailing.create');
+    Route::post('mailing', [MailingController::class, 'store'])->name('mailing.store');
+    Route::post('mailing/preview', [MailingController::class, 'preview'])->name('mailing.preview');
+    Route::post('mailing/test', [MailingController::class, 'test'])->middleware('throttle:10,1')->name('mailing.test');
+
+    Route::get('mailing/templates', [MailingController::class, 'templates'])->name('mailing.templates');
+    Route::post('mailing/templates', [MailingController::class, 'storeTemplate'])->name('mailing.templates.store');
+    Route::patch('mailing/templates/{template}', [MailingController::class, 'updateTemplate'])->name('mailing.templates.update');
+    Route::delete('mailing/templates/{template}', [MailingController::class, 'destroyTemplate'])->name('mailing.templates.destroy');
+    Route::post('mailing/layouts', [MailingController::class, 'storeLayout'])->name('mailing.layouts.store');
+    Route::patch('mailing/layouts/{layout}', [MailingController::class, 'updateLayout'])->name('mailing.layouts.update');
+    Route::delete('mailing/layouts/{layout}', [MailingController::class, 'destroyLayout'])->name('mailing.layouts.destroy');
+
+    Route::get('mailing/contacts', [MailingController::class, 'contacts'])->name('mailing.contacts');
+    Route::post('mailing/contacts', [MailingController::class, 'storeContacts'])->name('mailing.contacts.store');
+    Route::post('mailing/contacts/bounce', [MailingController::class, 'bounce'])->name('mailing.contacts.bounce');
+    Route::post('mailing/contacts/{contact}/unsubscribe', [MailingController::class, 'unsubscribeContact'])->name('mailing.contacts.unsubscribe');
+    Route::post('mailing/contacts/{contact}/reactivate', [MailingController::class, 'reactivateContact'])->name('mailing.contacts.reactivate');
+    Route::delete('mailing/contacts/{contact}', [MailingController::class, 'destroyContact'])->name('mailing.contacts.destroy');
+
+    Route::get('mailing/{campaign}', [MailingController::class, 'show'])->name('mailing.show');
+    Route::get('mailing/{campaign}/edit', [MailingController::class, 'edit'])->name('mailing.edit');
+    Route::patch('mailing/{campaign}', [MailingController::class, 'update'])->name('mailing.update');
+    Route::delete('mailing/{campaign}', [MailingController::class, 'destroy'])->name('mailing.destroy');
+    Route::post('mailing/{campaign}/queue', [MailingController::class, 'queue'])->name('mailing.queue');
+    Route::post('mailing/{campaign}/cancel', [MailingController::class, 'cancel'])->name('mailing.cancel');
+    Route::post('mailing/{campaign}/duplicate', [MailingController::class, 'duplicate'])->name('mailing.duplicate');
+    Route::post('mailing/{campaign}/template', [MailingController::class, 'saveAsTemplate'])->name('mailing.save-template');
 
     /* ---------------- Tokeny a webhooky ---------------- */
 
