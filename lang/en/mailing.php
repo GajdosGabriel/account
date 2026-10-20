@@ -54,7 +54,7 @@ return [
         'subject_reply' => 'Empty = "Re: " + subject of the quoted e-mail',
         'heading' => 'Heading',
         'body' => 'Text',
-        'body_hint' => 'Separate paragraphs with an empty line. Allowed HTML: p, br, strong, em, u, h2, h3, ul, ol, li, a.',
+        'body_hint' => 'Format with the buttons above the text. Pasted text is inserted without its original formatting.',
         'variables' => 'Event variables:',
         'button_label' => 'Button text',
         'button_url' => 'Button link',
@@ -67,6 +67,23 @@ return [
         'recipient' => 'Recipient',
         'ref' => 'Item',
         'when' => 'When',
+    ],
+
+    'editor' => [
+        'bold' => 'Bold',
+        'italic' => 'Italic',
+        'underline' => 'Underline',
+        'heading' => 'Heading',
+        'subheading' => 'Subheading',
+        'paragraph' => 'Paragraph',
+        'bullets' => 'Bullet list',
+        'numbered' => 'Numbered list',
+        'link' => 'link',
+        'clear' => 'clear',
+        'link_prompt' => 'Link address (https://…)',
+        'link_invalid' => 'Only links starting with https://, http://, mailto: or / are allowed.',
+        'placeholder' => 'Write the offer in your own words…',
+        'placeholder_reply' => 'Tell the customer what is happening with their item…',
     ],
 
     'modes' => [

@@ -54,7 +54,7 @@ return [
         'subject_reply' => 'Prázdny = „Re: “ + predmet citovaného e-mailu',
         'heading' => 'Nadpis',
         'body' => 'Text',
-        'body_hint' => 'Odseky oddeľ prázdnym riadkom. Povolené HTML: p, br, strong, em, u, h2, h3, ul, ol, li, a.',
+        'body_hint' => 'Formátuj tlačidlami nad textom. Vložený text sa vloží bez pôvodného formátovania.',
         'variables' => 'Premenné udalosti:',
         'button_label' => 'Text tlačidla',
         'button_url' => 'Odkaz tlačidla',
@@ -67,6 +67,23 @@ return [
         'recipient' => 'Adresát',
         'ref' => 'Vec',
         'when' => 'Kedy',
+    ],
+
+    'editor' => [
+        'bold' => 'Tučné',
+        'italic' => 'Kurzíva',
+        'underline' => 'Podčiarknuté',
+        'heading' => 'Nadpis',
+        'subheading' => 'Podnadpis',
+        'paragraph' => 'Odsek',
+        'bullets' => 'Odrážky',
+        'numbered' => 'Číslovaný zoznam',
+        'link' => 'odkaz',
+        'clear' => 'vyčistiť',
+        'link_prompt' => 'Adresa odkazu (https://…)',
+        'link_invalid' => 'Povolené sú len odkazy začínajúce https://, http://, mailto: alebo /.',
+        'placeholder' => 'Napíš ponuku vlastnými slovami…',
+        'placeholder_reply' => 'Napíš zákazníkovi, čo sa s vecou deje…',
     ],
 
     'modes' => [

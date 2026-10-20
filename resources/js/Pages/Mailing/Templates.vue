@@ -4,6 +4,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import PageHeader from '../../Components/PageHeader.vue';
 import InputError from '../../Components/InputError.vue';
 import EmailHtmlFrame from '../../Components/EmailHtmlFrame.vue';
+import HtmlEditor from '../../Components/HtmlEditor.vue';
 import Icon from '../../Components/Icon.vue';
 import { t } from '../../Composables/useLang';
 
@@ -129,7 +130,7 @@ const layoutPreview = computed(() => layout.html
             </div>
             <div>
                 <label for="t_body">{{ t('mailing.fields.body') }}</label>
-                <textarea id="t_body" v-model="template.body" rows="6" required></textarea>
+                <HtmlEditor id="t_body" v-model="template.body" :placeholder="t('mailing.editor.placeholder')" />
                 <InputError :message="template.errors.body" />
             </div>
             <div class="grid gap-4 md:grid-cols-2">

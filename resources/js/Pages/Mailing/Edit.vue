@@ -4,6 +4,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import PageHeader from '../../Components/PageHeader.vue';
 import InputError from '../../Components/InputError.vue';
 import EmailHtmlFrame from '../../Components/EmailHtmlFrame.vue';
+import HtmlEditor from '../../Components/HtmlEditor.vue';
 import StatusBadge from '../../Components/StatusBadge.vue';
 import Icon from '../../Components/Icon.vue';
 import { t } from '../../Composables/useLang';
@@ -241,7 +242,7 @@ const variables = computed(() => trigger.value?.variables ?? []);
                 </div>
                 <div>
                     <label for="m_body">{{ t('mailing.fields.body') }}</label>
-                    <textarea id="m_body" v-model="form.body" rows="10" required></textarea>
+                    <HtmlEditor id="m_body" v-model="form.body" :placeholder="isReply ? t('mailing.editor.placeholder_reply') : t('mailing.editor.placeholder')" min-height="14rem" />
                     <p class="mt-1 text-xs text-slate-500">{{ t('mailing.fields.body_hint') }}</p>
                     <p v-if="variables.length" class="mt-1 text-xs text-slate-500">
                         {{ t('mailing.fields.variables') }}
