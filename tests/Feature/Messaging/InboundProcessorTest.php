@@ -127,6 +127,42 @@ class InboundProcessorTest extends TestCase
         $this->assertSame(0, WebhookDelivery::where('event', 'message.received')->count());
     }
 
+    public function test_novy_mail_mimo_konverzacie_posle_projektu_message_unassigned(): void
+    {
+        $result = $this->process($this->reply(from: 'Obec Lehota <obec@lehota.test>', body: "Objednávame 2 ks vlajky SR.\nObec Lehota"));
+
+        $this->assertSame(InboundProcessor::RESULT_UNASSIGNED, $result);
+
+        $delivery = WebhookDelivery::where('event', 'message.unassigned')->sole();
+        $this->assertNull($delivery->payload['data']['conversation']['ref']['type']);
+        $this->assertSame('obec@lehota.test', $delivery->payload['data']['message']['from']);
+        $this->assertStringContainsString('2 ks vlajky SR', $delivery->payload['data']['message']['text']);
+        $this->assertSame(0, WebhookDelivery::where('event', 'message.received')->count());
+    }
+
+    public function test_odpoved_projektu_do_nepriradenej_konverzacie_ju_priradi(): void
+    {
+        $this->process($this->reply(from: 'obec@lehota.test', body: 'Objednávame 2 ks vlajky SR.'));
+        $general = Conversation::unassigned()->sole();
+
+        $sent = app(ConversationService::class)->sendFromProject($this->product, [
+            'to' => 'obec@lehota.test',
+            'subject' => 'Re: Objednávka',
+            'html' => '<p>Potvrdenie</p>',
+            'ref' => ['type' => 'order', 'id' => 'uuid-1', 'label' => 'Objednávka č. 1'],
+            'conversation' => $general->uuid,
+        ])->fresh();
+
+        $this->assertSame($general->id, $sent->conversation_id);
+        $this->assertSame('order', $general->fresh()->ref_type);
+        $this->assertSame('uuid-1', $general->fresh()->ref_id);
+        // Odpoveď ide do vlákna pôvodného mailu
+        $this->assertNotNull($sent->in_reply_to);
+
+        $this->process($this->reply(from: 'obec@lehota.test', body: 'Ďakujeme.', inReplyTo: $sent->message_id));
+        $this->assertSame(1, WebhookDelivery::where('event', 'message.received')->count());
+    }
+
     public function test_priradenie_nepriradenej_spravy_posle_webhook_dodatocne(): void
     {
         $this->sendOrderMessage('1', 'jan@firma.test');
@@ -329,7 +365,9 @@ class InboundProcessorTest extends TestCase
             $this->process($this->reply(from: 'novy@klient.test', inReplyTo: $reply->message_id, body: '150 × 100 cm.')),
         );
         $this->assertSame(2, $general->messages()->where('direction', 'in')->count());
-        $this->assertSame(0, WebhookDelivery::count());
+        // Projekt dostal len oznámenia o nepriradených mailoch, nie odpovede k veci.
+        $this->assertSame(0, WebhookDelivery::where('event', '!=', 'message.unassigned')->count());
+        $this->assertSame(2, WebhookDelivery::where('event', 'message.unassigned')->count());
 
         // Projekt neskôr založí objednávku – priradenie presunie celé vlákno.
         $order = $this->sendOrderMessage('5678', 'novy@klient.test')->conversation;

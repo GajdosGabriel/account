@@ -14,14 +14,17 @@ use App\Services\Webhooks\WebhookDispatcher;
  * priradenej konverzácii – nepriradenú správu projekt nevie kam dať.
  * Po priradení v inboxe sa udalosť pošle dodatočne.
  *
- *   message.received  klient odpovedal
- *   message.sent      správa odišla (z projektu aj z inboxu – rozlíši `source`)
- *   message.failed    správu sa nepodarilo odoslať ani po opakovaní
- *   message.bounced   prišla správa o nedoručení
+ *   message.received    klient odpovedal
+ *   message.sent        správa odišla (z projektu aj z inboxu – rozlíši `source`)
+ *   message.failed      správu sa nepodarilo odoslať ani po opakovaní
+ *   message.bounced     prišla správa o nedoručení
+ *   message.unassigned  nový mail mimo konverzácie k veci (napr. objednávka
+ *                       poslaná e-mailom) – projekt ho môže spracovať sám a
+ *                       konverzáciu si priradiť odpoveďou s `conversation`
  */
 class MessagingWebhooks
 {
-    public const EVENTS = ['message.received', 'message.sent', 'message.failed', 'message.bounced'];
+    public const EVENTS = ['message.received', 'message.sent', 'message.failed', 'message.bounced', 'message.unassigned'];
 
     public function __construct(private WebhookDispatcher $dispatcher) {}
 
@@ -34,6 +37,18 @@ class MessagingWebhooks
         }
 
         $this->dispatcher->dispatch($event, self::payload($conversation, $message), $conversation->product);
+    }
+
+    /** Nový mail v nepriradenej konverzácii – dostane ho projekt schránky. */
+    public function dispatchUnassigned(ConversationMessage $message): void
+    {
+        $conversation = $message->conversation;
+
+        if (! $conversation || $conversation->isAssigned()) {
+            return;
+        }
+
+        $this->dispatcher->dispatch('message.unassigned', self::payload($conversation, $message), $conversation->product);
     }
 
     /** @return array<string, mixed> */

@@ -330,6 +330,11 @@ v dvoch projektoch má dve konverzácie, Account osoby nezlučuje. Inbox ich len
 5. Operátor odpíše v Inboxe. Account mail pošle do toho istého vlákna a projekt dostane
    `message.sent` so `source: inbox`.
 
+Nový mail mimo konverzácie k veci (napr. objednávka poslaná e-mailom) ostane v Inboxe ako
+nepriradený a projekt dostane `message.unassigned`. Ak ho projekt spracuje sám, odpovie cez
+`POST /api/v1/messages` s `conversation` = id tejto konverzácie – Account ju tým priradí k jeho
+veci (`ref`) a mail odíde ako odpoveď do vlákna klienta.
+
 Správa o nedoručení (bounce) sa rozpozná automaticky. Pri trvalej chybe (5.x.x) sa adresa
 v projekte zablokuje a projekt dostane `message.bounced`. Automatické odpovede
 („som na dovolenke“) sa uložia, ale konverzáciu neotvoria.

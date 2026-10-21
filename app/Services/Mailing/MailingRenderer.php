@@ -27,6 +27,8 @@ use Illuminate\Support\Carbon;
  */
 class MailingRenderer
 {
+    public const QUOTE_TIMEZONE = 'Europe/Bratislava';
+
     /**
      * @param  array<string, mixed>  $variables  premenné udalosti z projektu
      */
@@ -85,7 +87,8 @@ class MailingRenderer
             'body' => self::autolink(self::fill(self::bodyHtml($campaign->body, 'margin:0 0 12px'), $variables)),
             'quoteStyle' => $style,
             'quoteHtml' => $quote,
-            'quotedAt' => $quoted ? Carbon::parse($quoted->sent_at ?? $quoted->created_at) : null,
+            // Klient číta čas citácie ako miestny – server môže bežať v UTC.
+            'quotedAt' => $quoted ? Carbon::parse($quoted->sent_at ?? $quoted->created_at)->setTimezone(self::QUOTE_TIMEZONE) : null,
             'quotedFrom' => $quoted?->from_email,
             'quotedName' => $quoted?->from_name,
             'showPlaceholder' => $preview && $campaign->quote_event && ! $quote,

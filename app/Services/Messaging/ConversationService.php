@@ -127,6 +127,12 @@ class ConversationService
                 ->where('product_id', $product->id)
                 ->where('uuid', $data['conversation'])
                 ->first();
+
+            // Odpoveďou na nepriradený mail si ho projekt priradí k svojej
+            // veci (objednávka z e-mailu) – ďalšie odpovede klienta už dostane.
+            if ($conversation && ! $conversation->isAssigned()) {
+                $conversation->forceFill(['ref_type' => (string) $ref['type'], 'ref_id' => (string) $ref['id']]);
+            }
         }
 
         $conversation ??= Conversation::query()->firstOrNew([

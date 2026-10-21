@@ -129,6 +129,8 @@ class InboundProcessor
         }
 
         if ($unassigned) {
+            $this->webhooks->dispatchUnassigned($message->setRelation('conversation', $conversation));
+
             return self::RESULT_UNASSIGNED;
         }
 
