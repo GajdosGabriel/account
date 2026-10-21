@@ -20,6 +20,7 @@ use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
 use App\Services\Mailing\BounceClassifier;
 use App\Services\Mailing\MailingSender;
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
@@ -316,6 +317,7 @@ class MailingTest extends TestCase
         $campaign = MailingCampaign::sole();
         $this->assertTrue($campaign->reply_in_thread);
         $this->assertNotNull($campaign->layout_id);
+        $this->assertTrue($campaign->scheduled_at->eq(Carbon::parse('2026-10-01T08:00:00Z')));
         $this->assertSame(str_repeat('a', 64), MailingContact::where('email', 'a@firma.test')->value('token'));
         $this->assertTrue(MailSuppression::blocks($this->product, 'zla@firma.test'));
         $this->assertNull(MailingContact::where('email', 'zla@firma.test')->value('bounced_at'));

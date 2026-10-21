@@ -251,6 +251,7 @@ class ImportMailing extends Command
 
     private function date(?string $value): ?Carbon
     {
-        return $value ? Carbon::parse($value) : null;
+        // Export má časy s posunom projektu (+02:00); DB Accountu je v časovej zóne aplikácie.
+        return $value ? Carbon::parse($value)->setTimezone(config('app.timezone')) : null;
     }
 }
