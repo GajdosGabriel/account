@@ -18,6 +18,9 @@ const form = useForm({
     abilities: [...props.token.abilities],
 });
 
+// späť na ten istý projekt, nie na prázdny výber
+const backHref = props.token.product_key ? `/developers?product=${props.token.product_key}` : '/developers';
+
 const submit = () => form.patch(`/developers/tokens/${props.token.id}`);
 
 // Priamo v upozornení – kým je token zrušený, je to jediná akcia,
@@ -40,7 +43,7 @@ const toggleAll = () => {
 
     <PageHeader :title="token.name" :subtitle="t('tokens.subtitle')">
         <template #action>
-            <Link href="/developers" class="btn-secondary">{{ t('tokens.back') }}</Link>
+            <Link :href="backHref" class="btn-secondary">{{ t('tokens.back') }}</Link>
             <RowActions
                 :abilities="{ ...token.can, update: false }"
                 :base="`/developers/tokens/${token.id}`"
@@ -137,7 +140,7 @@ const toggleAll = () => {
                     <button type="submit" class="btn-primary" :disabled="form.processing">
                         {{ form.processing ? t('tokens.saving') : t('tokens.save') }}
                     </button>
-                    <Link href="/developers" class="text-sm text-slate-500 hover:text-slate-900">
+                    <Link :href="backHref" class="text-sm text-slate-500 hover:text-slate-900">
                         {{ t('actions.cancel') }}
                     </Link>
                 </div>

@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import RowActions from '../../Components/RowActions.vue';
@@ -9,12 +9,23 @@ import { tokenMenu } from '../../Composables/useTokenActions';
 const props = defineProps({
     products: { type: Array, default: () => [] },
     available_events: { type: Array, default: () => [] },
+    selected: { type: String, default: null },
 });
 
-const openProduct = ref(props.products[0]?.key ?? null);
+const openProduct = ref(props.selected);
 
-const tokenForm = useForm({ product_key: props.products[0]?.key ?? '', name: '' });
-const webhookForm = useForm({ product_key: props.products[0]?.key ?? '', url: '', events: [] });
+const tokenForm = useForm({ product_key: props.selected ?? '', name: '' });
+const webhookForm = useForm({ product_key: props.selected ?? '', url: '', events: [] });
+
+// Výber ide do URL – inak by ho návrat z úpravy tokenu alebo obnovenie
+// stránky zahodili a pokračoval by si v inom projekte, než si myslíš.
+const selectProduct = (key) => {
+    if (openProduct.value === key) return;
+
+    openProduct.value = key;
+    resetWebhookForm();
+    router.get('/developers', { product: key }, { preserveState: true, preserveScroll: true, replace: true });
+};
 
 /* ---------- service tokeny ---------- */
 
@@ -73,16 +84,23 @@ const submitWebhook = (productKey) => {
                 :class="openProduct === product.key
                     ? 'bg-brand-600 text-white'
                     : 'border border-slate-300 text-slate-700 hover:bg-white'"
-                @click="openProduct = product.key"
+                @click="selectProduct(product.key)"
             >
                 {{ product.name }}
             </button>
         </div>
 
+        <div
+            v-if="!openProduct"
+            class="rounded-xl border border-dashed border-slate-300 px-6 py-12 text-center text-sm text-slate-500"
+        >
+            Vyberte projekt, ktorého tokeny a webhooky chcete spravovať.
+        </div>
+
         <template v-for="product in products" :key="product.key">
             <div v-if="openProduct === product.key" class="space-y-6">
                 <CardSection
-                    title="Service tokeny"
+                    :title="`Service tokeny · ${product.name}`"
                     description="Server-to-server prístup na /api/v1. Token sa zobrazí iba raz pri vytvorení."
                 >
                     <table class="w-full text-left text-sm">
@@ -146,7 +164,7 @@ const submitWebhook = (productKey) => {
                 </CardSection>
 
                 <CardSection
-                    title="Webhooky"
+                    :title="`Webhooky · ${product.name}`"
                     description="Sem posielame zmeny organizácie a predplatného. Podpis nájdete v hlavičke X-Accounts-Signature."
                 >
                     <ul class="divide-y divide-slate-100">

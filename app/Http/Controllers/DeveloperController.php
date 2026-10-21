@@ -24,7 +24,7 @@ use Inertia\Response;
  */
 class DeveloperController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $products = Product::query()
             ->with(['serviceClients', 'webhookEndpoints'])
@@ -52,8 +52,15 @@ class DeveloperController extends Controller
                 ]),
             ]);
 
+        // Projekt sa nevyberá sám – predvolený prvý zvádzal vytvoriť token
+        // pod iným projektom, než si myslíš. Výber drží URL, aby prežil
+        // návrat z úpravy tokenu, uloženie aj obnovenie stránky.
+        $selected = $products->firstWhere('key', $request->query('product'))['key']
+            ?? ($products->count() === 1 ? $products->first()['key'] : null);
+
         return Inertia::render('Developers/Index', [
             'products' => $products,
+            'selected' => $selected,
             'available_events' => [
                 'organization.created',
                 'organization.updated',
@@ -141,7 +148,9 @@ class DeveloperController extends Controller
             'abilities' => array_values(array_intersect(ServiceClient::ABILITIES, $data['abilities'])),
         ]);
 
-        return redirect()->route('developers.index')->with('success', __('tokens.saved'));
+        return redirect()
+            ->route('developers.index', ['product' => $client->product?->key])
+            ->with('success', __('tokens.saved'));
     }
 
     /**
