@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Mailing;
 
+use App\Console\Commands\ImportMailing;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Mailbox;
@@ -9,6 +10,7 @@ use App\Models\MailingCampaign;
 use App\Models\MailingContact;
 use App\Models\MailingDelivery;
 use App\Models\MailingLink;
+use App\Models\MailingTemplate;
 use App\Models\MailingTrigger;
 use App\Models\MailSuppression;
 use App\Models\Product;
@@ -320,6 +322,8 @@ class MailingTest extends TestCase
         $this->assertNotNull(MailingContact::where('email', 'plna@firma.test')->value('bounced_at'));
         $this->assertNull(MailingDelivery::sole()->contact_id);
         $this->assertSame(2, MailingLink::where('token', str_repeat('e', 64))->value('click_count'));
+        // Prednastavené šablóny z admina zastáv pribudnú k exportovaným.
+        $this->assertSame(1 + count(ImportMailing::PRESETS['zastavy']), MailingTemplate::count());
 
         unlink($file);
     }

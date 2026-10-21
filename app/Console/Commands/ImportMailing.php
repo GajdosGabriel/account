@@ -30,6 +30,47 @@ class ImportMailing extends Command
 
     protected $description = 'Prevezme kontakty, šablóny, kampane a doručenia z exportu emailingu projektu.';
 
+    /**
+     * Prednastavené šablóny, ktoré mal projekt natvrdo v admine (nie v DB),
+     * takže v exporte nie sú. Kľúč je projekt, `layout` je názov layoutu.
+     */
+    public const PRESETS = [
+        'zastavy' => [
+            [
+                'name' => 'Vlajky a štátne symboly', 'layout' => 'Vlajky a štátne symboly',
+                'subject' => 'Vlajky SR a EÚ za 23 € s DPH – ponuka pre školy a obce',
+                'heading' => 'Nová vlajka. Dôstojný prvý dojem.',
+                'body' => 'je čas vymeniť opotrebovanú vlajku alebo doplniť výzdobu vašich priestorov? Pripravili sme pre vás výber z ponuky zástav, vlajok a štátnych symbolov s cenami vrátane DPH.',
+                'button_label' => 'Prezrieť celú ponuku →', 'button_url' => 'https://zastavy-vlajky.sk/',
+            ],
+            [
+                'name' => 'Spisor.eu – Anonymizer', 'layout' => 'Spisor.eu',
+                'subject' => 'Citlivé údaje zmiznú. Dokument zostane.',
+                'heading' => 'Citlivé údaje zmiznú. Dokument zostane.',
+                'body' => "pred odoslaním či zverejnením dokumentu treba myslieť aj na údaje, ktoré nemajú vidieť ostatní. Anonymizer vám ich pomôže nájsť a natrvalo odstrániť.\n\nAutomaticky rozpozná mená, rodné čísla, IBAN, e-maily a ďalšie citlivé údaje. Vy skontrolujete nálezy a rozhodnete, čo sa má začierniť.",
+                'button_label' => 'Vyskúšať Anonymizer →', 'button_url' => 'https://spisor.eu',
+            ],
+            [
+                'name' => 'Sezónna ponuka', 'layout' => 'Zástavy & Vlajky',
+                'subject' => 'Pripravte sa na novú sezónu s nami',
+                'heading' => 'Nová sezóna. Nové farby.',
+                'body' => "Doplňte svoju výbavu o kvalitné zástavy a vlajky. Radi vám pomôžeme vybrať vhodné rozmery aj materiál.\n\nPozrite si našu ponuku alebo nám odpovedzte na tento email – pripravíme vám riešenie na mieru.",
+            ],
+            [
+                'name' => 'Poďakovanie s kupónom', 'layout' => 'Zástavy & Vlajky',
+                'subject' => 'Malé poďakovanie za vašu dôveru',
+                'heading' => 'Ďakujeme, že ste s nami.',
+                'body' => "Vážime si našu spoluprácu. Ako poďakovanie sme pre vás pripravili zľavový kupón na ďalší nákup.\n\nKód stačí zadať v košíku. Tešíme sa na vašu ďalšiu objednávku.",
+            ],
+            [
+                'name' => 'Výroba na mieru', 'layout' => 'Zástavy & Vlajky',
+                'subject' => 'Vaša značka si zaslúži byť viditeľná',
+                'heading' => 'Vlajka presne podľa vás.',
+                'body' => "Chystáte podujatie alebo chcete zviditeľniť svoju firmu? Vyrobíme vám vlajky a zástavy s vlastnou potlačou.\n\nNapíšte nám svoju predstavu. Pomôžeme s grafikou, materiálom aj výberom správneho uchytenia.",
+            ],
+        ],
+    ];
+
     public function handle(): int
     {
         $product = Product::where('key', $this->argument('product'))->first();
@@ -83,6 +124,8 @@ class ImportMailing extends Command
                 ...$this->only($row, ['name', 'subject', 'heading', 'body', 'button_label', 'button_url']),
             ]);
         }
+
+        self::addPresets($product);
 
         $contacts = [];
         foreach ($data['contacts'] ?? [] as $row) {
@@ -177,6 +220,23 @@ class ImportMailing extends Command
                 ]);
             }
         }
+    }
+
+    /** Doplní prednastavené šablóny projektu; tie s rovnakým názvom preskočí. */
+    public static function addPresets(Product $product): int
+    {
+        $layouts = MailingLayout::where('product_id', $product->id)->pluck('id', 'name');
+        $added = 0;
+
+        foreach (self::PRESETS[$product->key] ?? [] as $preset) {
+            $template = MailingTemplate::firstOrCreate(
+                ['product_id' => $product->id, 'name' => $preset['name']],
+                ['layout_id' => $layouts[$preset['layout']] ?? null, ...array_diff_key($preset, ['name' => 0, 'layout' => 0])],
+            );
+            $added += (int) $template->wasRecentlyCreated;
+        }
+
+        return $added;
     }
 
     /**
