@@ -155,6 +155,7 @@ return [
                 'email' => 'Per E-Mail',
                 'post' => 'Per Post',
                 'both' => 'Per E-Mail und Post',
+                'none' => 'Keine Belege senden (Test- / interne Firma)',
             ],
             'languages' => [
                 'sk' => 'Slowakisch',

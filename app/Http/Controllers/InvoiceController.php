@@ -11,7 +11,6 @@ use App\Http\Resources\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Organization;
-use App\Models\Plan;
 use App\Services\Invoicing\InvoiceMailer;
 use App\Services\Invoicing\InvoiceNumberGenerator;
 use App\Services\Invoicing\InvoiceRenderer;
@@ -21,6 +20,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -97,6 +97,7 @@ class InvoiceController extends Controller
                 'settings' => $request->user()->can('settings', Invoice::class),
             ],
             'reminders_enabled' => (bool) config('invoicing.reminders.enabled'),
+            'sending_notice' => $this->sendingNotice(),
         ]);
     }
 
@@ -144,7 +145,31 @@ class InvoiceController extends Controller
             ]),
             'preview_url' => route('invoices.preview', $invoice),
             'pdf_available' => $this->renderer->pdfAvailable(),
+            'sending_notice' => $this->sendingNotice($invoice),
         ]);
+    }
+
+    /**
+     * Pás nad dokladom, keď odosielanie nejde naostro – inak by
+     * chýbajúce tlačidlo „Poslať“ nemalo vysvetlenie.
+     *
+     * @return array{tone: string, text: string}|null
+     */
+    protected function sendingNotice(?Invoice $invoice = null): ?array
+    {
+        if ($this->mailer->testing() && filled($to = config('invoicing.sending.redirect_to'))) {
+            return ['tone' => 'sky', 'text' => "Testovací režim – doklady a upomienky idú na {$to}, nie zákazníkom."];
+        }
+
+        $reason = $invoice
+            ? $this->mailer->blockedReason($invoice)
+            : match ($this->mailer->mode()) {
+                'off' => 'Odosielanie dokladov je vypnuté (Faktúry → Nastavenia).',
+                'redirect' => 'Testovací režim nemá nastavenú adresu, kam doklady posielať (Faktúry → Nastavenia).',
+                default => null,
+            };
+
+        return $reason ? ['tone' => 'amber', 'text' => $reason] : null;
     }
 
     public function create(Request $request): Response
@@ -207,7 +232,7 @@ class InvoiceController extends Controller
         $invoice->delete();
 
         return redirect()->route('invoices.index')
-            ->with('success', "Koncept bol presunutý do koša. Nájdeš ho vo filtri „Zmazané“.");
+            ->with('success', 'Koncept bol presunutý do koša. Nájdeš ho vo filtri „Zmazané“.');
     }
 
     /** Vrátenie z koša. */
@@ -485,7 +510,7 @@ class InvoiceController extends Controller
             : $this->exportCsv($invoices, $from, $to);
     }
 
-    /** @param \Illuminate\Support\Collection<int, Invoice> $invoices */
+    /** @param Collection<int, Invoice> $invoices */
     protected function exportCsv($invoices, string $from, string $to): StreamedResponse
     {
         $filename = "faktury-{$from}-{$to}.csv";
@@ -533,7 +558,7 @@ class InvoiceController extends Controller
         }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
     }
 
-    /** @param \Illuminate\Support\Collection<int, Invoice> $invoices */
+    /** @param Collection<int, Invoice> $invoices */
     protected function exportXml($invoices, string $from, string $to): StreamedResponse
     {
         $filename = "faktury-{$from}-{$to}.xml";

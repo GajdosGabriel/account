@@ -503,6 +503,7 @@ const submit = () => {
                         <option value="email">{{ t('organizations.form.billing.delivery.email') }}</option>
                         <option value="post">{{ t('organizations.form.billing.delivery.post') }}</option>
                         <option value="both">{{ t('organizations.form.billing.delivery.both') }}</option>
+                        <option value="none">{{ t('organizations.form.billing.delivery.none') }}</option>
                     </select>
                 </div>
                 <div class="sm:col-span-2">

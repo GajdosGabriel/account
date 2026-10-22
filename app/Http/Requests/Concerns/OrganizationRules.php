@@ -90,7 +90,7 @@ trait OrganizationRules
             'payment_terms_days' => ['nullable', 'integer', 'min:0', 'max:180'],
             'payment_method' => ['nullable', 'in:transfer,card,cash,cod'],
             'invoice_language' => ['nullable', 'string', 'size:2'],
-            'invoice_delivery' => ['nullable', 'in:email,post,both'],
+            'invoice_delivery' => ['nullable', 'in:email,post,both,none'],
             'supplier_number' => ['nullable', 'string', 'max:40'],
         ];
     }

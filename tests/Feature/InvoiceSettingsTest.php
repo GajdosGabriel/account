@@ -54,6 +54,24 @@ class InvoiceSettingsTest extends TestCase
             ->assertSessionHasErrors('reminders.levels');
     }
 
+    public function test_testovaci_rezim_vyzaduje_adresu(): void
+    {
+        $payload = app(InvoiceSettings::class)->form();
+        $payload['sending']['mode'] = 'redirect';
+        $payload['sending']['redirect_to'] = null;
+
+        $this->actingAs(User::factory()->create())
+            ->put('/invoices/settings', $payload)
+            ->assertSessionHasErrors('sending.redirect_to');
+
+        $payload['sending']['redirect_to'] = 'test@mojafirma.sk';
+
+        $this->put('/invoices/settings', $payload)->assertSessionHasNoErrors();
+
+        $this->assertSame('redirect', config('invoicing.sending.mode'));
+        $this->assertSame('test@mojafirma.sk', config('invoicing.sending.redirect_to'));
+    }
+
     public function test_obnovenie_vrati_hodnoty_z_env(): void
     {
         $original = config('invoicing.reminders.enabled');

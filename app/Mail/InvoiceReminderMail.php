@@ -23,6 +23,9 @@ class InvoiceReminderMail extends Mailable implements ShouldQueue
 {
     use Queueable, SerializesModels;
 
+    /** Testovacie odoslanie – komu by mail inak odišiel. Pridá sa do predmetu. */
+    public ?string $testFor = null;
+
     public function __construct(
         public readonly Invoice $invoice,
         public readonly string $tone = 'friendly',
@@ -39,9 +42,14 @@ class InvoiceReminderMail extends Mailable implements ShouldQueue
         };
 
         return new Envelope(
-            subject: $subject,
+            subject: $this->testPrefix().$subject,
             replyTo: filled($supplier['email'] ?? null) ? [$supplier['email']] : [],
         );
+    }
+
+    protected function testPrefix(): string
+    {
+        return $this->testFor !== null ? "[TEST → {$this->testFor}] " : '';
     }
 
     public function content(): Content

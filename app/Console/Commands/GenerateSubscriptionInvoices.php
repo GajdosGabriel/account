@@ -122,7 +122,11 @@ class GenerateSubscriptionInvoices extends Command
                     $invoice = $invoices->issue($invoice);
                 }
 
-                if ($send) {
+                // Vypnuté odosielanie alebo firma s „Doklady neposielať“ –
+                // faktúra vznikne, len neodíde.
+                if ($send && ($reason = $mailer->blockedReason($invoice))) {
+                    $this->line("        neodoslané: {$reason}");
+                } elseif ($send) {
                     $mailer->send($invoice);
                 }
 

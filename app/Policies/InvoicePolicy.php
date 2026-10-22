@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\InvoiceType;
 use App\Models\Invoice;
 use App\Models\User;
+use App\Services\Invoicing\InvoiceMailer;
 
 /**
  * Pravidlá práce s dokladmi.
@@ -64,7 +65,8 @@ class InvoicePolicy
     {
         return ! $invoice->isDraft()
             && ! $invoice->isCancelled()
-            && filled($invoice->recipientEmail());
+            && filled($invoice->recipientEmail())
+            && $this->deliverable($invoice);
     }
 
     /** Upomienka má zmysel len pri dokladoch po splatnosti. */
@@ -72,7 +74,8 @@ class InvoicePolicy
     {
         return $invoice->isOverdue()
             && ! $invoice->isCreditNote()
-            && filled($invoice->recipientEmail());
+            && filled($invoice->recipientEmail())
+            && $this->deliverable($invoice);
     }
 
     /** Zápis úhrady – kým doklad nie je úplne zaplatený alebo stornovaný. */
@@ -130,6 +133,12 @@ class InvoicePolicy
     public function settings(User $user): bool
     {
         return true;
+    }
+
+    /** Vypnuté odosielanie alebo firma s „Doklady neposielať“ – viď InvoiceMailer::blockedReason(). */
+    protected function deliverable(Invoice $invoice): bool
+    {
+        return app(InvoiceMailer::class)->blockedReason($invoice) === null;
     }
 
     /* ---------------------------------------------------------------

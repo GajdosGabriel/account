@@ -28,6 +28,7 @@ class InvoiceSettingsController extends Controller
             'defaults' => $this->settings->defaults(),
             'vat_rates' => config('invoicing.vat.rates'),
             'qr_formats' => InvoiceSettings::QR_FORMATS,
+            'sending_modes' => InvoiceSettings::SENDING_MODES,
             'supplier_email' => config('invoicing.supplier.email'),
             'pdf_available' => $renderer->pdfAvailable(),
             'overdue_count' => Invoice::overdue()->count(),

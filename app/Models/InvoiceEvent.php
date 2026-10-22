@@ -44,6 +44,7 @@ class InvoiceEvent extends Model
             'paid' => 'Označené ako uhradené',
             'partially_paid' => 'Prijatá čiastočná úhrada',
             'reminded' => 'Odoslaná upomienka',
+            'test_sent' => 'Testovacie odoslanie (zákazník nič nedostal)',
             'cancelled' => 'Doklad stornovaný',
             'credited' => 'Vystavený dobropis',
             'exported' => 'Exportované pre účtovníka',
@@ -54,7 +55,7 @@ class InvoiceEvent extends Model
     public function icon(): string
     {
         return match ($this->event) {
-            'sent', 'reminded' => 'mail',
+            'sent', 'reminded', 'test_sent' => 'mail',
             'paid', 'partially_paid' => 'check',
             'cancelled' => 'warning',
             'exported' => 'download',

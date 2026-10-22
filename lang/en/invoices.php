@@ -108,6 +108,21 @@ return [
             'require_verified_hint' => 'Protects against typos in the address. Companies without a verified e-mail will not receive the invoice.',
             'bcc' => 'Blind copy of sent invoices',
             'bcc_hint' => 'E.g. your accountant’s inbox or an archive. Empty = none.',
+            'mode' => 'Sending mode',
+            'mode_hint' => 'Applies to manual sending, automatic sending in subscription billing and reminders. To stop a single company, set its Invoice delivery to “Do not send documents”.',
+            'modes' => [
+                'live' => 'Live',
+                'redirect' => 'Test – everything to my address',
+                'off' => 'Off',
+            ],
+            'mode_hints' => [
+                'live' => 'Documents and reminders go to customers.',
+                'redirect' => 'Customers get nothing. You get the e-mail marked [TEST] and the document status does not change.',
+                'off' => 'Nothing goes out. Invoices can still be issued, they are just not sent.',
+            ],
+            'redirect_to' => 'Test address',
+            'redirect_to_hint' => 'All documents and reminders go here instead of to customers.',
+            'off_note' => 'Sending is off – the “Send” and “Send reminder” buttons are hidden and automatic sending is skipped.',
         ],
 
         'defaults' => [

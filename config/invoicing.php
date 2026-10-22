@@ -170,10 +170,22 @@ return [
     | Skrytá kópia každej odoslanej faktúry – typicky schránka účtovníka
     | alebo archív. Prázdne = nikam.
     |
+    | Režim je hlavný vypínač všetkého, čo ide zákazníkovi – ručné odoslanie,
+    | automatické odoslanie pri fakturačnom behu aj upomienky:
+    |
+    |   live     – naostro, zákazníkom
+    |   redirect – všetko ide na `redirect_to` namiesto zákazníka (skúšky);
+    |              stav dokladu sa nemení, do histórie sa zapíše testovacie odoslanie
+    |   off      – nič neodchádza
+    |
+    | Jednotlivú firmu (testovaciu, internú) vypne `invoice_delivery = none`.
+    |
     */
 
     'sending' => [
         'bcc' => env('INVOICE_BCC', null),
+        'mode' => env('INVOICE_SENDING_MODE', 'live'),
+        'redirect_to' => env('INVOICE_SENDING_REDIRECT_TO', null),
     ],
 
     /*

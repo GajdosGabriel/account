@@ -108,6 +108,21 @@ return [
             'require_verified_hint' => 'Schützt vor Tippfehlern. Firmen ohne bestätigte E-Mail erhalten die Rechnung nicht.',
             'bcc' => 'Blindkopie gesendeter Rechnungen',
             'bcc_hint' => 'Z. B. Postfach des Buchhalters oder Archiv. Leer = keine.',
+            'mode' => 'Versandmodus',
+            'mode_hint' => 'Gilt für manuellen Versand, automatischen Versand bei der Abo-Abrechnung und Mahnungen. Eine einzelne Firma stoppen Sie in ihren Daten: Rechnungszustellung → Keine Belege senden.',
+            'modes' => [
+                'live' => 'Live',
+                'redirect' => 'Test – alles an meine Adresse',
+                'off' => 'Aus',
+            ],
+            'mode_hints' => [
+                'live' => 'Belege und Mahnungen gehen an Kunden.',
+                'redirect' => 'Kunden erhalten nichts. Die E-Mail kommt mit [TEST] markiert an Sie, der Belegstatus ändert sich nicht.',
+                'off' => 'Nichts wird versendet. Rechnungen können weiter ausgestellt werden.',
+            ],
+            'redirect_to' => 'Testadresse',
+            'redirect_to_hint' => 'Alle Belege und Mahnungen gehen hierher statt an Kunden.',
+            'off_note' => 'Versand ist aus – die Schaltflächen „Senden“ und „Mahnung senden“ werden ausgeblendet, automatischer Versand wird übersprungen.',
         ],
 
         'defaults' => [

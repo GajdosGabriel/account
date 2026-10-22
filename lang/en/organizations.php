@@ -155,6 +155,7 @@ return [
                 'email' => 'By e-mail',
                 'post' => 'By post',
                 'both' => 'By e-mail and post',
+                'none' => 'Do not send documents (test / internal company)',
             ],
             'languages' => [
                 'sk' => 'Slovak',

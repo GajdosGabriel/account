@@ -13,6 +13,7 @@ const props = defineProps({
     defaults: { type: Object, required: true },
     vat_rates: { type: Array, default: () => [] },
     qr_formats: { type: Array, default: () => [] },
+    sending_modes: { type: Array, default: () => ['live', 'redirect', 'off'] },
     supplier_email: { type: String, default: null },
     pdf_available: { type: Boolean, default: true },
     overdue_count: { type: Number, default: 0 },
@@ -200,7 +201,42 @@ const toneIcons = { friendly: 'mail', firm: 'clock', final: 'warning' };
         <!-- Odosielanie -->
         <CardSection icon="send" :title="t('invoices.settings.sending.title')" :description="t('invoices.settings.sending.description')">
             <div class="space-y-5">
+                <div>
+                    <p class="text-sm font-medium text-slate-900">{{ t('invoices.settings.sending.mode') }}</p>
+                    <p class="mt-0.5 text-sm text-slate-500">{{ t('invoices.settings.sending.mode_hint') }}</p>
+
+                    <div class="mt-3 divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200">
+                        <label
+                            v-for="mode in sending_modes"
+                            :key="mode"
+                            class="mb-0 flex cursor-pointer items-start gap-3 px-4 py-3 font-normal"
+                            :class="{ 'bg-slate-50/70': form.sending.mode === mode }"
+                        >
+                            <input v-model="form.sending.mode" type="radio" name="sending_mode" :value="mode" class="mt-0.5" />
+                            <span class="min-w-0">
+                                <span class="block text-sm font-medium text-slate-900">{{ t(`invoices.settings.sending.modes.${mode}`) }}</span>
+                                <span class="block text-xs text-slate-500">{{ t(`invoices.settings.sending.mode_hints.${mode}`) }}</span>
+                            </span>
+                        </label>
+                    </div>
+                    <p v-if="original('sending.mode')" class="mt-1 text-xs text-amber-600">{{ original('sending.mode') }}</p>
+                    <InputError :message="form.errors['sending.mode']" />
+
+                    <div v-if="form.sending.mode === 'redirect'" class="mt-4">
+                        <label for="redirect_to">{{ t('invoices.settings.sending.redirect_to') }}</label>
+                        <input id="redirect_to" v-model="form.sending.redirect_to" type="email" class="sm:max-w-sm" placeholder="ja@mojafirma.sk" />
+                        <p class="mt-1 text-xs text-slate-500">{{ t('invoices.settings.sending.redirect_to_hint') }}</p>
+                        <InputError :message="form.errors['sending.redirect_to']" />
+                    </div>
+
+                    <div v-if="form.sending.mode === 'off'" class="mt-4 flex items-start gap-2.5 rounded-lg bg-amber-50 px-3.5 py-3 text-sm text-amber-800">
+                        <Icon name="warning" :size="17" class="mt-0.5 shrink-0" />
+                        {{ t('invoices.settings.sending.off_note') }}
+                    </div>
+                </div>
+
                 <ToggleSwitch
+                    class="border-t border-slate-100 pt-5"
                     v-model="form.sending.require_verified_email"
                     :label="t('invoices.settings.sending.require_verified')"
                     :hint="t('invoices.settings.sending.require_verified_hint')"

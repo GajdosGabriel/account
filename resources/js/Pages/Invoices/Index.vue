@@ -19,6 +19,7 @@ const props = defineProps({
     trashed_count: { type: Number, default: 0 },
     can: { type: Object, default: () => ({}) },
     reminders_enabled: { type: Boolean, default: true },
+    sending_notice: { type: Object, default: null },
 });
 
 const form = ref({ ...props.filters });
@@ -124,6 +125,16 @@ const exportUrl = computed(() => {
             </Link>
         </template>
     </PageHeader>
+
+    <!-- Odosielanie nejde naostro (Faktúry → Nastavenia) -->
+    <div
+        v-if="sending_notice"
+        class="mb-6 flex items-start gap-2.5 rounded-lg px-3.5 py-3 text-sm"
+        :class="sending_notice.tone === 'sky' ? 'bg-sky-50 text-sky-800' : 'bg-amber-50 text-amber-800'"
+    >
+        <Icon name="warning" :size="17" class="mt-0.5 shrink-0" />
+        {{ sending_notice.text }}
+    </div>
 
     <!-- Prehľad pohľadávok -->
     <div class="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

@@ -313,6 +313,97 @@ class InvoicingTest extends TestCase
     }
 
     /* ===============================================================
+     | Režim odosielania
+     |===============================================================*/
+
+    public function test_vypnute_odosielanie_nic_neposle(): void
+    {
+        Mail::fake();
+        config(['invoicing.sending.mode' => 'off']);
+
+        $issued = app(InvoiceService::class)->issue($this->draft());
+
+        $this->assertFalse(User::factory()->create()->can('send', $issued));
+
+        try {
+            app(InvoiceMailer::class)->send($issued);
+            $this->fail('Odoslanie malo zlyhať.');
+        } catch (DomainException) {
+        }
+
+        Mail::assertNothingQueued();
+        $this->assertSame(InvoiceStatus::Issued, $issued->refresh()->status);
+    }
+
+    public function test_testovaci_rezim_posle_doklad_na_testovaciu_adresu(): void
+    {
+        Mail::fake();
+        config(['invoicing.sending.mode' => 'redirect', 'invoicing.sending.redirect_to' => 'test@mojafirma.sk']);
+
+        $issued = app(InvoiceService::class)->issue($this->draft());
+        $customer = $issued->recipientEmail();
+
+        app(InvoiceMailer::class)->send($issued);
+
+        Mail::assertQueued(InvoiceMail::class, fn (InvoiceMail $mail) => $mail->hasTo('test@mojafirma.sk')
+            && ! $mail->hasTo($customer)
+            && $mail->testFor === $customer);
+
+        $issued->refresh();
+
+        // Zákazník nič nedostal – doklad sa nesmie tváriť ako odoslaný.
+        $this->assertSame(InvoiceStatus::Issued, $issued->status);
+        $this->assertSame(0, (int) $issued->sent_count);
+        $this->assertTrue($issued->events->contains('event', 'test_sent'));
+    }
+
+    public function test_testovaci_rezim_bez_adresy_neposle_nic(): void
+    {
+        Mail::fake();
+        config(['invoicing.sending.mode' => 'redirect', 'invoicing.sending.redirect_to' => null]);
+
+        $issued = app(InvoiceService::class)->issue($this->draft());
+
+        $this->expectException(DomainException::class);
+
+        app(InvoiceMailer::class)->send($issued);
+    }
+
+    public function test_firme_s_doklady_neposielat_sa_nic_neposle(): void
+    {
+        Mail::fake();
+
+        $organization = $this->organization();
+        $organization->forceFill(['invoice_delivery' => 'none'])->save();
+
+        $issued = app(InvoiceService::class)->issue($this->draft($organization));
+        $issued->forceFill(['due_at' => Carbon::today()->subDays(30)])->save();
+
+        $this->assertFalse(User::factory()->create()->can('send', $issued));
+        $this->assertFalse(User::factory()->create()->can('remind', $issued));
+
+        $this->artisan('invoices:remind')->assertSuccessful();
+
+        Mail::assertNothingQueued();
+        $this->assertSame(0, (int) $issued->refresh()->reminder_count);
+    }
+
+    public function test_vypnute_odosielanie_zastavi_aj_upomienky(): void
+    {
+        Mail::fake();
+        config(['invoicing.sending.mode' => 'off', 'invoicing.reminders.enabled' => true]);
+
+        $issued = app(InvoiceService::class)->issue($this->draft());
+        $issued->forceFill(['due_at' => Carbon::today()->subDays(30)])->save();
+
+        $this->artisan('invoices:remind')
+            ->expectsOutputToContain('Odosielanie dokladov je vypnuté')
+            ->assertSuccessful();
+
+        Mail::assertNothingQueued();
+    }
+
+    /* ===============================================================
      | Policy
      |===============================================================*/
 

@@ -160,6 +160,7 @@ return [
                 'email' => 'E-mailom',
                 'post' => 'Poštou',
                 'both' => 'E-mailom aj poštou',
+                'none' => 'Doklady neposielať (testovacia / interná firma)',
             ],
             'languages' => [
                 'sk' => 'Slovenčina',

@@ -25,6 +25,9 @@ class InvoiceSettings
 
     public const QR_FORMATS = ['pay_by_square', 'epc'];
 
+    /** Režimy odosielania – viď config/invoicing.php, sekcia Odosielanie. */
+    public const SENDING_MODES = ['live', 'redirect', 'off'];
+
     /**
      * Aktuálne hodnoty v tvare formulára.
      *
@@ -60,6 +63,8 @@ class InvoiceSettings
             'reminders.copy_to_supplier' => ['required', 'boolean'],
 
             'sending.require_verified_email' => ['required', 'boolean'],
+            'sending.mode' => ['required', Rule::in(self::SENDING_MODES)],
+            'sending.redirect_to' => ['nullable', 'required_if:sending.mode,redirect', 'email', 'max:255'],
             'sending.bcc' => ['nullable', 'email', 'max:255'],
 
             'document.due_days' => ['required', 'integer', 'min:0', 'max:365'],
@@ -164,6 +169,9 @@ class InvoiceSettings
 
             'invoicing.require_verified_billing_email' => (bool) $data['sending']['require_verified_email'],
             'invoicing.sending.bcc' => filled($data['sending']['bcc'] ?? null) ? trim($data['sending']['bcc']) : null,
+            'invoicing.sending.mode' => $data['sending']['mode'],
+            'invoicing.sending.redirect_to' => filled($data['sending']['redirect_to'] ?? null)
+                ? trim($data['sending']['redirect_to']) : null,
 
             'invoicing.defaults.due_days' => (int) $data['document']['due_days'],
             'invoicing.defaults.constant_symbol' => filled($data['document']['constant_symbol'] ?? null)
@@ -217,6 +225,8 @@ class InvoiceSettings
             'sending' => [
                 'require_verified_email' => (bool) $get('invoicing.require_verified_billing_email'),
                 'bcc' => $get('invoicing.sending.bcc'),
+                'mode' => (string) ($get('invoicing.sending.mode') ?? 'live'),
+                'redirect_to' => $get('invoicing.sending.redirect_to'),
             ],
             'document' => [
                 'due_days' => (int) $get('invoicing.defaults.due_days'),

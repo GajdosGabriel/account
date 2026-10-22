@@ -155,6 +155,7 @@ return [
                 'email' => 'E-mailem',
                 'post' => 'Poštou',
                 'both' => 'E-mailem i poštou',
+                'none' => 'Doklady neposílat (testovací / interní firma)',
             ],
             'languages' => [
                 'sk' => 'Slovenština',

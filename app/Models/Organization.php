@@ -221,6 +221,15 @@ class Organization extends Model
     }
 
     /**
+     * Testovacia alebo interná firma má „Doklady neposielať“ – faktúry
+     * ani upomienky jej neodídu, nech sa s ňou skúša čokoľvek.
+     */
+    public function receivesInvoices(): bool
+    {
+        return $this->invoice_delivery !== 'none';
+    }
+
+    /**
      * Overenie platí len pre tú adresu, ktorá sa overila.
      *
      * Preto tu nie je „pri zmene zruš overenie“ – po prepísaní e-mailu

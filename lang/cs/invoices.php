@@ -108,6 +108,21 @@ return [
             'require_verified_hint' => 'Chrání před překlepem v adrese. Firmě bez potvrzeného e-mailu se faktura neodešle.',
             'bcc' => 'Skrytá kopie odeslaných faktur',
             'bcc_hint' => 'Např. schránka účetního nebo archiv. Prázdné = nikam.',
+            'mode' => 'Režim odesílání',
+            'mode_hint' => 'Platí pro ruční odeslání, automatické odeslání při fakturaci předplatného i upomínky. Jednotlivou firmu vypnete v jejích údajích: Doručování faktur → Doklady neposílat.',
+            'modes' => [
+                'live' => 'Naostro',
+                'redirect' => 'Testovací – vše na moji adresu',
+                'off' => 'Vypnuto',
+            ],
+            'mode_hints' => [
+                'live' => 'Doklady a upomínky jdou zákazníkům.',
+                'redirect' => 'Zákazník nedostane nic. E-mail přijde vám s označením [TEST] a stav dokladu se nezmění.',
+                'off' => 'Nic neodejde. Faktury lze vystavovat, jen se neposílají.',
+            ],
+            'redirect_to' => 'Testovací adresa',
+            'redirect_to_hint' => 'Sem půjdou všechny doklady a upomínky místo zákazníků.',
+            'off_note' => 'Odesílání je vypnuté – tlačítka „Poslat“ a „Poslat upomínku“ se nezobrazí a automatické odeslání se přeskočí.',
         ],
 
         'defaults' => [

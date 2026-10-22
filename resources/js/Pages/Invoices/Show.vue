@@ -14,6 +14,7 @@ const props = defineProps({
     credit_notes: { type: Array, default: () => [] },
     preview_url: { type: String, default: null },
     pdf_available: { type: Boolean, default: true },
+    sending_notice: { type: Object, default: null },
 });
 
 const base = computed(() => `/invoices/${props.invoice.id}`);
@@ -189,6 +190,16 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
             <DropdownMenu :abilities="invoice.can" :items="menu" show-disabled />
         </template>
     </PageHeader>
+
+    <!-- Odosielanie nejde naostro – inak by chýbajúce „Poslať“ nemalo vysvetlenie -->
+    <div
+        v-if="sending_notice"
+        class="mb-6 flex items-start gap-2.5 rounded-lg px-3.5 py-3 text-sm"
+        :class="sending_notice.tone === 'sky' ? 'bg-sky-50 text-sky-800' : 'bg-amber-50 text-amber-800'"
+    >
+        <Icon name="warning" :size="17" class="mt-0.5 shrink-0" />
+        {{ sending_notice.text }}
+    </div>
 
     <!-- Stavový pás -->
     <div class="card mb-6 flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">

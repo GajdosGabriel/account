@@ -37,6 +37,16 @@ class SendInvoiceReminders extends Command
             return self::SUCCESS;
         }
 
+        if ($mailer->mode() === 'off') {
+            $this->warn('Odosielanie dokladov je vypnuté (Faktúry → Nastavenia alebo INVOICE_SENDING_MODE).');
+
+            return self::SUCCESS;
+        }
+
+        if ($mailer->testing()) {
+            $this->warn('Testovací režim – upomienky idú na '.(config('invoicing.sending.redirect_to') ?: '(nenastavenú adresu)').', nie zákazníkom.');
+        }
+
         $schedule = config('invoicing.reminders.schedule', []);
         $max = (int) config('invoicing.reminders.max', 3);
         $minimum = (int) config('invoicing.reminders.min_outstanding_cents', 0);
@@ -51,6 +61,11 @@ class SendInvoiceReminders extends Command
             ->with(['organization', 'items'])
             ->each(function (Invoice $invoice) use ($schedule, $max, $minimum, $dryRun, $mailer, &$sent, &$failed) {
                 if ($invoice->reminder_count >= $max) {
+                    return;
+                }
+
+                // Vypnuté odosielanie, firma s „Doklady neposielať“…
+                if ($mailer->blockedReason($invoice) !== null) {
                     return;
                 }
 
