@@ -79,9 +79,11 @@ class ConnectedProjectsSeedTest extends TestCase
         $this->assertCount(1, $clients);
         $this->assertSame(hash('sha256', self::TOKEN), $clients->first()->token_hash);
 
-        // Anonymizér si okrem firiem ťahá aj entitlements a hlási spotrebu.
+        // Anonymizér si okrem firiem ťahá aj entitlements, hlási spotrebu,
+        // udalosti emailingu a posiela správy cez Inbox.
         $this->assertEqualsCanonicalizing(
-            ['organizations:read', 'organizations:write', 'entitlements:read', 'usage:write'],
+            ['organizations:read', 'organizations:write', 'entitlements:read', 'usage:write',
+                'messages:write', 'messages:read', 'mailing:write', 'mailing:read'],
             $clients->first()->abilities,
         );
 

@@ -41,10 +41,13 @@ class DatabaseSeeder extends Seeder
             'token_env' => 'ANONYMIZER_SERVICE_TOKEN',
             'webhook_url_env' => 'ANONYMIZER_WEBHOOK_URL',
             'webhook_secret_env' => 'ANONYMIZER_WEBHOOK_SECRET',
-            // Anonymizér si ťahá aj entitlements (čo firma smie) a hlási
-            // spotrebu (koľko má členov), preto má oproti Samospráve dve
-            // oprávnenia navyše.
-            'abilities' => ['organizations:read', 'organizations:write', 'entitlements:read', 'usage:write'],
+            // Anonymizér si ťahá aj entitlements (čo firma smie), hlási
+            // spotrebu (koľko má členov), udalosti emailingu (registrácia,
+            // skúška) a posiela cez Inbox odpovede podpory a výsledok skúšky.
+            'abilities' => [
+                'organizations:read', 'organizations:write', 'entitlements:read', 'usage:write',
+                'messages:write', 'messages:read', 'mailing:write', 'mailing:read',
+            ],
             'events' => ['*'],
         ],
     ];

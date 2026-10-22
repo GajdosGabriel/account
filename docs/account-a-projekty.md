@@ -397,6 +397,18 @@ za sebou.
 Webhooky: `mailing.unsubscribed`, `mailing.delivery.sent|failed|bounced`. Doručenia
 posielame len pri automatizáciách k veci, nie pri hromadnej ponuke.
 
+### Čo ktorý projekt posiela
+
+| Projekt | Inbox (`ACCOUNT_MESSAGING`), vec `ref.type` | Udalosti emailingu (`ACCOUNT_MAILING`) |
+|---|---|---|
+| Zástavy | objednávky (`order`), objednávky z e-mailu | objednávka, expedícia, dokončenie, storno |
+| Event | kontakt kanála (`canal`) | registrácia, koniec podujatia |
+| Anonymizer | odpoveď podpory (`support_ticket`), výsledok skúšky bez účtu (`trial`) | registrácia, skúška bez účtu, koniec skúšky |
+
+Pri anonymizéri odpoveď používateľa z pošty pribudne do vlákna podpory a odpoveď operátora
+z Inboxu sa tam zapíše ako odpoveď podpory. Automatizácia po skúške môže odpovedať vo vlákne
+na mail s výsledkom (`quote_kind` `trial.download`).
+
 ---
 
 ## 12. Čo spraviť
