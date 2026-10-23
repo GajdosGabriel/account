@@ -1,10 +1,11 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import PageHeader from '../../Components/PageHeader.vue';
 import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
+import { isoDate } from '../../Composables/useInvoiceActions';
 
 const props = defineProps({
     organizations: { type: Array, default: () => [] },
@@ -13,22 +14,27 @@ const props = defineProps({
     payment_methods: { type: Array, default: () => [] },
     vat_rates: { type: Array, default: () => [] },
     next_numbers: { type: Object, default: () => ({}) },
+    defaults: { type: Object, default: () => ({}) },
 });
 
-const today = new Date().toISOString().slice(0, 10);
-const inDays = (days) => new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+const today = isoDate();
+
+const addDays = (date, days) => {
+    const [y, m, d] = date.split('-').map(Number);
+    return isoDate(new Date(y, m - 1, d + days));
+};
 
 const form = useForm({
     organization_id: props.organization_id ?? '',
     type: 'invoice',
-    payment_method: 'transfer',
+    payment_method: props.defaults.payment_method ?? 'transfer',
     issued_at: today,
     delivered_at: today,
-    due_at: inDays(14),
+    due_at: addDays(today, props.defaults.due_days ?? 14),
     variable_symbol: '',
-    constant_symbol: '0308',
+    constant_symbol: props.defaults.constant_symbol ?? '',
     specific_symbol: '',
-    note: '',
+    note: props.defaults.note ?? '',
     internal_note: '',
 });
 
@@ -43,6 +49,14 @@ const filtered = computed(() => {
 });
 
 const selected = computed(() => props.organizations.find((o) => o.id === form.organization_id));
+
+// Splatnosť sa počíta zo splatnosti firmy (inak z Nastavení), kým ju niekto neprepíše ručne.
+const dueTouched = ref(false);
+
+watch([selected, () => form.issued_at], () => {
+    if (dueTouched.value || !form.issued_at) return;
+    form.due_at = addDays(form.issued_at, selected.value?.payment_terms_days || props.defaults.due_days || 14);
+}, { immediate: true });
 
 const nextNumber = computed(() => props.next_numbers[form.type] ?? '—');
 
@@ -62,8 +76,8 @@ const submit = () => form.post('/invoices');
         <div class="space-y-6 lg:col-span-2">
             <CardSection icon="building" title="Odberateľ" description="Fakturačné údaje sa odfotia až pri vystavení.">
                 <div v-if="!selected">
-                    <label>Vyhľadať firmu</label>
-                    <input v-model="search" type="text" placeholder="Názov alebo IČO…" />
+                    <label for="org-search">Vyhľadať firmu</label>
+                    <input id="org-search" v-model="search" type="search" placeholder="Názov alebo IČO…" />
 
                     <ul class="mt-3 max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
                         <li v-for="org in filtered" :key="org.id">
@@ -120,37 +134,37 @@ const submit = () => form.post('/invoices');
             <CardSection icon="clock" title="Dátumy a platba">
                 <div class="space-y-3">
                     <div>
-                        <label>Dátum vystavenia</label>
-                        <input v-model="form.issued_at" type="date" />
+                        <label for="issued_at">Dátum vystavenia</label>
+                        <input id="issued_at" v-model="form.issued_at" type="date" />
                     </div>
                     <div>
-                        <label>Dátum dodania</label>
-                        <input v-model="form.delivered_at" type="date" />
+                        <label for="delivered_at">Dátum dodania</label>
+                        <input id="delivered_at" v-model="form.delivered_at" type="date" />
                     </div>
                     <div>
-                        <label>Dátum splatnosti</label>
-                        <input v-model="form.due_at" type="date" />
+                        <label for="due_at">Dátum splatnosti</label>
+                        <input id="due_at" v-model="form.due_at" type="date" @input="dueTouched = true" />
                         <InputError :message="form.errors.due_at" />
                     </div>
                     <div>
-                        <label>Spôsob úhrady</label>
-                        <select v-model="form.payment_method">
+                        <label for="payment_method">Spôsob úhrady</label>
+                        <select id="payment_method" v-model="form.payment_method">
                             <option v-for="m in payment_methods" :key="m.value" :value="m.value">{{ m.label }}</option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label>Konštantný symbol</label>
-                            <input v-model="form.constant_symbol" type="text" />
+                            <label for="constant_symbol">Konštantný symbol</label>
+                            <input id="constant_symbol" v-model="form.constant_symbol" type="text" />
                         </div>
                         <div>
-                            <label>Špecifický symbol</label>
-                            <input v-model="form.specific_symbol" type="text" />
+                            <label for="specific_symbol">Špecifický symbol</label>
+                            <input id="specific_symbol" v-model="form.specific_symbol" type="text" />
                         </div>
                     </div>
                     <div>
-                        <label>Poznámka na faktúre</label>
-                        <textarea v-model="form.note" rows="2"></textarea>
+                        <label for="note">Poznámka na faktúre</label>
+                        <textarea id="note" v-model="form.note" rows="2"></textarea>
                     </div>
                 </div>
 
@@ -158,6 +172,7 @@ const submit = () => form.post('/invoices');
                     <button type="submit" class="btn-primary w-full" :disabled="form.processing || !form.organization_id">
                         Vytvoriť koncept
                     </button>
+                    <p v-if="!form.organization_id" class="mt-2 text-center text-xs text-slate-400">Najprv vyber odberateľa.</p>
                 </template>
             </CardSection>
 

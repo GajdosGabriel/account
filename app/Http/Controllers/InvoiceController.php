@@ -70,7 +70,8 @@ class InvoiceController extends Controller
                         ->orWhere('ico', 'like', "%{$search}%"));
             }))
             ->when($filters['status'] === 'overdue', fn ($q) => $q->overdue())
-            ->when($filters['status'] && ! in_array($filters['status'], ['overdue', 'trashed'], true),
+            ->when($filters['status'] === 'unpaid', fn ($q) => $q->unpaid())
+            ->when($filters['status'] && ! in_array($filters['status'], ['overdue', 'unpaid', 'trashed'], true),
                 fn ($q) => $q->where('status', $filters['status']))
             ->when($filters['type'], fn ($q, $type) => $q->where('type', $type))
             ->when($filters['organization'], fn ($q, $uuid) => $q
@@ -179,9 +180,21 @@ class InvoiceController extends Controller
         $numbers = app(InvoiceNumberGenerator::class);
 
         return Inertia::render('Invoices/Form', [
-            'organizations' => Organization::orderBy('name')->get(['uuid', 'name', 'ico'])
-                ->map(fn ($o) => ['id' => $o->uuid, 'name' => $o->name, 'ico' => $o->ico]),
+            'organizations' => Organization::orderBy('name')->get(['uuid', 'name', 'ico', 'payment_terms_days'])
+                ->map(fn ($o) => [
+                    'id' => $o->uuid,
+                    'name' => $o->name,
+                    'ico' => $o->ico,
+                    'payment_terms_days' => $o->payment_terms_days,
+                ]),
             'organization_id' => $request->query('organization'),
+            // Rovnaké predvoľby ako InvoiceService::draft() – formulár ich inak prebije.
+            'defaults' => [
+                'due_days' => (int) config('invoicing.defaults.due_days'),
+                'payment_method' => config('invoicing.defaults.payment_method'),
+                'constant_symbol' => config('invoicing.defaults.constant_symbol'),
+                'note' => config('invoicing.defaults.footer_note'),
+            ],
             'types' => InvoiceType::options(),
             'payment_methods' => PaymentMethod::options(),
             'vat_rates' => config('invoicing.vat.rates'),

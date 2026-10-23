@@ -143,6 +143,14 @@ export function money(cents, currency = 'EUR') {
     )} ${currency}`;
 }
 
+/**
+ * "2026-08-07" v miestnom čase – toISOString() by okolo polnoci vrátil včerajšok.
+ */
+export function isoDate(date = new Date()) {
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 /** "7. 8. 2026" */
 export function shortDate(value) {
     if (!value) return '—';

@@ -61,7 +61,7 @@ const cards = computed(() => [
         hint: tc('invoices.documents', props.stats.unpaid_count ?? 0),
         icon: 'clock',
         tone: 'bg-sky-50 text-sky-600',
-        filter: null,
+        filter: 'unpaid',
     },
     {
         label: t('invoices.stats.overdue'),
@@ -87,12 +87,13 @@ const applyCard = (card) => {
     submit();
 };
 
-const exportUrl = computed(() => {
-    const params = new URLSearchParams();
+// `window` nie je v šablóne dostupné – presmerovanie musí byť tu.
+const exportTo = (format) => {
+    const params = new URLSearchParams({ format });
     if (form.value.from) params.set('from', form.value.from);
     if (form.value.to) params.set('to', form.value.to);
-    return (format) => `/invoices/export?format=${format}&${params.toString()}`;
-});
+    window.location.href = `/invoices/export?${params.toString()}`;
+};
 </script>
 
 <template>
@@ -115,8 +116,8 @@ const exportUrl = computed(() => {
                 :label="t('invoices.export.label')"
                 align="right"
                 :items="[
-                    { label: t('invoices.export.csv'), icon: 'download', onSelect: () => (window.location.href = exportUrl('csv')) },
-                    { label: t('invoices.export.xml'), icon: 'download', onSelect: () => (window.location.href = exportUrl('xml')) },
+                    { label: t('invoices.export.csv'), icon: 'download', onSelect: () => exportTo('csv') },
+                    { label: t('invoices.export.xml'), icon: 'download', onSelect: () => exportTo('xml') },
                 ]"
             />
             <Link v-if="can.create" href="/invoices/create" class="btn-primary">
@@ -144,10 +145,11 @@ const exportUrl = computed(() => {
             type="button"
             class="card flex items-center gap-3.5 p-4 text-left transition hover:border-slate-300 hover:shadow-md"
             :class="[
-                form.status === card.filter && card.filter ? 'ring-2 ring-brand-500/30' : '',
+                form.status === card.filter ? 'ring-2 ring-brand-500/30' : '',
                 card.alert ? 'border-rose-200' : '',
             ]"
-            @click="card.filter && applyCard(card)"
+            :aria-pressed="form.status === card.filter"
+            @click="applyCard(card)"
         >
             <span class="chip h-10 w-10 shrink-0" :class="card.tone">
                 <Icon :name="card.icon" :size="19" />
@@ -163,23 +165,24 @@ const exportUrl = computed(() => {
     <div class="card mb-5 p-4">
         <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-6">
             <div class="lg:col-span-2">
-                <label class="sr-only">{{ t('invoices.filter.search') }}</label>
-                <input v-model="form.search" type="text" :placeholder="t('invoices.filter.search_placeholder')" />
+                <label for="invoice-search" class="sr-only">{{ t('invoices.filter.search') }}</label>
+                <input id="invoice-search" v-model="form.search" type="search" :placeholder="t('invoices.filter.search_placeholder')" />
             </div>
-            <select v-model="form.status" @change="submit">
+            <select v-model="form.status" :aria-label="t('invoices.filter.status')" @change="submit">
                 <option :value="null">{{ t('invoices.filter.all_statuses') }}</option>
+                <option value="unpaid">{{ t('invoices.filter.unpaid') }}</option>
                 <option value="overdue">{{ t('invoices.filter.overdue') }}</option>
                 <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                 <option v-if="trashed_count" value="trashed">
                     {{ t('invoices.filter.trashed', { count: trashed_count }) }}
                 </option>
             </select>
-            <select v-model="form.type" @change="submit">
+            <select v-model="form.type" :aria-label="t('invoices.filter.type')" @change="submit">
                 <option :value="null">{{ t('invoices.filter.all_types') }}</option>
                 <option v-for="type in types" :key="type.value" :value="type.value">{{ type.label }}</option>
             </select>
-            <input v-model="form.from" type="date" :title="t('invoices.filter.from')" @change="submit" />
-            <input v-model="form.to" type="date" :title="t('invoices.filter.to')" @change="submit" />
+            <input v-model="form.from" type="date" :title="t('invoices.filter.from')" :aria-label="t('invoices.filter.from')" @change="submit" />
+            <input v-model="form.to" type="date" :title="t('invoices.filter.to')" :aria-label="t('invoices.filter.to')" @change="submit" />
         </div>
 
         <div v-if="hasFilters" class="mt-3 flex items-center gap-3 border-t border-slate-100 pt-3">

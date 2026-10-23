@@ -7,7 +7,8 @@ import StatusBadge from '../../Components/StatusBadge.vue';
 import DropdownMenu from '../../Components/DropdownMenu.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
-import { invoiceMenu, money, shortDate } from '../../Composables/useInvoiceActions';
+import { invoiceMenu, isoDate, money, shortDate } from '../../Composables/useInvoiceActions';
+import { t, tc } from '../../Composables/useLang';
 
 const props = defineProps({
     invoice: { type: Object, required: true },
@@ -36,7 +37,7 @@ const openSend = () => {
 const openPay = () => {
     payForm.reset();
     payForm.amount = (props.invoice.outstanding_cents / 100).toFixed(2);
-    payForm.paid_at = new Date().toISOString().slice(0, 10);
+    payForm.paid_at = isoDate();
     dialog.value = 'pay';
 };
 
@@ -49,6 +50,11 @@ const openCredit = () => {
 const submitSend = () => sendForm.post(`${base.value}/send`, { preserveScroll: true, onSuccess: close });
 const submitPay = () => payForm.post(`${base.value}/pay`, { preserveScroll: true, onSuccess: close });
 const submitCredit = () => creditForm.post(`${base.value}/credit`, { onSuccess: close });
+
+// Vystavenie zamkne doklad a pridelí číslo – rovnaké potvrdenie ako v menu.
+const issue = () => {
+    if (confirm(t('actions.invoice.confirm.issue'))) router.post(`${base.value}/issue`);
+};
 
 /* ---------- menu ---------- */
 const menu = computed(() =>
@@ -179,7 +185,7 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                 <Icon name="download" :size="16" />
                 PDF
             </a>
-            <button v-if="invoice.can.issue" type="button" class="btn-primary" @click="router.post(`${base}/issue`)">
+            <button v-if="invoice.can.issue" type="button" class="btn-primary" @click="issue">
                 <Icon name="check" :size="16" />
                 Vystaviť
             </button>
@@ -226,7 +232,7 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
             <p class="text-xs text-slate-500">Splatnosť</p>
             <p class="mt-0.5 font-medium" :class="invoice.is_overdue ? 'text-rose-600' : 'text-slate-900'">
                 {{ shortDate(invoice.due_at) }}
-                <span v-if="invoice.is_overdue" class="text-xs font-normal">· {{ invoice.days_overdue }} dní po</span>
+                <span v-if="invoice.is_overdue" class="text-xs font-normal">· {{ tc('invoices.table.days_overdue', invoice.days_overdue ?? 0) }}</span>
             </p>
         </div>
         <div v-if="invoice.sent_at">
@@ -493,25 +499,32 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
 
     <!-- ============ DIALÓGY ============ -->
     <teleport to="body">
-        <div v-if="dialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+            v-if="dialog"
+            class="fixed inset-0 z-50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invoice-dialog-title"
+            @keydown.esc="close"
+        >
             <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" @click="close"></div>
 
             <div class="card relative w-full max-w-md p-6">
                 <!-- Odoslanie -->
                 <template v-if="dialog === 'send'">
-                    <h2 class="text-lg font-semibold text-slate-900">Poslať doklad e-mailom</h2>
+                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">Poslať doklad e-mailom</h2>
                     <p class="mt-1 mb-4 text-sm text-slate-500">
                         PDF sa priloží automaticky. Prázdna adresa = fakturačný e-mail firmy.
                     </p>
                     <div class="space-y-3">
                         <div>
-                            <label>E-mail príjemcu</label>
-                            <input v-model="sendForm.email" type="email" placeholder="faktury@firma.sk" />
+                            <label for="send-email">E-mail príjemcu</label>
+                            <input id="send-email" v-model="sendForm.email" type="email" autofocus placeholder="faktury@firma.sk" />
                             <InputError :message="sendForm.errors.email" />
                         </div>
                         <div>
-                            <label>Sprievodný text <span class="font-normal text-slate-400">(nepovinné)</span></label>
-                            <textarea v-model="sendForm.message" rows="3" placeholder="Dobrý deň, v prílohe posielame…"></textarea>
+                            <label for="send-message">Sprievodný text <span class="font-normal text-slate-400">(nepovinné)</span></label>
+                            <textarea id="send-message" v-model="sendForm.message" rows="3" placeholder="Dobrý deň, v prílohe posielame…"></textarea>
                         </div>
                     </div>
                     <div class="mt-5 flex justify-end gap-2">
@@ -524,23 +537,24 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
 
                 <!-- Úhrada -->
                 <template v-else-if="dialog === 'pay'">
-                    <h2 class="text-lg font-semibold text-slate-900">Zaznamenať úhradu</h2>
+                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">Zaznamenať úhradu</h2>
                     <p class="mt-1 mb-4 text-sm text-slate-500">
                         Zostáva uhradiť {{ invoice.outstanding }}. Menšia suma sa zapíše ako čiastočná platba.
                     </p>
                     <div class="space-y-3">
                         <div>
-                            <label>Suma ({{ invoice.currency }})</label>
-                            <input v-model="payForm.amount" type="number" step="0.01" />
+                            <label for="pay-amount">Suma ({{ invoice.currency }})</label>
+                            <input id="pay-amount" v-model="payForm.amount" type="number" step="0.01" min="0.01" autofocus />
                             <InputError :message="payForm.errors.amount" />
                         </div>
                         <div>
-                            <label>Dátum úhrady</label>
-                            <input v-model="payForm.paid_at" type="date" />
+                            <label for="pay-date">Dátum úhrady</label>
+                            <input id="pay-date" v-model="payForm.paid_at" type="date" />
+                            <InputError :message="payForm.errors.paid_at" />
                         </div>
                         <div>
-                            <label>Poznámka</label>
-                            <input v-model="payForm.note" type="text" placeholder="Výpis č. 8/2026" />
+                            <label for="pay-note">Poznámka</label>
+                            <input id="pay-note" v-model="payForm.note" type="text" placeholder="Výpis č. 8/2026" />
                         </div>
                     </div>
                     <div class="mt-5 flex justify-end gap-2">
@@ -553,7 +567,7 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
 
                 <!-- Dobropis -->
                 <template v-else-if="dialog === 'credit'">
-                    <h2 class="text-lg font-semibold text-slate-900">Vystaviť dobropis</h2>
+                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">Vystaviť dobropis</h2>
                     <p class="mt-1 mb-4 text-sm text-slate-500">
                         Vyber položky, ktoré sa majú dobropisovať. Dobropis vznikne rovno vystavený.
                     </p>
@@ -571,8 +585,8 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                         </label>
                     </div>
                     <div class="mt-3">
-                        <label>Dôvod</label>
-                        <input v-model="creditForm.reason" type="text" placeholder="Reklamácia, zrušená objednávka…" />
+                        <label for="credit-reason">Dôvod</label>
+                        <input id="credit-reason" v-model="creditForm.reason" type="text" placeholder="Reklamácia, zrušená objednávka…" />
                     </div>
                     <div class="mt-5 flex justify-end gap-2">
                         <button type="button" class="btn-secondary" @click="close">Zrušiť</button>

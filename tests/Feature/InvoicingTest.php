@@ -477,6 +477,35 @@ class InvoicingTest extends TestCase
                 ->where('invoices.data.0.number', $issued->number));
     }
 
+    public function test_filter_neuhradene_vynecha_koncepty(): void
+    {
+        $this->draft();
+        $issued = app(InvoiceService::class)->issue($this->draft());
+
+        $this->actingAs(User::factory()->create())
+            ->get('/invoices?status=unpaid')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('invoices.data', 1)
+                ->where('invoices.data.0.number', $issued->number));
+    }
+
+    public function test_formular_noveho_dokladu_dostane_predvolby_z_nastaveni(): void
+    {
+        config([
+            'invoicing.defaults.due_days' => 30,
+            'invoicing.defaults.constant_symbol' => '0008',
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->get('/invoices/create')
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('Invoices/Form')
+                ->where('defaults.due_days', 30)
+                ->where('defaults.constant_symbol', '0008'));
+    }
+
     public function test_vystavenie_cez_http_pridi_cislo(): void
     {
         $draft = $this->draft();
