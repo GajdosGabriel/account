@@ -356,22 +356,56 @@ neprečítané, schránka sa dá ďalej používať aj v bežnom poštovom progr
 
 ## 11. Emailing: ponuky a automatizácie
 
-Kampane sú pre všetky projekty v Accounte (menu **Emailing**). Patria tam kontakty so súhlasom,
+Kampane sú pre všetky projekty v Accounte (menu **Emailing**). Patrí tam adresár kontaktov,
 šablóny, layouty, odosielanie po dávkach, meranie kliknutí a otvorení, odhlásenie aj bounce.
-Projekt robí len dve veci:
+Žiadny projekt si nerobí vlastný e-mailing. **Projekt vlastní fakty** (kto je jeho používateľ,
+v akom je stave, či dal súhlas) a posiela ich sem. **Account vlastní komunikáciu.**
 
-- **zaregistruje udalosti**, ktoré vie hlásiť (`PUT /api/v1/mailing/triggers`),
-- **hlási ich**, keď nastanú (`POST /api/v1/mailing/events`), a pri storne zruší čakajúce
-  maily (`POST /api/v1/mailing/events/cancel`).
+### Zmluva projektu (rovnaká pre všetky projekty)
 
-Pri udalosti posiela premenné (`{cislo_objednavky}`…), ktoré sa dosadia do textu. Čo je
-objednávka, Account nevie ani tu.
+| Volanie | Kedy |
+|---|---|
+| `PUT /api/v1/mailing/triggers` | pri nasadení: udalosti pre automatizácie (celý zoznam nahradí starý) |
+| `PUT /api/v1/mailing/tags` | pri nasadení: štítky kontaktov s popisom, napr. `trial` = „Vyskúšal verziu“ |
+| `POST /api/v1/mailing/contacts` | pri vzniku alebo zmene človeka, max. 1000 v jednej dávke |
+| `POST /api/v1/mailing/contacts/remove` | pri zmazaní účtu alebo dát (`{ "emails": [...] }`) |
+| `POST /api/v1/mailing/events` (+ `/cancel`) | keď nastane udalosť, pri storne veci |
+| webhook `mailing.unsubscribed` | Account → projekt: človek sa odhlásil odkazom v maili |
 
-Kampaň je jedného z dvoch druhov:
+Kontakt v `POST /mailing/contacts`:
 
-| | Jednorazová ponuka | Automatizácia po udalosti |
+```json
+{ "email": "jana@firma.sk", "name": "Jana Nová",
+  "tags": ["user", "verified"],
+  "attributes": { "meno": "Jana", "oslovenie": "pani Nová" },
+  "permission_note": "checkbox pri registrácii", "permission_at": "2026-10-01T10:00:00Z",
+  "unsubscribed": false, "changed_at": "2026-10-20T08:00:00Z" }
+```
+
+- `tags` a `attributes` projekt posiela vždy celé, nahradia doterajšie. Atribúty sa v texte
+  kampane dosadia ako `{meno}`. Premenné udalosti majú prednosť.
+- Súhlas (`permission_note`) je nepovinný. Raz udelený sa cez API neodoberie, na to slúži odhlásenie.
+  Kontakt bez súhlasu je v adresári, ale ponuku nedostane.
+- `unsubscribed` + `changed_at`: odhlásenie alebo opätovné prihlásenie v projekte (napr. v profile)
+  prepíše stav len vtedy, keď je novšie než posledná zmena v Accounte.
+
+### Druh kampane a adresáti
+
+| | Ponuka (`offer`) | Oznámenie o službe (`service`) |
 |---|---|---|
-| Adresáti | všetky oslovitelné kontakty projektu v čase spustenia | kontakt, pre ktorého projekt nahlásil udalosť |
+| Kto | kontakty so súhlasom, neodhlásené | všetci v segmente, aj bez súhlasu a aj odhlásení z ponúk |
+| Odkaz na odhlásenie | áno (aj `List-Unsubscribe`) | nie |
+| Obsah | ponuka, zľava | len informácia o službe, žiadna reklama |
+
+Bounce a blokované adresy platia vždy. **Segment** vyberá podľa štítkov: „aspoň jeden z“
+a „okrem“, napr. `trial` okrem `verified`. Prázdny segment znamená všetkých. Editor ukazuje
+aktuálny počet adresátov.
+
+Kampaň je jednorazová alebo automatizácia:
+
+| | Jednorazová | Automatizácia po udalosti |
+|---|---|---|
+| Adresáti | kontakty podľa druhu a segmentu v čase spustenia | kontakt, pre ktorého projekt nahlásil udalosť, ak spĺňa druh a segment |
 | Kedy | hneď alebo v naplánovaný čas | `delay_hours` od času udalosti |
 
 Automatizácia môže byť aj **odpoveď vo vlákne**, teda servisná správa ako odpoveď na systémový
@@ -399,11 +433,12 @@ posielame len pri automatizáciách k veci, nie pri hromadnej ponuke.
 
 ### Čo ktorý projekt posiela
 
-| Projekt | Inbox (`ACCOUNT_MESSAGING`), vec `ref.type` | Udalosti emailingu (`ACCOUNT_MAILING`) |
-|---|---|---|
-| Zástavy | objednávky (`order`), objednávky z e-mailu | objednávka, expedícia, dokončenie, storno |
-| Event | kontakt kanála (`canal`) | registrácia, koniec podujatia |
-| Anonymizer | odpoveď podpory (`support_ticket`), výsledok skúšky bez účtu (`trial`) | registrácia, skúška bez účtu, koniec skúšky |
+| Projekt | Inbox (`ACCOUNT_MESSAGING`), vec `ref.type` | Udalosti emailingu (`ACCOUNT_MAILING`) | Kontakty a štítky |
+|---|---|---|---|
+| Zástavy | objednávky (`order`), objednávky z e-mailu | objednávka, expedícia, dokončenie, storno | zatiaľ import (`mailing:import`) |
+| Event | kontakt kanála (`canal`) | registrácia, koniec podujatia | zatiaľ nie |
+| Anonymizer | odpoveď podpory (`support_ticket`), výsledok skúšky bez účtu (`trial`) | registrácia, skúška bez účtu, koniec skúšky | `user`, `verified`, `trial`, bez súhlasu → oznámenia |
+| Hlas Cirkvi | – | – | zatiaľ nie je napojený |
 
 Pri anonymizéri odpoveď používateľa z pošty pribudne do vlákna podpory a odpoveď operátora
 z Inboxu sa tam zapíše ako odpoveď podpory. Automatizácia po skúške môže odpovedať vo vlákne

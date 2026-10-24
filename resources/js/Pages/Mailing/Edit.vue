@@ -129,7 +129,40 @@ const remove = () => {
     }
 };
 
-const variables = computed(() => trigger.value?.variables ?? []);
+/* ---------- adresáti: druh a segment podľa štítkov ---------- */
+
+const tags = computed(() => product.value?.tags ?? []);
+const audienceCount = ref(null);
+let countTimer = null;
+
+const toggleTag = (part, key) => {
+    const other = part === 'any' ? 'none' : 'any';
+    const list = form.audience[part];
+    form.audience[part] = list.includes(key) ? list.filter((k) => k !== key) : [...list, key];
+    // Ten istý štítok nemôže byť naraz „s“ aj „bez“.
+    form.audience[other] = form.audience[other].filter((k) => k !== key);
+};
+
+const refreshCount = async () => {
+    if (!form.product_key) return;
+    try {
+        audienceCount.value = (await postJson('/mailing/audience-count', {
+            product_key: form.product_key, kind: form.kind, audience: form.audience,
+        })).count;
+    } catch {
+        audienceCount.value = null;
+    }
+};
+
+watch(() => JSON.stringify([form.product_key, form.kind, form.audience]), () => {
+    clearTimeout(countTimer);
+    countTimer = setTimeout(refreshCount, 300);
+});
+onMounted(refreshCount);
+
+watch(() => form.product_key, () => { form.audience = { any: [], none: [] }; });
+
+const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []), ...(product.value?.contact_variables ?? [])])]);
 </script>
 
 <template>
@@ -211,6 +244,40 @@ const variables = computed(() => trigger.value?.variables ?? []);
                             <input v-model="form.quote_event" type="checkbox" /> {{ t('mailing.fields.quote_event') }}
                         </label>
                     </div>
+                </fieldset>
+
+                <fieldset v-if="!isReply" class="space-y-3">
+                    <legend class="font-medium text-slate-900">{{ t('mailing.fields.audience') }}</legend>
+                    <div class="flex flex-wrap gap-4 text-sm">
+                        <label class="flex items-center gap-2"><input v-model="form.kind" type="radio" value="offer" /> {{ t('mailing.kinds.offer') }}</label>
+                        <label class="flex items-center gap-2"><input v-model="form.kind" type="radio" value="service" /> {{ t('mailing.kinds.service') }}</label>
+                    </div>
+                    <p class="text-xs" :class="form.kind === 'service' ? 'text-amber-700' : 'text-slate-500'">{{ t(`mailing.kinds.${form.kind}_hint`) }}</p>
+
+                    <template v-if="tags.length">
+                        <div v-for="part in ['any', 'none']" :key="part">
+                            <p class="mb-1 text-sm text-slate-600">{{ t(`mailing.fields.audience_${part}`) }}</p>
+                            <div class="flex flex-wrap gap-1">
+                                <button
+                                    v-for="tag in tags"
+                                    :key="tag.key"
+                                    type="button"
+                                    class="chip"
+                                    :class="form.audience[part].includes(tag.key) ? (part === 'any' ? 'bg-brand-600 text-white' : 'bg-rose-600 text-white') : ''"
+                                    :aria-pressed="form.audience[part].includes(tag.key)"
+                                    :title="tag.description || tag.key"
+                                    @click="toggleTag(part, tag.key)"
+                                >{{ tag.label }}</button>
+                            </div>
+                        </div>
+                    </template>
+                    <p v-else class="text-xs text-slate-500">{{ t('mailing.campaigns.no_tags') }}</p>
+
+                    <p class="text-sm text-slate-700">
+                        {{ mode === 'automation' ? t('mailing.campaigns.audience_now_automation') : t('mailing.campaigns.audience_now') }}
+                        <strong>{{ audienceCount ?? '…' }}</strong>
+                    </p>
+                    <InputError :message="form.errors.kind || form.errors.audience" />
                 </fieldset>
 
                 <div class="grid gap-4 md:grid-cols-2">

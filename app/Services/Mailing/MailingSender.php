@@ -177,7 +177,7 @@ class MailingSender
         }
 
         return match (true) {
-            ! $contact || ! $contact->isReachable() => __('mailing.errors.unreachable'),
+            ! $contact || ! $contact->isReachable($campaign) => __('mailing.errors.unreachable'),
             $campaign->isAutomation() && $campaign->coupon_code && $campaign->couponExpired() => __('mailing.errors.coupon_expired'),
             default => null,
         };
@@ -187,8 +187,10 @@ class MailingSender
     private function sendOffer(MailingCampaign $campaign, MailingDelivery $delivery, MailingContact $contact): array
     {
         $mailbox = $this->mailbox($campaign);
-        $unsubscribe = MailingMeasurement::publicUrl('mailing.unsubscribe', $contact->token);
-        $variables = $delivery->variables();
+        // Oznámenie o službe nie je ponuka – odhlásiť sa z neho nedá.
+        $unsubscribe = $campaign->isService() ? null : MailingMeasurement::publicUrl('mailing.unsubscribe', $contact->token);
+        // Atribúty kontaktu z projektu; premenné udalosti majú prednosť.
+        $variables = [...(array) $contact->attributes, ...$delivery->variables()];
         $subject = MailingRenderer::fillText((string) $campaign->subject, $variables);
         $html = $this->measurement->decorate(
             $this->renderer->render($campaign, $contact, $variables, $unsubscribe),
@@ -197,10 +199,10 @@ class MailingSender
 
         $delivery->forceFill(['message_id' => MessageIds::generate($mailbox)])->save();
 
-        $this->deliver($mailbox, $delivery->email, $contact->name, $subject, $html, $delivery->message_id, [
+        $this->deliver($mailbox, $delivery->email, $contact->name, $subject, $html, $delivery->message_id, $unsubscribe ? [
             'List-Unsubscribe' => '<'.$unsubscribe.'>',
             'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
-        ]);
+        ] : []);
 
         return [$subject, $html];
     }

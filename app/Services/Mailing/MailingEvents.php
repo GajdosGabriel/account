@@ -43,10 +43,11 @@ class MailingEvents
             return 0;
         }
 
+        // Či kontakt smie dostať kampaň (súhlas, segment), rozhodne každá kampaň sama.
         $contact = MailingContact::query()
             ->where('product_id', $product->id)
             ->where('email', $email)
-            ->reachable()
+            ->notBlocked()
             ->first();
 
         return DB::transaction(function () use ($product, $event, $email, $name, $ref, $dedupeKey, $at, $variables, $threadId, $contact) {
@@ -63,8 +64,8 @@ class MailingEvents
 
             foreach ($campaigns as $campaign) {
                 // Servisná odpoveď ide každému adresátovi veci, aj mimo adresára ponúk.
-                // Ponuka len kontaktu so súhlasom.
-                if (! $campaign->isReply() && ! $contact) {
+                // Ponuka len kontaktu so súhlasom, oznámenie každému v segmente.
+                if (! $campaign->isReply() && ! ($contact && $contact->isReachable($campaign))) {
                     continue;
                 }
 

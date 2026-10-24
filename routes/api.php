@@ -62,7 +62,9 @@ Route::prefix('v1')->group(function () {
         Route::post('mailing/events', [MailingApiController::class, 'event']);
         Route::post('mailing/events/cancel', [MailingApiController::class, 'cancel']);
         Route::put('mailing/triggers', [MailingApiController::class, 'triggers']);
+        Route::put('mailing/tags', [MailingApiController::class, 'tags']);
         Route::post('mailing/contacts', [MailingApiController::class, 'contacts']);
+        Route::post('mailing/contacts/remove', [MailingApiController::class, 'remove']);
     });
 
     Route::middleware('service:mailing:read')->group(function () {

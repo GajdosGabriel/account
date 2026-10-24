@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\MailingCampaign;
 use App\Models\MailingContact;
+use App\Models\MailingDelivery;
+use App\Models\MailingTag;
 use App\Models\MailingTrigger;
 use App\Models\MailSuppression;
 use App\Models\Organization;
@@ -16,11 +19,14 @@ use Illuminate\Support\Facades\DB;
  * Hromadný emailing pre projekty.
  *
  * Kampane, šablóny a odosielanie sú v Accounte. Projekt hlási udalosti
- * (s premennými do textu), ruší ich pri storne veci, posiela kontakty so
- * súhlasom a zoznam udalostí, ktoré vie hlásiť.
+ * (s premennými do textu), ruší ich pri storne veci, priebežne posiela svoj
+ * adresár (štítky, atribúty, súhlas) a zoznam udalostí a štítkov, ktoré pozná.
  */
 class MailingApiController extends ApiController
 {
+    /** Kľúč udalosti alebo štítku. */
+    private const KEY = '/^[a-z0-9_.\-]+$/i';
+
     public function __construct(private readonly MailingEvents $events) {}
 
     /** Nastala udalosť – aktívne automatizácie zaradia doručenia. */
@@ -124,8 +130,43 @@ class MailingApiController extends ApiController
     }
 
     /**
-     * Kontakty so súhlasom so zasielaním ponúk. Existujúci kontakt sa
-     * nezmaže ani „neprihlási“ späť – odhlásenie platí, kým ho nezruší človek.
+     * Štítky kontaktov (segmenty), ktoré projekt posiela. Celý zoznam nahradí
+     * doterajší; kontakty si odstránený štítok nechajú, kým ich projekt neprepíše.
+     */
+    public function tags(Request $request): JsonResponse
+    {
+        $product = $this->product($request);
+
+        $data = $request->validate([
+            'tags' => ['present', 'array', 'max:100'],
+            'tags.*.key' => ['required', 'string', 'max:60', 'regex:'.self::KEY, 'distinct'],
+            'tags.*.label' => ['required', 'string', 'max:255'],
+            'tags.*.description' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        DB::transaction(function () use ($product, $data) {
+            foreach ($data['tags'] as $tag) {
+                MailingTag::updateOrCreate(
+                    ['product_id' => $product->id, 'key' => $tag['key']],
+                    ['label' => $tag['label'], 'description' => $tag['description'] ?? null],
+                );
+            }
+
+            MailingTag::query()->where('product_id', $product->id)
+                ->whereNotIn('key', array_column($data['tags'], 'key'))
+                ->delete();
+        });
+
+        return response()->json(['data' => $product->mailingTags()->get(['key', 'label', 'description'])]);
+    }
+
+    /**
+     * Adresár projektu: ľudia, ich štítky, atribúty do textu a súhlas.
+     *
+     * Štítky a atribúty projekt posiela celé – nahradia doterajšie. Súhlas
+     * s ponukami sa raz udelí a cez API sa neodoberie (to je odhlásenie).
+     * Odhlásenie z projektu prepíše stav len vtedy, keď je novšie než
+     * posledná zmena v Accounte (napr. odhlásenie odkazom v maili).
      */
     public function contacts(Request $request): JsonResponse
     {
@@ -135,9 +176,19 @@ class MailingApiController extends ApiController
             'contacts' => ['required', 'array', 'max:1000'],
             'contacts.*.email' => ['required', 'email:rfc', 'max:255'],
             'contacts.*.name' => ['nullable', 'string', 'max:255'],
-            'contacts.*.permission_note' => ['required', 'string', 'min:5', 'max:255'],
+            'contacts.*.permission_note' => ['nullable', 'string', 'min:5', 'max:255'],
             'contacts.*.permission_at' => ['nullable', 'date'],
             'contacts.*.organization_id' => ['nullable', 'uuid'],
+            'contacts.*.tags' => ['nullable', 'array', 'max:20'],
+            'contacts.*.tags.*' => ['string', 'max:60', 'regex:'.self::KEY],
+            'contacts.*.attributes' => ['nullable', 'array', 'max:30'],
+            'contacts.*.attributes.*' => ['nullable', function (string $attribute, mixed $value, \Closure $fail) {
+                if (! is_scalar($value) || mb_strlen((string) $value) > 500) {
+                    $fail(__('validation.string', ['attribute' => $attribute]));
+                }
+            }],
+            'contacts.*.unsubscribed' => ['nullable', 'boolean'],
+            'contacts.*.changed_at' => ['nullable', 'date'],
         ]);
 
         $added = 0;
@@ -156,18 +207,78 @@ class MailingApiController extends ApiController
                 'organization_id' => $organization?->isLinkedTo($product) ? $organization->id : null,
             ], fn ($v) => $v !== null));
 
-            if ($new) {
+            if (array_key_exists('tags', $row)) {
+                $tags = array_values(array_unique($row['tags'] ?? []));
+                sort($tags);
+                $contact->tags = $tags ?: null;
+            }
+
+            if (array_key_exists('attributes', $row)) {
+                $attributes = array_filter($row['attributes'] ?? [], fn ($v, $k) => $v !== null && preg_match('/^[a-z0-9_]+$/i', (string) $k), ARRAY_FILTER_USE_BOTH);
+                $contact->attributes = $attributes ?: null;
+            }
+
+            if (! $contact->hasConsent() && filled($row['permission_note'] ?? null)) {
                 $contact->permission_note = $row['permission_note'];
                 $contact->permission_at = isset($row['permission_at']) ? Carbon::parse($row['permission_at']) : now();
             }
 
+            if (isset($row['unsubscribed'])) {
+                $changedAt = isset($row['changed_at']) ? Carbon::parse($row['changed_at']) : now();
+
+                if ($row['unsubscribed'] !== (bool) $contact->unsubscribed_at
+                    && (! $contact->unsubscribed_changed_at || $changedAt->gt($contact->unsubscribed_changed_at))) {
+                    $contact->unsubscribed_at = $row['unsubscribed'] ? $changedAt : null;
+                    $contact->unsubscribed_changed_at = $changedAt;
+                }
+            }
+
             if ($contact->isDirty()) {
+                $unsubscribed = $contact->isDirty('unsubscribed_at') && $contact->unsubscribed_at;
                 $contact->save();
                 $new ? $added++ : $updated++;
+
+                if ($unsubscribed) {
+                    $this->skipPending($contact, __('mailing.errors.unsubscribed'), offersOnly: true);
+                }
             }
         }
 
         return response()->json(['data' => ['added' => $added, 'updated' => $updated]], 201);
+    }
+
+    /**
+     * Projekt zmazal človeka (účet, skúšku) – kontakt zmizne aj s čakajúcimi
+     * mailmi. Odoslané doručenia ostanú v štatistikách bez väzby na kontakt.
+     */
+    public function remove(Request $request): JsonResponse
+    {
+        $product = $this->product($request);
+
+        $data = $request->validate([
+            'emails' => ['required', 'array', 'max:1000'],
+            'emails.*' => ['required', 'string', 'max:255'],
+        ]);
+
+        $removed = 0;
+
+        MailingContact::query()->where('product_id', $product->id)
+            ->whereIn('email', array_map(fn ($e) => strtolower(trim($e)), $data['emails']))
+            ->get()
+            ->each(function (MailingContact $contact) use (&$removed) {
+                $this->skipPending($contact, __('mailing.errors.unreachable'));
+                $contact->delete();
+                $removed++;
+            });
+
+        return response()->json(['data' => ['removed' => $removed]]);
+    }
+
+    private function skipPending(MailingContact $contact, string $reason, bool $offersOnly = false): void
+    {
+        MailingDelivery::query()->where('contact_id', $contact->id)->where('status', MailingDelivery::PENDING)
+            ->when($offersOnly, fn ($q) => $q->whereHas('campaign', fn ($c) => $c->where('kind', '!=', MailingCampaign::SERVICE)))
+            ->update(['status' => MailingDelivery::SKIPPED, 'error' => $reason, 'updated_at' => now()]);
     }
 
     public function contact(Request $request, string $email): JsonResponse
@@ -182,6 +293,7 @@ class MailingApiController extends ApiController
             'email' => $email,
             'exists' => $contact !== null,
             'name' => $contact?->name,
+            'tags' => $contact?->tags ?? [],
             'permission_note' => $contact?->permission_note,
             'permission_at' => $contact?->permission_at?->toIso8601String(),
             'unsubscribed_at' => $contact?->unsubscribed_at?->toIso8601String(),

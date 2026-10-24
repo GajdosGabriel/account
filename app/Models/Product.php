@@ -100,6 +100,11 @@ class Product extends Model
         return $this->hasMany(MailingTrigger::class)->orderBy('id');
     }
 
+    public function mailingTags(): HasMany
+    {
+        return $this->hasMany(MailingTag::class)->orderBy('id');
+    }
+
     public function defaultPlan(): ?Plan
     {
         return $this->plans()->where('is_active', true)->first();

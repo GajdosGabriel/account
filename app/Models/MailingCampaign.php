@@ -20,11 +20,17 @@ class MailingCampaign extends Model
 
     public const CANCELLED = 'cancelled';
 
+    /** Ponuka: len kontaktom so súhlasom, s odhlásením. */
+    public const OFFER = 'offer';
+
+    /** Oznámenie o službe: všetkým v segmente, bez reklamy a bez odhlásenia. */
+    public const SERVICE = 'service';
+
     /** Najdlhšie povolené oneskorenie (365 dní). */
     public const MAX_DELAY_HOURS = 8760;
 
     protected $fillable = [
-        'product_id', 'mailbox_id', 'layout_id', 'name', 'subject', 'heading', 'body',
+        'product_id', 'mailbox_id', 'layout_id', 'name', 'kind', 'audience', 'subject', 'heading', 'body',
         'button_label', 'button_url', 'coupon_code', 'coupon_valid_to', 'status', 'scheduled_at',
         'trigger_event', 'delay_hours', 'track_clicks', 'track_opens', 'reply_in_thread', 'quote_event', 'created_by',
     ];
@@ -39,6 +45,7 @@ class MailingCampaign extends Model
             'track_opens' => 'boolean',
             'reply_in_thread' => 'boolean',
             'quote_event' => 'boolean',
+            'audience' => 'array',
         ];
     }
 
@@ -69,6 +76,21 @@ class MailingCampaign extends Model
     public function isAutomation(): bool
     {
         return filled($this->trigger_event);
+    }
+
+    public function isService(): bool
+    {
+        return $this->kind === self::SERVICE;
+    }
+
+    /**
+     * Štítky segmentu: `any` (aspoň jeden) alebo `none` (žiadny).
+     *
+     * @return list<string>
+     */
+    public function audienceTags(string $which): array
+    {
+        return array_values(array_filter((array) ($this->audience[$which] ?? []), 'is_string'));
     }
 
     /** Odpoveď vo vlákne je servisná správa: bez odhlásenia a bez merania. */

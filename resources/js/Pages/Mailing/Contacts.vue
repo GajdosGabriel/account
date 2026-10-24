@@ -11,10 +11,12 @@ import { locale, t } from '../../Composables/useLang';
 const props = defineProps({
     contacts: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
+    tags: { type: Array, default: () => [] },
     products: { type: Array, default: () => [] },
 });
 
-const filter = ref({ product: null, search: '', state: null, ...props.filters });
+const filter = ref({ product: null, search: '', state: null, tag: null, ...props.filters });
+const tagLabel = (key) => props.tags.find((tag) => tag.key === key)?.label ?? key;
 let timer = null;
 
 const submit = () => {
@@ -42,6 +44,7 @@ const remove = (contact) => confirm(t('mailing.contacts.confirm_delete', { email
 const state = (c) => {
     if (c.unsubscribed_at) return { label: t('mailing.contacts.state.unsubscribed'), tone: 'slate' };
     if (c.bounced_at || c.suppression) return { label: t('mailing.contacts.state.bounced'), tone: 'orange' };
+    if (!c.permission_at && !c.permission_note) return { label: t('mailing.contacts.state.service'), tone: 'sky' };
 
     return { label: t('mailing.contacts.state.active'), tone: 'emerald' };
 };
@@ -118,15 +121,20 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
         <button type="submit" class="btn-primary" :disabled="bounce.processing">{{ t('mailing.contacts.report_bounce') }}</button>
     </form>
 
-    <div class="card mb-5 grid gap-3 p-4 md:grid-cols-4">
+    <div class="card mb-5 grid gap-3 p-4" :class="tags.length ? 'md:grid-cols-5' : 'md:grid-cols-4'">
         <input v-model="filter.search" type="search" class="md:col-span-2" :placeholder="t('mailing.contacts.search')" :aria-label="t('mailing.contacts.search')" />
-        <select v-model="filter.product" :aria-label="t('mailing.fields.product')" @change="submit">
+        <select v-model="filter.product" :aria-label="t('mailing.fields.product')" @change="filter.tag = null; submit()">
             <option :value="null">{{ t('mailing.all_products') }}</option>
             <option v-for="p in products" :key="p.key" :value="p.key">{{ p.name }}</option>
+        </select>
+        <select v-if="tags.length" v-model="filter.tag" :aria-label="t('mailing.contacts.tags')" @change="submit">
+            <option :value="null">{{ t('mailing.contacts.all_tags') }}</option>
+            <option v-for="tag in tags" :key="tag.key" :value="tag.key">{{ tag.label }}</option>
         </select>
         <select v-model="filter.state" :aria-label="t('mailing.fields.status')" @change="submit">
             <option :value="null">{{ t('mailing.all') }}</option>
             <option value="active">{{ t('mailing.contacts.state.active') }}</option>
+            <option value="service">{{ t('mailing.contacts.state.service') }}</option>
             <option value="unsubscribed">{{ t('mailing.contacts.state.unsubscribed') }}</option>
             <option value="bounced">{{ t('mailing.contacts.state.bounced') }}</option>
         </select>
@@ -145,7 +153,12 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
             </thead>
             <tbody class="divide-y divide-slate-100">
                 <tr v-for="c in contacts.data" :key="c.id">
-                    <td class="px-4 py-2">{{ c.email }}<span v-if="c.name" class="text-slate-500"> · {{ c.name }}</span></td>
+                    <td class="px-4 py-2">
+                        {{ c.email }}<span v-if="c.name" class="text-slate-500"> · {{ c.name }}</span>
+                        <span v-if="c.tags.length" class="mt-1 flex flex-wrap gap-1">
+                            <span v-for="tag in c.tags" :key="tag" class="rounded bg-slate-100 px-1.5 text-xs text-slate-600">{{ tagLabel(tag) }}</span>
+                        </span>
+                    </td>
                     <td class="px-4 py-2 text-slate-600">{{ c.product }}</td>
                     <td class="px-4 py-2 text-xs text-slate-600">{{ c.permission_note }}<span v-if="c.permission_at"> · {{ date(c.permission_at) }}</span></td>
                     <td class="px-4 py-2">

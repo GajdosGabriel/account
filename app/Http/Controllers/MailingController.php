@@ -8,6 +8,7 @@ use App\Models\MailingContact;
 use App\Models\MailingDelivery;
 use App\Models\MailingLayout;
 use App\Models\MailingLink;
+use App\Models\MailingTag;
 use App\Models\MailingTemplate;
 use App\Models\MailingTrigger;
 use App\Models\MailSuppression;
@@ -184,9 +185,26 @@ class MailingController extends Controller
             : __('mailing.campaigns.test_sent', ['email' => $request->user()->email])]);
     }
 
+    /** Koľko kontaktov by kampaň s týmto druhom a segmentom práve teraz oslovila. */
+    public function audienceCount(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'product_key' => ['required', 'exists:products,key'],
+            ...self::audienceRules(),
+        ]);
+
+        $campaign = new MailingCampaign([
+            'product_id' => Product::where('key', $data['product_key'])->value('id'),
+            'kind' => $data['kind'] ?? MailingCampaign::OFFER,
+            'audience' => self::audience($data),
+        ]);
+
+        return response()->json(['count' => MailingContact::audience($campaign)->count()]);
+    }
+
     /**
      * Spustenie. Hromadná kampaň si v tejto chvíli zoberie zoznam
-     * oslovitelných kontaktov; automatizácia čaká na udalosti z projektu.
+     * kontaktov podľa druhu a segmentu; automatizácia čaká na udalosti z projektu.
      */
     public function queue(Request $request, MailingCampaign $campaign): RedirectResponse
     {
@@ -198,7 +216,7 @@ class MailingController extends Controller
             $campaign->coupon_code && $campaign->couponExpired() => __('mailing.campaigns.coupon_expired'),
             $campaign->isAutomation() && ! empty($data['scheduled_at']) => __('mailing.campaigns.automation_no_schedule'),
             ! ($campaign->mailbox ?? Mailbox::defaultFor($campaign->product)) => __('messaging.errors.no_mailbox'),
-            ! $campaign->isAutomation() && ! MailingContact::where('product_id', $campaign->product_id)->reachable()->exists() => __('mailing.campaigns.no_recipients'),
+            ! $campaign->isAutomation() && ! MailingContact::audience($campaign)->exists() => __('mailing.campaigns.no_recipients'),
             default => null,
         };
 
@@ -215,7 +233,7 @@ class MailingController extends Controller
             $total = 0;
 
             if (! $campaign->isAutomation()) {
-                MailingContact::query()->where('product_id', $campaign->product_id)->reachable()->orderBy('id')
+                MailingContact::audience($campaign)->orderBy('id')
                     ->chunkById(500, function ($contacts) use ($campaign, &$total) {
                         $rows = $contacts->map(fn (MailingContact $c) => [
                             'campaign_id' => $campaign->id,
@@ -411,7 +429,8 @@ class MailingController extends Controller
         $filters = $request->validate([
             'product' => ['nullable', 'exists:products,key'],
             'search' => ['nullable', 'string', 'max:255'],
-            'state' => ['nullable', Rule::in(['active', 'unsubscribed', 'bounced'])],
+            'state' => ['nullable', Rule::in(['active', 'service', 'unsubscribed', 'bounced'])],
+            'tag' => ['nullable', 'string', 'max:60'],
         ]);
 
         $product = isset($filters['product']) ? Product::where('key', $filters['product'])->first() : null;
@@ -419,7 +438,10 @@ class MailingController extends Controller
         $contacts = MailingContact::query()->with('product')
                 ->when($product, fn ($q) => $q->where('product_id', $product->id))
                 ->when($filters['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('email', 'like', '%'.$s.'%')->orWhere('name', 'like', '%'.$s.'%')))
+                ->when($filters['tag'] ?? null, fn ($q, $tag) => $q->whereJsonContains('tags', $tag))
                 ->when(($filters['state'] ?? null) === 'active', fn ($q) => $q->reachable())
+                // Bez súhlasu s ponukami: dostanú len oznámenia o službe.
+                ->when(($filters['state'] ?? null) === 'service', fn ($q) => $q->whereNull('permission_at')->whereNull('permission_note')->notBlocked())
                 ->when(($filters['state'] ?? null) === 'unsubscribed', fn ($q) => $q->whereNotNull('unsubscribed_at'))
                 ->when(($filters['state'] ?? null) === 'bounced', fn ($q) => $q->where(fn ($q) => $q->whereNotNull('bounced_at')
                     ->orWhereExists(fn ($s) => $s->from('mail_suppressions')
@@ -441,6 +463,7 @@ class MailingController extends Controller
                 'email' => $c->email,
                 'name' => $c->name,
                 'product' => $c->product?->name,
+                'tags' => $c->tags ?? [],
                 'permission_note' => $c->permission_note,
                 'permission_at' => $c->permission_at?->toIso8601String(),
                 'unsubscribed_at' => $c->unsubscribed_at?->toIso8601String(),
@@ -448,7 +471,8 @@ class MailingController extends Controller
                 'bounce_reason' => $c->bounce_reason,
                 'suppression' => $suppressed[$c->product_id.':'.$c->email]->reason ?? null,
             ]),
-            'filters' => ['product' => $product?->key, 'search' => $filters['search'] ?? '', 'state' => $filters['state'] ?? null],
+            'filters' => ['product' => $product?->key, 'search' => $filters['search'] ?? '', 'state' => $filters['state'] ?? null, 'tag' => $filters['tag'] ?? null],
+            'tags' => $product ? $this->productTags($product->load('mailingTags')) : [],
             'products' => $this->products(),
         ]);
     }
@@ -560,7 +584,7 @@ class MailingController extends Controller
         return Inertia::render('Mailing/Edit', [
             'campaign' => $this->campaignPayload($campaign),
             'products' => Product::query()->orderBy('name')
-                ->with(['mailboxes' => fn ($q) => $q->active()->orderByDesc('is_default'), 'mailingTriggers'])
+                ->with(['mailboxes' => fn ($q) => $q->active()->orderByDesc('is_default'), 'mailingTriggers', 'mailingTags'])
                 ->get()
                 ->map(fn (Product $p) => [
                     'key' => $p->key,
@@ -570,6 +594,9 @@ class MailingController extends Controller
                     'triggers' => $p->mailingTriggers->map(fn (MailingTrigger $t) => [
                         'key' => $t->key, 'label' => $t->label, 'variables' => $t->variables ?? [], 'quotes' => filled($t->quote_kind),
                     ]),
+                    'tags' => $this->productTags($p),
+                    // Atribúty, ktoré projekt posiela pri kontaktoch – nápoveda premenných.
+                    'contact_variables' => $this->contactVariables($p),
                 ]),
             'layouts' => MailingLayout::query()->with('product:id,key')->orderBy('name')->get()
                 ->map(fn (MailingLayout $l) => ['id' => $l->id, 'name' => $l->name, 'product_key' => $l->product?->key]),
@@ -588,6 +615,11 @@ class MailingController extends Controller
             'mailbox_id' => $campaign->mailbox_id,
             'layout_id' => $campaign->layout_id,
             'name' => $campaign->name,
+            'kind' => $campaign->kind ?? MailingCampaign::OFFER,
+            'audience' => [
+                'any' => $campaign->audienceTags('any'),
+                'none' => $campaign->audienceTags('none'),
+            ],
             'subject' => $campaign->subject,
             'heading' => $campaign->heading,
             'body' => $campaign->body,
@@ -634,6 +666,7 @@ class MailingController extends Controller
             'track_opens' => ['boolean'],
             'reply_in_thread' => ['boolean'],
             'quote_event' => ['boolean'],
+            ...self::audienceRules(),
         ]);
 
         $product = isset($data['product_key']) ? Product::where('key', $data['product_key'])->firstOrFail() : $campaign->product;
@@ -648,6 +681,8 @@ class MailingController extends Controller
         $data = [
             ...$data,
             'product_id' => $product->id,
+            'kind' => $data['kind'] ?? MailingCampaign::OFFER,
+            'audience' => self::audience($data),
             'trigger_event' => ($data['trigger_event'] ?? null) ?: null,
             'delay_hours' => $data['delay_hours'] ?? 24,
             'reply_in_thread' => $reply,
@@ -660,6 +695,35 @@ class MailingController extends Controller
         }
 
         return $data;
+    }
+
+    /** @return array<string, mixed> */
+    private static function audienceRules(): array
+    {
+        return [
+            'kind' => ['nullable', Rule::in([MailingCampaign::OFFER, MailingCampaign::SERVICE])],
+            'audience' => ['nullable', 'array'],
+            'audience.any' => ['nullable', 'array', 'max:20'],
+            'audience.any.*' => ['string', 'max:60'],
+            'audience.none' => ['nullable', 'array', 'max:20'],
+            'audience.none.*' => ['string', 'max:60'],
+        ];
+    }
+
+    /**
+     * Segment bez prázdnych častí; prázdny segment (všetci) je null.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{any?: list<string>, none?: list<string>}|null
+     */
+    private static function audience(array $data): ?array
+    {
+        $audience = array_filter([
+            'any' => array_values(array_unique($data['audience']['any'] ?? [])),
+            'none' => array_values(array_unique($data['audience']['none'] ?? [])),
+        ]);
+
+        return $audience ?: null;
     }
 
     /** Neuložená kampaň z formulára – pre náhľad a test. */
@@ -706,6 +770,43 @@ class MailingController extends Controller
         $product = Product::where('key', $data['product_key'])->firstOrFail();
 
         return ['product_id' => $product->id, 'name' => $data['name'], 'html' => $data['html']];
+    }
+
+    /**
+     * Štítky projektu: zaregistrované s popisom a k nim tie, ktoré kontakty
+     * majú, hoci ich projekt (zatiaľ) nezaregistroval.
+     *
+     * @return list<array{key: string, label: string, description: ?string}>
+     */
+    private function productTags(Product $product): array
+    {
+        $tags = $product->mailingTags->mapWithKeys(fn (MailingTag $t) => [$t->key => [
+            'key' => $t->key, 'label' => $t->label, 'description' => $t->description,
+        ]])->all();
+
+        foreach ($this->contactTags($product) as $key) {
+            $tags[$key] ??= ['key' => $key, 'label' => $key, 'description' => null];
+        }
+
+        return array_values($tags);
+    }
+
+    /** @return list<string> */
+    private function contactTags(Product $product): array
+    {
+        return MailingContact::query()->where('product_id', $product->id)->whereNotNull('tags')
+            ->distinct()->pluck('tags')
+            ->flatMap(fn ($tags) => is_array($tags) ? $tags : (json_decode((string) $tags, true) ?: []))
+            ->unique()->sort()->values()->all();
+    }
+
+    /** @return list<string> */
+    private function contactVariables(Product $product): array
+    {
+        return MailingContact::query()->where('product_id', $product->id)->whereNotNull('attributes')
+            ->latest('updated_at')->limit(50)->pluck('attributes')
+            ->flatMap(fn ($attributes) => array_keys((array) $attributes))
+            ->unique()->sort()->values()->all();
     }
 
     /** @return \Illuminate\Support\Collection<int, Product> */

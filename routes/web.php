@@ -236,6 +236,7 @@ Route::middleware('auth')->group(function () {
     Route::post('mailing', [MailingController::class, 'store'])->name('mailing.store');
     Route::post('mailing/preview', [MailingController::class, 'preview'])->name('mailing.preview');
     Route::post('mailing/test', [MailingController::class, 'test'])->middleware('throttle:10,1')->name('mailing.test');
+    Route::post('mailing/audience-count', [MailingController::class, 'audienceCount'])->name('mailing.audience-count');
 
     Route::get('mailing/templates', [MailingController::class, 'templates'])->name('mailing.templates');
     Route::post('mailing/templates', [MailingController::class, 'storeTemplate'])->name('mailing.templates.store');
