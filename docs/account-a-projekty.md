@@ -435,7 +435,7 @@ posielame len pri automatizáciách k veci, nie pri hromadnej ponuke.
 
 | Projekt | Inbox (`ACCOUNT_MESSAGING`), vec `ref.type` | Udalosti emailingu (`ACCOUNT_MAILING`) | Kontakty a štítky |
 |---|---|---|---|
-| Zástavy | objednávky (`order`), objednávky z e-mailu | objednávka, expedícia, dokončenie, storno | zatiaľ import (`mailing:import`) |
+| Zástavy | objednávky (`order`), objednávky z e-mailu | objednávka, expedícia, dokončenie, storno | `customer`, `municipality`, `school`, `company`, `person`, `account`, so súhlasom |
 | Event | kontakt kanála (`canal`) | registrácia, koniec podujatia | zatiaľ nie |
 | Anonymizer | odpoveď podpory (`support_ticket`), výsledok skúšky bez účtu (`trial`) | registrácia, skúška bez účtu, koniec skúšky | `user`, `verified`, `trial`, bez súhlasu → oznámenia |
 | Hlas Cirkvi | – | – | zatiaľ nie je napojený |
