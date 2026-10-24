@@ -171,7 +171,8 @@ onUnmounted(() => {
         >
             <LocaleFlag v-if="flag" :code="flag" />
             <span v-if="label">{{ label }}</span>
-            <Icon name="dots" :size="label || flag ? 15 : 17" />
+            <!-- Vlajka sama hovorí, že ide o voľbu jazyka – tri bodky netreba. -->
+            <Icon v-if="!flag" name="dots" :size="label ? 15 : 17" />
         </button>
 
         <Teleport to="body">
