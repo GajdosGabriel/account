@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 /**
@@ -12,9 +13,15 @@ use Illuminate\Support\Str;
  *
  * Odhlásenie platí len pre ponuky daného projektu. Trvalo nedoručiteľná
  * adresa je v `mail_suppressions` a blokuje všetky maily projektu.
+ *
+ * Kontakt, ktorý projekt odstráni, je len skrytý (soft delete) – nedostane
+ * žiadnu kampaň, ale keď ho projekt pošle znova, obnoví sa s odhlásením,
+ * tokenom aj históriou. Ručné zmazanie v Accounte je trvalé.
  */
 class MailingContact extends Model
 {
+    use SoftDeletes;
+
     public const SOFT_BOUNCE_LIMIT = 3;
 
     protected $fillable = [

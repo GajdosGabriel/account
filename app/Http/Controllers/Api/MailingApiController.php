@@ -199,8 +199,10 @@ class MailingApiController extends ApiController
                 ? Organization::where('uuid', $row['organization_id'])->first()
                 : null;
 
-            $contact = MailingContact::firstOrNew(['product_id' => $product->id, 'email' => strtolower(trim($row['email']))]);
-            $new = ! $contact->exists;
+            // Odstránený kontakt sa obnoví – odhlásenie, token aj história ostanú.
+            $contact = MailingContact::withTrashed()->firstOrNew(['product_id' => $product->id, 'email' => strtolower(trim($row['email']))]);
+            $new = ! $contact->exists || $contact->trashed();
+            $contact->deleted_at = null;
 
             $contact->fill(array_filter([
                 'name' => $row['name'] ?? null,
@@ -248,8 +250,8 @@ class MailingApiController extends ApiController
     }
 
     /**
-     * Projekt zmazal človeka (účet, skúšku) – kontakt zmizne aj s čakajúcimi
-     * mailmi. Odoslané doručenia ostanú v štatistikách bez väzby na kontakt.
+     * Projekt zmazal človeka (účet, skúšku) – kontakt sa skryje a čakajúce
+     * maily sa neodošlú. Keď ho projekt neskôr pošle znova, obnoví sa.
      */
     public function remove(Request $request): JsonResponse
     {
@@ -286,12 +288,13 @@ class MailingApiController extends ApiController
         $product = $this->product($request);
         $email = strtolower(trim($email));
 
-        $contact = MailingContact::query()->where('product_id', $product->id)->where('email', $email)->first();
+        $contact = MailingContact::withTrashed()->where('product_id', $product->id)->where('email', $email)->first();
         $suppression = MailSuppression::query()->where('product_id', $product->id)->where('email', $email)->first();
 
         return response()->json(['data' => [
             'email' => $email,
-            'exists' => $contact !== null,
+            'exists' => $contact !== null && ! $contact->trashed(),
+            'removed_at' => $contact?->deleted_at?->toIso8601String(),
             'name' => $contact?->name,
             'tags' => $contact?->tags ?? [],
             'permission_note' => $contact?->permission_note,
@@ -300,7 +303,7 @@ class MailingApiController extends ApiController
             'bounced_at' => $contact?->bounced_at?->toIso8601String(),
             'suppressed' => $suppression !== null,
             'suppression_reason' => $suppression?->reason,
-            'reachable' => $contact?->isReachable() ?? false,
+            'reachable' => $contact && ! $contact->trashed() && $contact->isReachable(),
         ]]);
     }
 }

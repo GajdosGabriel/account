@@ -501,14 +501,16 @@ class MailingController extends Controller
                 continue;
             }
 
-            $contact = MailingContact::firstOrNew(['product_id' => $product->id, 'email' => $email]);
+            $contact = MailingContact::withTrashed()->firstOrNew(['product_id' => $product->id, 'email' => $email]);
 
-            if ($contact->exists) {
+            if ($contact->exists && ! $contact->trashed()) {
                 $skipped++;
 
                 continue;
             }
 
+            // Kontakt odstránený projektom sa obnoví aj s odhlásením.
+            $contact->deleted_at = null;
             $contact->fill([
                 'name' => trim($m[1] ?? '') ?: null,
                 'permission_note' => $data['permission_note'],
@@ -546,9 +548,10 @@ class MailingController extends Controller
         return back()->with('success', __('mailing.contacts.reactivated'));
     }
 
+    /** Ručné zmazanie je trvalé – na rozdiel od odstránenia projektom. */
     public function destroyContact(MailingContact $contact): RedirectResponse
     {
-        $contact->delete();
+        $contact->forceDelete();
 
         return back()->with('success', __('mailing.contacts.deleted'));
     }

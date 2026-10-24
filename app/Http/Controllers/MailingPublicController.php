@@ -29,7 +29,8 @@ class MailingPublicController extends Controller
     /** GET zobrazí potvrdenie, POST odhlási (aj „List-Unsubscribe-Post“ jedným klikom). */
     public function unsubscribe(Request $request, string $token, MailingWebhooks $webhooks): Response
     {
-        $contact = MailingContact::query()->where('token', $token)->with('product')->first();
+        // Odkaz zo staršieho mailu funguje aj pre kontakt, ktorý projekt medzitým odstránil.
+        $contact = MailingContact::withTrashed()->where('token', $token)->with('product')->first();
 
         abort_unless($contact, 404);
 

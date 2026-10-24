@@ -106,7 +106,7 @@ class MailingAudienceTest extends TestCase
         $this->assertNull($contact->fresh()->unsubscribed_at);
     }
 
-    public function test_projekt_zmaze_kontakt_aj_s_cakajucimi_mailmi(): void
+    public function test_projekt_odstrani_kontakt_aj_s_cakajucimi_mailmi(): void
     {
         $contact = $this->contact('jana@firma.test');
         $campaign = $this->campaign();
@@ -115,9 +115,43 @@ class MailingAudienceTest extends TestCase
         $this->api('POST', '/api/v1/mailing/contacts/remove', ['emails' => ['JANA@firma.test', 'nikto@firma.test']])
             ->assertOk()->assertJsonPath('data.removed', 1);
 
+        // Kontakt je len skrytý: nedostane kampaň, história ostane naviazaná.
         $this->assertSame(0, MailingContact::count());
+        $this->assertTrue($contact->fresh()->trashed());
         $this->assertSame(MailingDelivery::SKIPPED, $delivery->fresh()->status);
-        $this->assertNull($delivery->fresh()->contact_id);
+        $this->assertSame($contact->id, $delivery->fresh()->contact_id);
+        $this->assertSame(0, MailingContact::audience($this->campaign(['kind' => MailingCampaign::SERVICE]))->count());
+        $this->api('GET', '/api/v1/mailing/contacts/jana@firma.test', [])->assertJsonPath('data.exists', false);
+    }
+
+    public function test_odstraneny_kontakt_sa_po_novej_objednavke_obnovi_aj_s_odhlasenim(): void
+    {
+        $contact = $this->contact('jana@firma.test', ['customer']);
+        $contact->forceFill(['unsubscribed_at' => now()->subWeek()])->save();
+        $token = $contact->token;
+
+        $this->api('POST', '/api/v1/mailing/contacts/remove', ['emails' => ['jana@firma.test']]);
+        // Starý odkaz na odhlásenie funguje aj pre odstránený kontakt.
+        $this->get("/m/u/{$token}")->assertOk();
+
+        $this->api('POST', '/api/v1/mailing/contacts', ['contacts' => [
+            ['email' => 'jana@firma.test', 'tags' => ['customer', 'school'], 'permission_note' => 'súhlas pri objednávke'],
+        ]])->assertJsonPath('data.added', 1);
+
+        $restored = MailingContact::sole();
+        $this->assertSame($contact->id, $restored->id);
+        $this->assertSame($token, $restored->token);
+        $this->assertNotNull($restored->unsubscribed_at);
+        $this->assertSame(['customer', 'school'], $restored->tags);
+    }
+
+    public function test_rucne_zmazanie_v_accounte_je_trvale(): void
+    {
+        $contact = $this->contact('jana@firma.test');
+
+        $this->actingAs(User::factory()->create())->delete("/mailing/contacts/{$contact->id}")->assertSessionHas('success');
+
+        $this->assertSame(0, MailingContact::withTrashed()->count());
     }
 
     public function test_ponuka_ide_len_so_suhlasom_a_v_segmente(): void

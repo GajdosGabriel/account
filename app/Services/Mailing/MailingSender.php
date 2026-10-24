@@ -318,7 +318,7 @@ class MailingSender
         $reason = mb_substr($reason, 0, 255);
 
         return DB::transaction(function () use ($product, $email, $type, $reason) {
-            $contact = MailingContact::query()->where('product_id', $product->id)->where('email', $email)->lockForUpdate()->first();
+            $contact = MailingContact::withTrashed()->where('product_id', $product->id)->where('email', $email)->lockForUpdate()->first();
 
             if ($type === BounceClassifier::HARD) {
                 $suppression = MailSuppression::firstOrNew(['product_id' => $product->id, 'email' => $email]);
