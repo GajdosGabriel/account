@@ -6,6 +6,7 @@ use App\Enums\ConversationStatus;
 use App\Enums\MessageStatus;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
+use App\Models\InboundBlock;
 use App\Models\Mailbox;
 use App\Models\MailingDelivery;
 use App\Models\MailSuppression;
@@ -27,7 +28,9 @@ use ZBateson\MailMimeParser\Message\IMessagePart;
  *   2. automatická odpoveď (dovolenka) → uloží sa, ale nikoho nebudí;
  *   3. odpoveď → spáruje sa s konverzáciou:
  *        In-Reply-To / References → X-Conversation → odosielateľ s jedinou
- *        konverzáciou → inak nepriradená (operátor ju priradí v inboxe).
+ *        konverzáciou → inak nepriradená (operátor ju priradí v inboxe);
+ *   4. nepriradený mail od blokovaného odosielateľa (alebo do konverzácie
+ *      v Spame) → ide do Spamu, projekt ani počítadlo sa nedozvedia.
  */
 class InboundProcessor
 {
@@ -40,6 +43,8 @@ class InboundProcessor
     public const RESULT_AUTO_REPLY = 'auto_reply';
 
     public const RESULT_SKIPPED = 'skipped';
+
+    public const RESULT_SPAM = 'spam';
 
     public function __construct(
         private ConversationService $conversations,
@@ -84,6 +89,8 @@ class InboundProcessor
         $unassigned = $conversation === null || ! $conversation->isAssigned();
 
         $conversation ??= $this->unassignedConversation($mailbox, $email, $from['name'] ?? null, $mail->getSubject());
+        // Odpovede vo vláknach k veci v projekte sa neblokujú nikdy.
+        $spam = $unassigned && ($conversation->isSpam() || InboundBlock::blocks($mailbox->product_id, $email));
 
         $html = $mail->getHtmlContent();
         $text = $mail->getTextContent() ?? ReplyExtractor::htmlToText($html);
@@ -108,14 +115,20 @@ class InboundProcessor
             'body_text' => $text,
             'reply_text' => $reply,
             'imap_uid' => $uid,
-            'meta' => $unassigned || $autoReply ? null : ['notified' => true],
+            'meta' => match (true) {
+                $spam => ['spam' => true],
+                $unassigned || $autoReply => null,
+                default => ['notified' => true],
+            },
         ]);
 
         $this->storeAttachments($message, $mail);
 
         $conversation->forceFill(['last_inbound_at' => now(), 'last_message_at' => now()]);
 
-        if (! $autoReply) {
+        if ($spam) {
+            $conversation->forceFill(['status' => ConversationStatus::Spam]);
+        } elseif (! $autoReply) {
             $conversation->forceFill([
                 'status' => ConversationStatus::Open,
                 'unread_count' => $conversation->unread_count + 1,
@@ -123,6 +136,10 @@ class InboundProcessor
         }
 
         $conversation->save();
+
+        if ($spam) {
+            return self::RESULT_SPAM;
+        }
 
         if ($autoReply) {
             return self::RESULT_AUTO_REPLY;

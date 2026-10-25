@@ -13,6 +13,7 @@ const props = defineProps({
     products: { type: Array, default: () => [] },
     statuses: { type: Array, default: () => [] },
     counts: { type: Object, default: () => ({}) },
+    spamRetentionDays: { type: Number, default: 30 },
 });
 
 const form = ref({ search: '', product: null, status: null, ...props.filters });
@@ -53,7 +54,22 @@ const tabs = computed(() => [
     { value: 'active', label: t('messaging.inbox.active') },
     { value: 'unread', label: t('messaging.inbox.unread'), count: props.counts.unread },
     { value: 'unassigned', label: t('messaging.inbox.unassigned'), count: props.counts.unassigned },
+    { value: 'spam', label: t('messaging.inbox.spam'), count: props.counts.spam, muted: true },
 ]);
+
+// Hromadné označenie spamu – len všeobecné (nepriradené) konverzácie.
+const inSpam = computed(() => form.value.status === 'spam');
+const selected = ref([]);
+watch(() => props.conversations, () => {
+    selected.value = [];
+});
+
+const markSpam = () => router.post('/inbox/spam', { ids: selected.value }, { preserveScroll: true });
+
+const emptySpam = () => {
+    if (!confirm(t('messaging.inbox.empty_spam_confirm'))) return;
+    router.delete('/inbox/spam', { preserveScroll: true });
+};
 
 // Dnes len čas, tento rok bez roka, staršie s celým rokom.
 const when = (iso) => {
@@ -102,7 +118,7 @@ const showSubject = (c) => c.subject && (!c.assigned || !normalize(c.ref_label).
                 <span
                     v-if="tab.count"
                     class="rounded-full px-1.5 text-xs font-semibold"
-                    :class="form.status === tab.value ? 'bg-white/25' : 'bg-amber-100 text-amber-800'"
+                    :class="form.status === tab.value ? 'bg-white/25' : (tab.muted ? 'bg-slate-100 text-slate-600' : 'bg-amber-100 text-amber-800')"
                 >{{ tab.count }}</span>
             </button>
         </div>
@@ -123,13 +139,38 @@ const showSubject = (c) => c.subject && (!c.assigned || !normalize(c.ref_label).
         </p>
     </div>
 
+    <div v-if="inSpam" class="mb-3 flex flex-wrap items-center justify-between gap-3 text-sm text-slate-500">
+        <span>{{ t('messaging.inbox.spam_retention', { days: spamRetentionDays }) }}</span>
+        <button v-if="conversations.data.length" type="button" class="btn-secondary btn-sm text-rose-700" @click="emptySpam">
+            <Icon name="trash" :size="15" />
+            {{ t('messaging.inbox.empty_spam') }}
+        </button>
+    </div>
+
+    <div v-else-if="selected.length" class="mb-3 flex flex-wrap items-center gap-3">
+        <button type="button" class="btn-primary btn-sm" @click="markSpam">
+            <Icon name="ban" :size="15" />
+            {{ t('messaging.inbox.spam_selected', { count: selected.length }) }}
+        </button>
+        <button type="button" class="link text-sm" @click="selected = []">{{ t('messaging.inbox.spam_cancel_selection') }}</button>
+    </div>
+
     <div class="card overflow-hidden">
         <ul class="divide-y divide-slate-100">
-            <li v-for="c in conversations.data" :key="c.id">
+            <li v-for="c in conversations.data" :key="c.id" class="flex items-stretch" :class="c.unread ? 'bg-amber-50/40' : ''">
+                <label v-if="!inSpam" class="flex shrink-0 cursor-pointer items-start py-3.5 pl-4" :class="c.assigned ? 'invisible' : ''">
+                    <input
+                        v-model="selected"
+                        type="checkbox"
+                        :value="c.id"
+                        :disabled="c.assigned"
+                        class="mt-1"
+                        :aria-label="t('messaging.inbox.spam_select')"
+                    />
+                </label>
                 <Link
                     :href="`/inbox/${c.id}`"
-                    class="flex items-start gap-4 px-4 py-3.5 transition hover:bg-slate-50/70"
-                    :class="c.unread ? 'bg-amber-50/40' : ''"
+                    class="flex min-w-0 flex-1 items-start gap-4 px-4 py-3.5 transition hover:bg-slate-50/70"
                 >
                     <span
                         class="mt-1.5 h-2 w-2 shrink-0 rounded-full"

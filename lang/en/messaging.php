@@ -72,6 +72,26 @@ return [
 
         'related_title' => 'Other conversations with this contact or organization',
         'related_empty' => 'No other conversations.',
+
+        'spam' => 'Spam',
+        'spam_button' => 'Spam',
+        'spam_confirm' => 'Move to Spam? Further mail from :email will go straight to Spam.',
+        'spam_marked' => 'The conversation is in Spam and the sender is blocked.',
+        'spam_marked_many' => 'Moved to Spam: :count, senders are blocked.',
+        'spam_selected' => 'Mark as spam (:count)',
+        'spam_select' => 'Select conversation',
+        'spam_cancel_selection' => 'Clear selection',
+        'spam_banner_title' => 'Spam – the sender is blocked',
+        'spam_banner_hint' => 'Their further mail goes straight here and the project is not notified. If this is not spam, move it back to the inbox.',
+        'not_spam' => 'Not spam',
+        'spam_restored' => 'The conversation is back in the inbox and the sender is unblocked.',
+        'delete' => 'Delete',
+        'delete_confirm' => 'Permanently delete the conversation including attachments?',
+        'spam_deleted' => 'The conversation has been deleted.',
+        'empty_spam' => 'Empty spam',
+        'empty_spam_confirm' => 'Permanently delete all conversations in Spam?',
+        'spam_emptied' => 'Spam has been emptied.',
+        'spam_retention' => 'Spam is deleted automatically :days days after the last message.',
     ],
 
     'mailboxes' => [

@@ -80,6 +80,17 @@ class Conversation extends Model
         $query->whereNull('ref_type');
     }
 
+    /** @param Builder<self> $query */
+    public function scopeNotSpam(Builder $query): void
+    {
+        $query->where('status', '!=', ConversationStatus::Spam->value);
+    }
+
+    public function isSpam(): bool
+    {
+        return $this->status === ConversationStatus::Spam;
+    }
+
     public function isAssigned(): bool
     {
         return $this->ref_type !== null;

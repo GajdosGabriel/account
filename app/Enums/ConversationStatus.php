@@ -15,6 +15,8 @@ enum ConversationStatus: string
     case Answered = 'answered';
     /** Vybavené – nová odpoveď konverzáciu znova otvorí. */
     case Closed = 'closed';
+    /** Nevyžiadaná pošta – skrytá z inboxu, po čase sa zmaže. */
+    case Spam = 'spam';
 
     public function label(): string
     {
@@ -28,6 +30,7 @@ enum ConversationStatus: string
             self::Waiting => 'sky',
             self::Answered => 'emerald',
             self::Closed => 'slate',
+            self::Spam => 'rose',
         };
     }
 }

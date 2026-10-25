@@ -38,6 +38,20 @@ const sendReply =() => replyForm.post(`/inbox/${props.conversation.id}/reply`, {
 
 const merge = () => mergeForm.post(`/inbox/${props.conversation.id}/merge`);
 
+const isSpam = computed(() => props.conversation.status === 'spam');
+
+const markSpam = () => {
+    if (!confirm(t('messaging.inbox.spam_confirm', { email: props.conversation.contact_email }))) return;
+    router.post(`/inbox/${props.conversation.id}/spam`);
+};
+
+const notSpam = () => router.post(`/inbox/${props.conversation.id}/not-spam`, {}, { preserveScroll: true });
+
+const destroy = () => {
+    if (!confirm(t('messaging.inbox.delete_confirm'))) return;
+    router.delete(`/inbox/${props.conversation.id}`);
+};
+
 const changeStatus = (event) => router.post(
     `/inbox/${props.conversation.id}/status`,
     { status: event.target.value },
@@ -111,7 +125,11 @@ const hasQuote = (message) => message.direction === 'in'
                     <Icon name="external" :size="15" />
                     {{ t('messaging.inbox.open_in_project') }}
                 </a>
-                <select :value="conversation.status" class="w-auto py-1.5" :title="t('messaging.inbox.change_status')" :aria-label="t('messaging.inbox.change_status')" @change="changeStatus">
+                <button v-if="!conversation.assigned && !isSpam" type="button" class="btn-secondary btn-sm" @click="markSpam">
+                    <Icon name="ban" :size="15" />
+                    {{ t('messaging.inbox.spam_button') }}
+                </button>
+                <select v-if="!isSpam" :value="conversation.status" class="w-auto py-1.5" :title="t('messaging.inbox.change_status')" :aria-label="t('messaging.inbox.change_status')" @change="changeStatus">
                     <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                 </select>
             </div>
@@ -120,8 +138,21 @@ const hasQuote = (message) => message.direction === 'in'
 
     <div class="grid gap-6 lg:grid-cols-3">
         <div class="space-y-4 lg:col-span-2">
+            <!-- Spam – odosielateľ je zablokovaný -->
+            <div v-if="isSpam" class="card border-rose-200 p-5">
+                <h2 class="font-semibold text-rose-800">{{ t('messaging.inbox.spam_banner_title') }}</h2>
+                <p class="mt-1 text-sm text-slate-600">{{ t('messaging.inbox.spam_banner_hint') }}</p>
+                <div class="mt-4 flex flex-wrap gap-3">
+                    <button type="button" class="btn-primary" @click="notSpam">{{ t('messaging.inbox.not_spam') }}</button>
+                    <button type="button" class="btn-secondary text-rose-700" @click="destroy">
+                        <Icon name="trash" :size="16" />
+                        {{ t('messaging.inbox.delete') }}
+                    </button>
+                </div>
+            </div>
+
             <!-- Všeobecná správa – priradenie k veci v projekte je voliteľné -->
-            <div v-if="!conversation.assigned" class="card border-amber-200 p-5">
+            <div v-else-if="!conversation.assigned" class="card border-amber-200 p-5">
                 <h2 class="font-semibold text-amber-800">{{ t('messaging.inbox.unassigned_title') }}</h2>
                 <p class="mt-1 text-sm text-slate-600">{{ t('messaging.inbox.unassigned_hint') }}</p>
                 <p v-if="!targets.length" class="mt-3 text-sm text-slate-500">{{ t('messaging.inbox.merge_none') }}</p>
@@ -191,7 +222,7 @@ const hasQuote = (message) => message.direction === 'in'
             </article>
 
             <!-- Odpoveď -->
-            <CardSection :title="t('messaging.inbox.reply_title')" icon="send">
+            <CardSection v-if="!isSpam" :title="t('messaging.inbox.reply_title')" icon="send">
                 <form class="space-y-3" @submit.prevent="sendReply">
                     <div>
                         <label for="reply_subject">{{ t('messaging.inbox.reply_subject') }}</label>

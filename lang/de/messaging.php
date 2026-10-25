@@ -72,6 +72,26 @@ return [
 
         'related_title' => 'Weitere Konversationen mit diesem Kontakt oder dieser Firma',
         'related_empty' => 'Keine weiteren Konversationen.',
+
+        'spam' => 'Spam',
+        'spam_button' => 'Spam',
+        'spam_confirm' => 'In den Spam verschieben? Weitere E-Mails von :email landen direkt im Spam.',
+        'spam_marked' => 'Die Konversation ist im Spam, der Absender ist blockiert.',
+        'spam_marked_many' => 'In den Spam verschoben: :count, Absender sind blockiert.',
+        'spam_selected' => 'Als Spam markieren (:count)',
+        'spam_select' => 'Konversation auswählen',
+        'spam_cancel_selection' => 'Auswahl aufheben',
+        'spam_banner_title' => 'Spam – der Absender ist blockiert',
+        'spam_banner_hint' => 'Weitere E-Mails landen direkt hier, das Projekt erfährt nichts davon. Falls es kein Spam ist, verschiebe die Konversation zurück in den Inbox.',
+        'not_spam' => 'Kein Spam',
+        'spam_restored' => 'Die Konversation ist zurück im Inbox, der Absender ist entsperrt.',
+        'delete' => 'Löschen',
+        'delete_confirm' => 'Konversation samt Anhängen endgültig löschen?',
+        'spam_deleted' => 'Die Konversation wurde gelöscht.',
+        'empty_spam' => 'Spam leeren',
+        'empty_spam_confirm' => 'Alle Konversationen im Spam endgültig löschen?',
+        'spam_emptied' => 'Der Spam wurde geleert.',
+        'spam_retention' => 'Spam wird :days Tage nach der letzten Nachricht automatisch gelöscht.',
     ],
 
     'mailboxes' => [

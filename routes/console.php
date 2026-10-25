@@ -4,6 +4,7 @@ use App\Console\Commands\FetchMailboxes;
 use App\Console\Commands\GenerateSubscriptionInvoices;
 use App\Console\Commands\RetryConversationMessages;
 use App\Console\Commands\ProcessSubscriptionLifecycle;
+use App\Console\Commands\PurgeSpamConversations;
 use App\Console\Commands\RetryWebhookDeliveries;
 use App\Console\Commands\SendInvoiceReminders;
 use App\Console\Commands\SendMailingBatch;
@@ -24,6 +25,7 @@ Schedule::command(RetryWebhookDeliveries::class)->everyFiveMinutes();
 
 Schedule::command(FetchMailboxes::class)->everyTwoMinutes()->withoutOverlapping(10);
 Schedule::command(RetryConversationMessages::class)->everyFiveMinutes();
+Schedule::command(PurgeSpamConversations::class)->dailyAt('03:30');
 
 // Kampane po malých dávkach – hodinový limit projektu stráži MailingSender.
 Schedule::command(SendMailingBatch::class)->everyMinute()->withoutOverlapping(10);

@@ -89,6 +89,8 @@ return [
         'imap_timeout' => 30,
         // maximálna veľkosť prílohy uloženej z prichádzajúceho mailu (bajty)
         'max_attachment_size' => 15 * 1024 * 1024,
+        // po koľkých dňoch od poslednej správy sa spam zmaže
+        'spam_retention_days' => (int) env('MESSAGING_SPAM_RETENTION_DAYS', 30),
     ],
 
     /*

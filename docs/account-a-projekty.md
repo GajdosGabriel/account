@@ -335,6 +335,12 @@ nepriradený a projekt dostane `message.unassigned`. Ak ho projekt spracuje sám
 `POST /api/v1/messages` s `conversation` = id tejto konverzácie – Account ju tým priradí k jeho
 veci (`ref`) a mail odíde ako odpoveď do vlákna klienta.
 
+Operátor môže nepriradenú konverzáciu označiť v Inboxe ako spam – odosielateľ sa v projekte
+zablokuje a jeho ďalšie nepriradené maily idú rovno do Spamu **bez** `message.unassigned`.
+Odpovede vo vláknach k veci v projekte blok neovplyvní. Ak operátor zistí omyl („Nie je spam“),
+projekt dostane zadržané maily dodatočne ako `message.unassigned`. Spam sa maže 30 dní po
+poslednej správe (`MESSAGING_SPAM_RETENTION_DAYS`).
+
 Správa o nedoručení (bounce) sa rozpozná automaticky. Pri trvalej chybe (5.x.x) sa adresa
 v projekte zablokuje a projekt dostane `message.bounced`. Automatické odpovede
 („som na dovolenke“) sa uložia, ale konverzáciu neotvoria.

@@ -72,6 +72,26 @@ return [
 
         'related_title' => 'Jiné konverzace s tímto kontaktem nebo firmou',
         'related_empty' => 'Žádné další konverzace.',
+
+        'spam' => 'Spam',
+        'spam_button' => 'Spam',
+        'spam_confirm' => 'Přesunout do Spamu? Další e-maily od :email půjdou rovnou do Spamu.',
+        'spam_marked' => 'Konverzace je ve Spamu, odesílatel je zablokován.',
+        'spam_marked_many' => 'Přesunuto do Spamu: :count, odesílatelé jsou zablokováni.',
+        'spam_selected' => 'Označit jako spam (:count)',
+        'spam_select' => 'Vybrat konverzaci',
+        'spam_cancel_selection' => 'Zrušit výběr',
+        'spam_banner_title' => 'Spam – odesílatel je zablokován',
+        'spam_banner_hint' => 'Jeho další e-maily jdou rovnou sem, projekt o nich neví. Pokud to není spam, vrať konverzaci do inboxu.',
+        'not_spam' => 'Není spam',
+        'spam_restored' => 'Konverzace je zpět v inboxu, odesílatel odblokován.',
+        'delete' => 'Smazat',
+        'delete_confirm' => 'Trvale smazat konverzaci i s přílohami?',
+        'spam_deleted' => 'Konverzace byla smazána.',
+        'empty_spam' => 'Vyprázdnit spam',
+        'empty_spam_confirm' => 'Trvale smazat všechny konverzace ve Spamu?',
+        'spam_emptied' => 'Spam byl vyprázdněn.',
+        'spam_retention' => 'Spam se maže automaticky :days dní po poslední zprávě.',
     ],
 
     'mailboxes' => [

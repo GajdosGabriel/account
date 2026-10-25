@@ -89,6 +89,7 @@ return [
         'waiting' => 'Waiting on client',
         'answered' => 'Answered',
         'closed' => 'Done',
+        'spam' => 'Spam',
     ],
 
     'message_status' => [

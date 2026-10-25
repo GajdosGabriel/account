@@ -8,6 +8,7 @@ use App\Jobs\SendConversationMessage;
 use App\Models\Conversation;
 use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
+use App\Models\InboundBlock;
 use App\Models\Mailbox;
 use App\Models\MailSuppression;
 use App\Models\Organization;
@@ -221,6 +222,65 @@ class ConversationService
         $conversation->messages()->where('direction', ConversationMessage::IN)->whereNull('read_at')
             ->update(['read_at' => now()]);
         $conversation->forceFill(['unread_count' => 0])->save();
+    }
+
+    /**
+     * Nepriradenú konverzáciu presunie do Spamu a odosielateľa zablokuje –
+     * jeho ďalšie maily pôjdu rovno do Spamu.
+     */
+    public function markSpam(Conversation $conversation, ?User $operator = null): void
+    {
+        abort_if($conversation->isAssigned(), 422);
+
+        DB::transaction(function () use ($conversation, $operator) {
+            $this->markRead($conversation);
+            $conversation->forceFill(['status' => ConversationStatus::Spam])->save();
+
+            InboundBlock::query()->firstOrCreate(
+                ['product_id' => $conversation->product_id, 'email' => $conversation->contact_email],
+                ['created_by_user_id' => $operator?->id],
+            );
+        });
+    }
+
+    /**
+     * Omyl – konverzácia sa vráti do inboxu a blok sa zruší. Maily, ktoré
+     * medzitým prišli do Spamu, projekt dostane dodatočne.
+     */
+    public function notSpam(Conversation $conversation): void
+    {
+        DB::transaction(function () use ($conversation) {
+            $conversation->forceFill(['status' => ConversationStatus::Open])->save();
+
+            InboundBlock::query()
+                ->where('product_id', $conversation->product_id)
+                ->where('email', $conversation->contact_email)
+                ->delete();
+        });
+
+        $conversation->messages()
+            ->where('direction', ConversationMessage::IN)
+            ->where('meta->spam', true)
+            ->get()
+            ->each(function (ConversationMessage $message) use ($conversation) {
+                $meta = $message->meta ?? [];
+                unset($meta['spam']);
+                $message->forceFill(['meta' => $meta ?: null])->save();
+                $this->webhooks->dispatchUnassigned($message->setRelation('conversation', $conversation));
+            });
+    }
+
+    /** Zmaže konverzáciu aj so súbormi príloh (DB cascade by ich nechal na disku). */
+    public function destroy(Conversation $conversation): void
+    {
+        DB::transaction(function () use ($conversation) {
+            ConversationAttachment::query()
+                ->whereIn('conversation_message_id', $conversation->messages()->select('id'))
+                ->get()
+                ->each->delete();
+
+            $conversation->delete();
+        });
     }
 
     /**

@@ -34,10 +34,14 @@ class InboxController extends Controller
             'search' => ['nullable', 'string', 'max:120'],
         ]);
 
+        $status = $filters['status'] ?? null;
+
         $conversations = Conversation::query()
             ->with(['product', 'organization'])
             ->when($filters['product'] ?? null, fn ($q, $key) => $q->whereHas('product', fn ($p) => $p->where('key', $key)))
-            ->when($filters['status'] ?? null, function ($q, $status) {
+            // Spam je len vo svojej záložke.
+            ->when($status !== ConversationStatus::Spam->value, fn ($q) => $q->notSpam())
+            ->when($status, function ($q, $status) {
                 match ($status) {
                     'unread' => $q->where('unread_count', '>', 0),
                     'unassigned' => $q->unassigned(),
@@ -64,9 +68,11 @@ class InboxController extends Controller
             'products' => Product::query()->orderBy('name')->get(['key', 'name']),
             'statuses' => $this->statusOptions(),
             'counts' => [
-                'unread' => Conversation::where('unread_count', '>', 0)->count(),
-                'unassigned' => Conversation::unassigned()->count(),
+                'unread' => Conversation::notSpam()->where('unread_count', '>', 0)->count(),
+                'unassigned' => Conversation::notSpam()->unassigned()->count(),
+                'spam' => Conversation::where('status', ConversationStatus::Spam)->count(),
             ],
+            'spamRetentionDays' => (int) config('accounts.messaging.spam_retention_days'),
         ]);
     }
 
@@ -153,12 +159,66 @@ class InboxController extends Controller
     public function status(Request $request, Conversation $conversation): RedirectResponse
     {
         $data = $request->validate([
-            'status' => ['required', Rule::enum(ConversationStatus::class)],
+            // Do Spamu a späť len cez vlastné akcie – blokujú odosielateľa.
+            'status' => ['required', Rule::enum(ConversationStatus::class)->except(ConversationStatus::Spam)],
         ]);
+
+        abort_if($conversation->isSpam(), 422);
 
         $this->conversations->changeStatus($conversation, ConversationStatus::from($data['status']));
 
         return back()->with('success', __('messaging.inbox.status_changed'));
+    }
+
+    public function spam(Request $request, Conversation $conversation): RedirectResponse
+    {
+        abort_if($conversation->isAssigned(), 422);
+
+        $this->conversations->markSpam($conversation, $request->user());
+
+        return redirect()->route('inbox.index')->with('success', __('messaging.inbox.spam_marked'));
+    }
+
+    /** Hromadne – na odpratanie toho, čo sa už nahromadilo. */
+    public function spamMany(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'ids' => ['required', 'array', 'max:100'],
+            'ids.*' => ['uuid'],
+        ]);
+
+        $conversations = Conversation::query()->unassigned()->whereIn('uuid', $data['ids'])->get();
+        $conversations->each(fn (Conversation $c) => $this->conversations->markSpam($c, $request->user()));
+
+        return back()->with('success', __('messaging.inbox.spam_marked_many', ['count' => $conversations->count()]));
+    }
+
+    public function notSpam(Conversation $conversation): RedirectResponse
+    {
+        abort_unless($conversation->isSpam(), 422);
+
+        $this->conversations->notSpam($conversation);
+
+        return back()->with('success', __('messaging.inbox.spam_restored'));
+    }
+
+    public function destroy(Conversation $conversation): RedirectResponse
+    {
+        abort_unless($conversation->isSpam(), 422);
+
+        $this->conversations->destroy($conversation);
+
+        return redirect()->route('inbox.index', ['status' => ConversationStatus::Spam->value])
+            ->with('success', __('messaging.inbox.spam_deleted'));
+    }
+
+    public function emptySpam(): RedirectResponse
+    {
+        Conversation::query()
+            ->where('status', ConversationStatus::Spam)
+            ->each(fn (Conversation $c) => $this->conversations->destroy($c));
+
+        return back()->with('success', __('messaging.inbox.spam_emptied'));
     }
 
     public function merge(Request $request, Conversation $conversation): RedirectResponse
@@ -216,9 +276,11 @@ class InboxController extends Controller
     /** @return array<int, array{value: string, label: string}> */
     private function statusOptions(): array
     {
-        return array_map(fn (ConversationStatus $s) => [
+        $statuses = array_filter(ConversationStatus::cases(), fn (ConversationStatus $s) => $s !== ConversationStatus::Spam);
+
+        return array_values(array_map(fn (ConversationStatus $s) => [
             'value' => $s->value,
             'label' => $s->label(),
-        ], ConversationStatus::cases());
+        ], $statuses));
     }
 }

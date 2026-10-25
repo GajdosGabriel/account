@@ -222,11 +222,18 @@ Route::middleware('auth')->group(function () {
     Route::delete('inbox/mailboxes/{mailbox}', [MailboxController::class, 'destroy'])->name('mailboxes.destroy');
     Route::post('inbox/mailboxes/{mailbox}/test', [MailboxController::class, 'test'])->name('mailboxes.test');
 
+    // Hromadné akcie so spamom tiež pred {conversation}.
+    Route::post('inbox/spam', [InboxController::class, 'spamMany'])->name('inbox.spam-many');
+    Route::delete('inbox/spam', [InboxController::class, 'emptySpam'])->name('inbox.empty-spam');
+
     Route::get('inbox', [InboxController::class, 'index'])->name('inbox.index');
     Route::get('inbox/{conversation}', [InboxController::class, 'show'])->name('inbox.show');
+    Route::delete('inbox/{conversation}', [InboxController::class, 'destroy'])->name('inbox.destroy');
     Route::post('inbox/{conversation}/reply', [InboxController::class, 'reply'])->name('inbox.reply');
     Route::post('inbox/{conversation}/status', [InboxController::class, 'status'])->name('inbox.status');
     Route::post('inbox/{conversation}/merge', [InboxController::class, 'merge'])->name('inbox.merge');
+    Route::post('inbox/{conversation}/spam', [InboxController::class, 'spam'])->name('inbox.spam');
+    Route::post('inbox/{conversation}/not-spam', [InboxController::class, 'notSpam'])->name('inbox.not-spam');
 
     /* ---------------- Emailing (kampane) ---------------- */
 

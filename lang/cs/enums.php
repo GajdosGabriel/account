@@ -89,6 +89,7 @@ return [
         'waiting' => 'Čeká na klienta',
         'answered' => 'Zodpovězeno',
         'closed' => 'Vyřízeno',
+        'spam' => 'Spam',
     ],
 
     'message_status' => [

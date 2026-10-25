@@ -94,6 +94,7 @@ return [
         'waiting' => 'Čaká na klienta',
         'answered' => 'Zodpovedané',
         'closed' => 'Vybavené',
+        'spam' => 'Spam',
     ],
 
     'message_status' => [
