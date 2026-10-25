@@ -189,6 +189,10 @@ php artisan subscriptions:lifecycle   # denne o 03:00
 php artisan webhooks:retry            # kazdych 5 minut
 ```
 
+Produkcia beží na Websupporte (`sub/account` domény zastavy-vlajky.sk) –
+postup nasadenia je v [deploy/README.md](deploy/README.md). Server
+`78.47.38.184` patrí Anonymizéru a Spisoru, Account tam nepatrí.
+
 Na produkcii stačí jediný cron:
 
 ```
