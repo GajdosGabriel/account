@@ -12,7 +12,7 @@
 | | |
 |---|---|
 | Adresa | `https://account.zastavy-vlajky.sk` (`APP_URL`) |
-| SSH | `ssh uid152568@shell.r2.websupport.sk -p28474` (port Websupport občas zmení – aktuálny je v administrácii) |
+| SSH | `ssh uid152568@shell.r2.websupport.sk -p29486` (port Websupport občas zmení – aktuálny je v administrácii) |
 | Projekt | `~/zastavy-vlajky.sk/sub/account` (subdoména `account` domény zastavy-vlajky.sk) |
 | PHP | 8.5 (`/usr/php85/bin/php`, v shelli `php`) |
 | Databáza | MariaDB `db.r2.websupport.sk` |
