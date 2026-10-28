@@ -442,9 +442,14 @@ posielame len pri automatizáciách k veci, nie pri hromadnej ponuke.
 | Projekt | Inbox (`ACCOUNT_MESSAGING`), vec `ref.type` | Udalosti emailingu (`ACCOUNT_MAILING`) | Kontakty a štítky |
 |---|---|---|---|
 | Zástavy | objednávky (`order`), objednávky z e-mailu | objednávka, expedícia, dokončenie, storno | `customer`, `municipality`, `school`, `company`, `person`, `account`, so súhlasom |
-| Event | kontakt kanála (`canal`) | registrácia, koniec podujatia | zatiaľ nie |
+| Event | kontakt kanála (`canal`) | registrácia (`ticket`), koniec podujatia, zverejnenie akcie (`event`, vlastníkom kanála), ponuky prevzatia kanála (`canal`) | `user`, `verified`, `organizer`, `attendee` bez súhlasu → oznámenia; `canal_contact` so súhlasom (verejný kontakt z importu) |
 | Anonymizer | odpoveď podpory (`support_ticket`), výsledok skúšky bez účtu (`trial`) | registrácia, skúška bez účtu, koniec skúšky | `user`, `verified`, `trial`, bez súhlasu → oznámenia |
 | Hlas Cirkvi | – | – | zatiaľ nie je napojený |
+
+Pri Evente ide technický mail po zverejnení akcie (`event_published`, kampaň druhu oznámenie)
+len vlastníkom spravovaného kanála a len pri vlastnej akcii, nie pri importe. Stiahnutie akcie
+zo zverejnenia zruší jej čakajúce maily. Adresár sa prvýkrát naplní cez
+`php artisan account:sync-mailing-contacts`, ďalej sa udržiava sám.
 
 Pri anonymizéri odpoveď používateľa z pošty pribudne do vlákna podpory a odpoveď operátora
 z Inboxu sa tam zapíše ako odpoveď podpory. Automatizácia po skúške môže odpovedať vo vlákne
