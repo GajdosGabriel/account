@@ -14,6 +14,7 @@ const props = defineProps({
     filters: { type: Object, default: () => ({}) },
     products: { type: Array, default: () => [] },
     settings: { type: Object, default: () => ({}) },
+    contacts_by_product: { type: Array, default: () => [] },
 });
 
 const form = ref({ ...props.filters });
@@ -31,8 +32,17 @@ const tiles = computed(() => [
     { label: t('mailing.stats.clicked'), value: props.stats.clicked, hint: percent(props.stats.clicked) },
     { label: t('mailing.stats.pending'), value: props.stats.pending },
     { label: t('mailing.stats.failed'), value: props.stats.failed },
-    { label: t('mailing.stats.active'), value: props.stats.active, hint: t('mailing.stats.contacts_hint', { unsubscribed: props.stats.unsubscribed, bounced: props.stats.bounced }) },
+    {
+        label: t('mailing.stats.contacts'),
+        value: props.stats.contacts,
+        hint: t('mailing.stats.contacts_hint', { offers: props.stats.active, unsubscribed: props.stats.unsubscribed, bounced: props.stats.bounced }),
+    },
 ]);
+
+const filterProduct = (key) => {
+    form.value.product = key;
+    submit();
+};
 
 const when = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'short', timeStyle: 'short' }).format(new Date(iso)) : '');
 </script>
@@ -77,6 +87,13 @@ const when = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
             <p class="mt-1 text-xl font-semibold text-slate-900">{{ tile.value }}</p>
             <p v-if="tile.hint" class="mt-0.5 text-xs text-slate-500">{{ tile.hint }}</p>
         </div>
+    </div>
+
+    <div v-if="contacts_by_product.length" class="-mt-3 mb-6 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
+        <span class="text-xs text-slate-500">{{ t('mailing.stats.contacts_by_product') }}</span>
+        <button v-for="p in contacts_by_product" :key="p.key" type="button" class="hover:text-slate-900 hover:underline" @click="filterProduct(p.key)">
+            {{ p.name }} <span class="font-semibold text-slate-900">{{ p.total }}</span>
+        </button>
     </div>
 
     <div class="card overflow-hidden">

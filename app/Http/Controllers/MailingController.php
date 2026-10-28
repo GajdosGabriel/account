@@ -90,10 +90,19 @@ class MailingController extends Controller
                 'clicked' => (clone $sent)->whereNotNull('clicked_at')->count(),
                 'pending' => (clone $deliveries)->where('status', MailingDelivery::PENDING)->count(),
                 'failed' => (clone $deliveries)->where('status', MailingDelivery::FAILED)->whereBetween('attempted_at', [$from, $to])->count(),
+                // Doručiteľné kontakty = adresáti oznámení o službe; `active` sú tí so súhlasom s ponukami.
+                'contacts' => (clone $contacts)->notBlocked()->count(),
                 'active' => (clone $contacts)->reachable()->count(),
                 'unsubscribed' => (clone $contacts)->whereNotNull('unsubscribed_at')->count(),
                 'bounced' => (clone $contacts)->whereNotNull('bounced_at')->count(),
             ],
+            'contacts_by_product' => $product ? [] : MailingContact::query()
+                ->notBlocked()
+                ->join('products', 'products.id', '=', 'mailing_contacts.product_id')
+                ->groupBy('products.key', 'products.name')
+                ->orderBy('products.name')
+                ->get(['products.key', 'products.name', DB::raw('COUNT(*) as total')])
+                ->map(fn ($row) => ['key' => $row->key, 'name' => $row->name, 'total' => (int) $row->total]),
             'filters' => ['product' => $product?->key, 'from' => $from->toDateString(), 'to' => $to->toDateString()],
             'products' => $this->products(),
             'settings' => $this->settings(),

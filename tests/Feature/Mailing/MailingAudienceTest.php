@@ -234,6 +234,26 @@ class MailingAudienceTest extends TestCase
             ->assertInertia(fn ($page) => $page->has('contacts.data', 1));
     }
 
+    public function test_prehlad_ukazuje_kontakty_aj_bez_suhlasu_a_rozpis_podla_projektu(): void
+    {
+        $user = User::factory()->create();
+        $this->contact('a@firma.test');
+        $this->contact('b@firma.test', consent: false);
+        $this->contact('c@firma.test', consent: false)->forceFill(['bounced_at' => now()])->save();
+
+        $this->actingAs($user)->get('/mailing?product=anonymizer')->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('stats.contacts', 2)
+                ->where('stats.active', 1)
+                ->where('stats.bounced', 1)
+                ->where('contacts_by_product', []));
+
+        $this->actingAs($user)->get('/mailing')->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->where('contacts_by_product.0.key', 'anonymizer')
+                ->where('contacts_by_product.0.total', 2));
+    }
+
     /** @param array<string, mixed> $attributes */
     private function campaign(array $attributes = []): MailingCampaign
     {
