@@ -12,7 +12,7 @@
 | | |
 |---|---|
 | Adresa | `https://account.zastavy-vlajky.sk` (`APP_URL`) |
-| SSH | `ssh uid152568@shell.r2.websupport.sk -p29486` (port Websupport občas zmení – aktuálny je v administrácii) |
+| SSH | `ssh uid152568@shell.r2.websupport.sk -p<port>` – port je pri každej aktivácii konzoly iný, pozri [SSH konzola](#ssh-konzola) |
 | Projekt | `~/zastavy-vlajky.sk/sub/account` (subdoména `account` domény zastavy-vlajky.sk) |
 | PHP | 8.5 (`/usr/php85/bin/php`, v shelli `php`) |
 | Databáza | MariaDB `db.r2.websupport.sk` |
@@ -24,6 +24,25 @@ Na tom istom hostingu sú aj ďalšie subdomény zastavy-vlajky.sk (`sub/obchod`
 Koreňový `.htaccess` projektu presmeruje všetko do `public/`
 (`RewriteRule ^(.*)$ public/$1`), takže dokument root subdomény môže ostať
 na koreni projektu.
+
+## SSH konzola
+
+Hosting má len **základnú shell konzolu**: po aktivácii beží **1 hodinu**
+a pri každej aktivácii dostane **nový SSH port**. Keď SSH hlási
+`Network is unreachable` alebo `Connection refused`, konzola je vypnutá –
+treba ju znova aktivovať:
+
+1. [admin.websupport.sk](https://admin.websupport.sk) → hosting
+   `gabonator_1` → doména `zastavy-vlajky.sk`.
+2. V ľavom menu domény *Pokročilá konfigurácia* → *Konzola*
+   (priamo: `https://admin.websupport.sk/sk/assignment/143782/shell`).
+3. *Základná shell konzola* → **Aktivovať** (zadarmo). Po pár sekundách
+   sa ukáže *SSH Port* a *SSH príkaz*.
+4. Prihlásenie ide cez SSH kľúč (`ssh-ed25519 … gajdosgabo@gmail.com`
+   je v sekcii *SSH kľúče*), heslo z administrácie netreba.
+
+Prémiová konzola (1 €/mesiac) má statický port a neobmedzenú životnosť –
+ak by prepisovanie portu prekážalo.
 
 ## Plánovač
 
