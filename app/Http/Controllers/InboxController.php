@@ -202,13 +202,15 @@ class InboxController extends Controller
         return back()->with('success', __('messaging.inbox.spam_restored'));
     }
 
+    /** Zmazať sa dá len nepriradená konverzácia – priradená patrí k veci v projekte. */
     public function destroy(Conversation $conversation): RedirectResponse
     {
-        abort_unless($conversation->isSpam(), 422);
+        abort_if($conversation->isAssigned(), 422);
 
+        $wasSpam = $conversation->isSpam();
         $this->conversations->destroy($conversation);
 
-        return redirect()->route('inbox.index', ['status' => ConversationStatus::Spam->value])
+        return redirect()->route('inbox.index', $wasSpam ? ['status' => ConversationStatus::Spam->value] : [])
             ->with('success', __('messaging.inbox.spam_deleted'));
     }
 

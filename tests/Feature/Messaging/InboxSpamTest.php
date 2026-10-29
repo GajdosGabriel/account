@@ -142,21 +142,42 @@ class InboxSpamTest extends TestCase
         $this->assertNull(ConversationMessage::sole()->meta['spam'] ?? null);
     }
 
-    public function test_zmazat_sa_da_len_spam_a_zmaze_aj_prilohy(): void
+    public function test_zmazanie_spamu_zmaze_aj_prilohy(): void
     {
         $this->process($this->mail('spam@lacne-lieky.test', 'Akcia'));
         $conversation = Conversation::sole();
         $attachment = app(ConversationService::class)->storeAttachment($conversation->messages()->sole(), 'virus.zip', null, 'DATA');
         Storage::disk('local')->assertExists($attachment->path);
 
-        $this->actingAs($this->user)->delete("/inbox/{$conversation->uuid}")->assertStatus(422);
-
         app(ConversationService::class)->markSpam($conversation);
-        $this->actingAs($this->user)->delete("/inbox/{$conversation->uuid}")->assertRedirect();
+        $this->actingAs($this->user)->delete("/inbox/{$conversation->uuid}")
+            ->assertRedirect('/inbox?status=spam');
 
         $this->assertSame(0, Conversation::count());
         $this->assertSame(0, ConversationAttachment::count());
         Storage::disk('local')->assertMissing($attachment->path);
+    }
+
+    public function test_nepriradena_sprava_sa_da_zmazat_bez_blokovania_odosielatela(): void
+    {
+        $this->process($this->mail('niekto@nahodny.test', 'Ahoj'));
+        $conversation = Conversation::sole();
+
+        $this->actingAs($this->user)->delete("/inbox/{$conversation->uuid}")->assertRedirect('/inbox');
+
+        $this->assertSame(0, Conversation::count());
+        $this->assertFalse(InboundBlock::blocks($this->product->id, 'niekto@nahodny.test'));
+    }
+
+    public function test_priradena_konverzacia_sa_zmazat_neda(): void
+    {
+        $this->process($this->mail('obec@lehota.test', 'Objednávka'));
+        $conversation = Conversation::sole();
+        $conversation->forceFill(['ref_type' => 'order', 'ref_id' => '1'])->save();
+
+        $this->actingAs($this->user)->delete("/inbox/{$conversation->uuid}")->assertStatus(422);
+
+        $this->assertSame(1, Conversation::count());
     }
 
     public function test_vyprazdnenie_spamu(): void

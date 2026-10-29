@@ -129,6 +129,10 @@ const hasQuote = (message) => message.direction === 'in'
                     <Icon name="ban" :size="15" />
                     {{ t('messaging.inbox.spam_button') }}
                 </button>
+                <button v-if="!conversation.assigned && !isSpam" type="button" class="btn-secondary btn-sm text-rose-700" @click="destroy">
+                    <Icon name="trash" :size="15" />
+                    {{ t('messaging.inbox.delete') }}
+                </button>
                 <select v-if="!isSpam" :value="conversation.status" class="w-auto py-1.5" :title="t('messaging.inbox.change_status')" :aria-label="t('messaging.inbox.change_status')" @change="changeStatus">
                     <option v-for="s in statuses" :key="s.value" :value="s.value">{{ s.label }}</option>
                 </select>
