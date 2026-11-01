@@ -39,7 +39,8 @@ class MailingRenderer
         ?string $unsubscribeUrl = null,
     ): string {
         $mailbox = $campaign->mailbox ?? Mailbox::defaultFor($campaign->product);
-        $body = self::fill(self::bodyHtml($campaign->body, 'margin:0 0 16px'), $variables);
+        // Adresa z premennej udalosti ({odkaz}) je v texte obyčajný text, sanitizér by ju v href zahodil.
+        $body = self::autolink(self::fill(self::bodyHtml($campaign->body, 'margin:0 0 16px'), $variables));
 
         $values = [
             ...$this->scalars($variables),

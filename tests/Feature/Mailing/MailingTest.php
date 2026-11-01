@@ -267,6 +267,15 @@ class MailingTest extends TestCase
         $this->assertTrue(MailSuppression::blocks($this->product, 'zla@firma.test'));
     }
 
+    public function test_odkaz_z_premennej_udalosti_je_v_ponuke_klikatelny(): void
+    {
+        $campaign = new MailingCampaign(['product_id' => $this->product->id, 'subject' => 'Ponuka', 'body' => "Prevziať profil:\n\n{odkaz_prevzatia}", 'kind' => MailingCampaign::OFFER]);
+
+        $html = app(\App\Services\Mailing\MailingRenderer::class)->render($campaign, null, ['odkaz_prevzatia' => 'https://tixio.eu/pozvanka/abc']);
+
+        $this->assertStringContainsString('<a href="https://tixio.eu/pozvanka/abc"', $html);
+    }
+
     public function test_layout_dosadi_znacky_a_sekcie(): void
     {
         $html = \App\Services\Mailing\MailingRenderer::template(
