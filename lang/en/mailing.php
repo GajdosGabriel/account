@@ -19,7 +19,7 @@ return [
     'settings' => [
         'disabled' => 'Mailing is disabled (MAILING_ENABLED=false) – nothing is sent.',
         'dry_run' => 'Dry run (MAILING_DRY_RUN): everything runs, but no e-mail actually leaves.',
-        'limit' => 'Limit: :limit e-mails per hour per project.',
+        'limit' => 'Limit: :limit e-mails per hour per mailbox.',
     ],
 
     'stats' => [

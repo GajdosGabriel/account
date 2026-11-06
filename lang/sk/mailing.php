@@ -19,7 +19,7 @@ return [
     'settings' => [
         'disabled' => 'Emailing je vypnutý (MAILING_ENABLED=false) – nič sa neodosiela.',
         'dry_run' => 'Testovací režim (MAILING_DRY_RUN): všetko prebehne, len e-maily reálne neodídu.',
-        'limit' => 'Limit: :limit e-mailov za hodinu na projekt.',
+        'limit' => 'Limit: :limit e-mailov za hodinu z každej schránky.',
     ],
 
     'stats' => [

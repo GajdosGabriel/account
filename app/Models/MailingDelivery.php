@@ -22,7 +22,7 @@ class MailingDelivery extends Model
     public const BOUNCED = 'bounced';
 
     protected $fillable = [
-        'campaign_id', 'contact_id', 'email', 'status', 'ref_type', 'ref_id', 'dedupe_key', 'payload',
+        'campaign_id', 'contact_id', 'mailbox_id', 'email', 'status', 'ref_type', 'ref_id', 'dedupe_key', 'payload',
         'event_at', 'due_at', 'attempted_at', 'sent_at', 'message_id', 'conversation_message_id', 'error',
         'open_token', 'opened_at', 'clicked_at', 'open_count',
     ];

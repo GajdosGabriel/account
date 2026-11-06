@@ -431,7 +431,7 @@ za sebou.
 |---|---|
 | `MAILING_ENABLED` | vypínač (predvolene zapnutý) |
 | `MAILING_DRY_RUN` | všetko prebehne, len sa nevolá SMTP |
-| `MAILING_HOURLY_LIMIT` | maily za hodinu na projekt (predvolene 100) |
+| `MAILING_HOURLY_LIMIT` | maily za hodinu z každej schránky (predvolene 100) |
 | `MAILING_BATCH_SIZE` | maily na jeden beh plánovača (predvolene 10, max 50) |
 
 Webhooky: `mailing.unsubscribed`, `mailing.delivery.sent|failed|bounced`. Doručenia

@@ -79,13 +79,18 @@ class MailingSender
                 return null;
             }
 
-            // Limit platí pre projekt – poskytovateľ SMTP obmedzuje odosielateľa.
-            $full = DB::table('mailing_deliveries as d')
-                ->join('mailing_campaigns as c', 'c.id', '=', 'd.campaign_id')
-                ->where('d.attempted_at', '>=', now()->subHour())
-                ->groupBy('c.product_id')
+            // Limit platí pre každú schránku – poskytovateľ SMTP obmedzuje odosielateľa.
+            $full = DB::table('mailing_deliveries')
+                ->whereNotNull('mailbox_id')
+                ->where('attempted_at', '>=', now()->subHour())
+                ->groupBy('mailbox_id')
                 ->havingRaw('COUNT(*) >= ?', [(int) config('accounts.mailing.hourly_limit')])
-                ->pluck('c.product_id');
+                ->pluck('mailbox_id');
+
+            // Kampaň bez vlastnej schránky posiela z predvolenej schránky projektu.
+            $defaultFull = Mailbox::query()->with('product')->whereKey($full)->get()
+                ->filter(fn (Mailbox $mailbox) => $mailbox->product && Mailbox::defaultFor($mailbox->product)?->is($mailbox))
+                ->pluck('product_id');
 
             $delivery = MailingDelivery::query()
                 ->select('mailing_deliveries.*')
@@ -94,7 +99,8 @@ class MailingSender
                 ->where('c.status', MailingCampaign::QUEUED)
                 ->where('c.scheduled_at', '<=', now())
                 ->where(fn ($q) => $q->whereNull('mailing_deliveries.due_at')->orWhere('mailing_deliveries.due_at', '<=', now()))
-                ->when($full->isNotEmpty(), fn ($q) => $q->whereNotIn('c.product_id', $full))
+                ->when($full->isNotEmpty(), fn ($q) => $q->where(fn ($q) => $q->whereNull('c.mailbox_id')->orWhereNotIn('c.mailbox_id', $full)))
+                ->when($defaultFull->isNotEmpty(), fn ($q) => $q->where(fn ($q) => $q->whereNotNull('c.mailbox_id')->orWhereNotIn('c.product_id', $defaultFull)))
                 ->orderBy('mailing_deliveries.id')
                 ->first();
 
@@ -102,8 +108,11 @@ class MailingSender
                 return null;
             }
 
+            $campaign = $delivery->campaign()->with('product')->first();
+            $mailboxId = $campaign->mailbox_id ?? Mailbox::defaultFor($campaign->product)?->id;
+
             $claimed = MailingDelivery::query()->whereKey($delivery->id)->where('status', MailingDelivery::PENDING)
-                ->update(['status' => MailingDelivery::SENDING, 'attempted_at' => now(), 'updated_at' => now()]);
+                ->update(['status' => MailingDelivery::SENDING, 'mailbox_id' => $mailboxId, 'attempted_at' => now(), 'updated_at' => now()]);
 
             return $claimed ? $delivery->fresh() : null;
         });

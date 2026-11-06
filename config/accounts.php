@@ -99,7 +99,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Plánovač každú minútu odošle najviac `batch_size` e-mailov. Limit za
-    | hodinu platí pre každú schránku zvlášť – poskytovatelia SMTP obmedzujú
+    | hodinu platí pre každú schránku zvlášť (kampaň bez schránky sa ráta
+    | do predvolenej schránky projektu) – poskytovatelia SMTP obmedzujú
     | odosielateľa, nie Account. V `dry_run` prebehne všetko okrem samotného
     | odoslania (vykreslenie, meranie, stavy).
     |

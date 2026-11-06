@@ -154,6 +154,40 @@ class MailingTest extends TestCase
         $this->assertSame(1, MailingDelivery::where('status', MailingDelivery::PENDING)->count());
     }
 
+    public function test_hodinovy_limit_plati_pre_kazdu_schranku_zvlast(): void
+    {
+        config(['accounts.mailing.hourly_limit' => 1]);
+        $default = Mailbox::where('product_id', $this->product->id)->sole();
+        $other = Mailbox::create([
+            'product_id' => $this->product->id,
+            'name' => 'Akcie',
+            'from_address' => 'akcie@zastavy.test',
+            'from_name' => 'Zástavy',
+        ]);
+
+        // Kampaň bez schránky ide z predvolenej, takže sa delí o jej limit.
+        $offers = $this->campaign();
+        $explicit = $this->campaign(['mailbox_id' => $default->id]);
+        $notices = $this->campaign(['mailbox_id' => $other->id]);
+
+        foreach ([[$offers, 'a'], [$explicit, 'b'], [$notices, 'c'], [$notices, 'd']] as [$campaign, $name]) {
+            $contact = $this->contact("{$name}@firma.test");
+            MailingDelivery::create(['campaign_id' => $campaign->id, 'contact_id' => $contact->id, 'email' => $contact->email]);
+        }
+
+        $this->assertSame(2, app(MailingSender::class)->runBatch());
+        $this->assertSame(0, app(MailingSender::class)->runBatch());
+
+        $attempted = MailingDelivery::whereNotNull('attempted_at')->orderBy('id')->get();
+        $this->assertSame([$offers->id, $notices->id], $attempted->pluck('campaign_id')->all());
+        $this->assertSame([$default->id, $other->id], $attempted->pluck('mailbox_id')->all());
+
+        // Po hodine sa limit uvoľní.
+        $this->travel(61)->minutes();
+        $this->assertSame(2, app(MailingSender::class)->runBatch());
+        $this->assertSame(0, MailingDelivery::where('status', MailingDelivery::PENDING)->count());
+    }
+
     public function test_odhlasenie_jednym_klikom_zastavi_ponuky_ale_nie_servisne_maily(): void
     {
         $campaign = $this->campaign();
