@@ -64,10 +64,13 @@ return [
         'show_as_text' => 'Als Text anzeigen',
         'show_as_html' => 'Als E-Mail anzeigen',
         'attachments' => 'Anhänge',
+        'mailing_badge' => 'Automatisch aus Kampagne „:campaign“',
+        'mailing_offer_body' => 'Angebot aus Kampagne „:campaign“. Von Emailing versendet – der volle Text steht in der Kampagne.',
         'source' => [
             'project' => 'aus dem Projekt',
             'inbox' => 'aus dem Posteingang',
             'imap' => 'E-Mail',
+            'mailing' => 'aus Kampagne',
         ],
 
         'related_title' => 'Weitere Konversationen mit diesem Kontakt oder dieser Firma',

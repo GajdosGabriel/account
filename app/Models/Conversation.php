@@ -80,6 +80,18 @@ class Conversation extends Model
         $query->whereNull('ref_type');
     }
 
+    /**
+     * Vlákno, v ktorom je zatiaľ len e-mail kampane, do inboxu nepatrí –
+     * `last_message_at` mu nastaví až prvá ľudská správa (odpoveď klienta,
+     * operátor, systémový mail projektu).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeVisibleInInbox(Builder $query): void
+    {
+        $query->whereNotNull('last_message_at');
+    }
+
     /** @param Builder<self> $query */
     public function scopeNotSpam(Builder $query): void
     {

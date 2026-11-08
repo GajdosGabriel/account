@@ -11,6 +11,7 @@ use App\Models\Mailbox;
 use App\Models\MailingDelivery;
 use App\Models\MailSuppression;
 use App\Services\Mailing\BounceClassifier;
+use App\Services\Mailing\MailingRenderer;
 use App\Services\Mailing\MailingSender;
 use App\Services\Mailing\MailingWebhooks;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,8 @@ use ZBateson\MailMimeParser\Message\IMessagePart;
  *      chybe zablokuje adresu, projekt dostane `message.bounced`;
  *   2. automatická odpoveď (dovolenka) → uloží sa, ale nikoho nebudí;
  *   3. odpoveď → spáruje sa s konverzáciou:
- *        In-Reply-To / References → X-Conversation → odosielateľ s jedinou
+ *        In-Reply-To / References (aj na ponuku kampane – tá konverzáciu
+ *        k veci založí) → X-Conversation → odosielateľ s jedinou
  *        konverzáciou → inak nepriradená (operátor ju priradí v inboxe);
  *   4. nepriradený mail od blokovaného odosielateľa (alebo do konverzácie
  *      v Spame) → ide do Spamu, projekt ani počítadlo sa nedozvedia.
@@ -176,6 +178,10 @@ class InboundProcessor
                 return $known->conversation;
             }
 
+            if ($offer = $this->mailingOfferConversation($mailbox, $ids, $email)) {
+                return $offer;
+            }
+
             // Odpoveď na mail, ktorý projekt poslal ešte sám (pred Accountom).
             // Všetky konverzácie s tým istým koreňom patria k jednej veci –
             // prednosť má tá s adresou odosielateľa, inak posledná živá.
@@ -216,6 +222,71 @@ class InboundProcessor
             ->get();
 
         return $candidates->count() === 1 ? $candidates->first() : null;
+    }
+
+    /**
+     * Odpoveď na samostatnú ponuku kampane. Ponuka nemá konverzáciu – vznikne
+     * až teraz, k veci, ku ktorej projekt udalosť nahlásil (napr. kanál),
+     * a ponuka sa do nej doplní ako prvá správa, aby bolo vidieť, na čo
+     * klient odpovedá. Ponuka bez veci (hromadná kampaň) ostane nepriradená.
+     *
+     * @param  array<int, string>  $ids
+     */
+    private function mailingOfferConversation(Mailbox $mailbox, array $ids, string $email): ?Conversation
+    {
+        $delivery = MailingDelivery::query()
+            ->whereIn('message_id', $ids)
+            ->whereNotNull('ref_type')
+            ->whereNull('conversation_message_id')
+            ->whereHas('campaign', fn ($q) => $q->where('product_id', $mailbox->product_id))
+            ->with(['campaign', 'contact'])
+            ->latest('id')
+            ->first();
+
+        if (! $delivery || ! $mailbox->product) {
+            return null;
+        }
+
+        $conversation = $this->conversations->findOrOpen($mailbox->product, $mailbox, $email, [
+            'ref' => [
+                'type' => $delivery->ref_type,
+                'id' => $delivery->ref_id,
+                'label' => $delivery->payload['ref_label'] ?? null,
+                'url' => $delivery->payload['ref_url'] ?? null,
+            ],
+            'to_name' => $delivery->payload['name'] ?? $delivery->contact?->name,
+        ]);
+
+        $campaign = $delivery->campaign;
+        $variables = [...(array) ($delivery->contact?->attributes ?? []), ...$delivery->variables()];
+        $subject = MailingRenderer::fillText((string) $campaign->subject, $variables);
+
+        /** @var ConversationMessage $offer */
+        $offer = $conversation->messages()->create([
+            'mailbox_id' => $delivery->mailbox_id ?? $mailbox->id,
+            'direction' => ConversationMessage::OUT,
+            'source' => ConversationMessage::SOURCE_MAILING,
+            'kind' => ConversationMessage::KIND_MAILING_OFFER,
+            'status' => MessageStatus::Sent,
+            'message_id' => $delivery->message_id,
+            'from_email' => $mailbox->from_address,
+            'from_name' => $mailbox->from_name,
+            'to_email' => $delivery->email,
+            'subject' => $subject,
+            'body_text' => __('messaging.inbox.mailing_offer_body', ['campaign' => $campaign->name]),
+            'meta' => ['mailing_delivery' => $delivery->id, 'campaign' => $campaign->id],
+            'sent_at' => $delivery->sent_at,
+        ]);
+
+        // Ponuka patrí pred odpoveď – podľa času odoslania, nie spárovania.
+        if ($delivery->sent_at) {
+            $offer->forceFill(['created_at' => $delivery->sent_at])->save();
+        }
+
+        $delivery->forceFill(['conversation_message_id' => $offer->id])->save();
+        $conversation->subject ??= $subject;
+
+        return $conversation;
     }
 
     private function unassignedConversation(Mailbox $mailbox, string $email, ?string $name, ?string $subject): Conversation

@@ -19,11 +19,13 @@ use App\Models\User;
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
 use App\Services\Mailing\BounceClassifier;
+use App\Services\Mailing\MailingRenderer;
 use App\Services\Mailing\MailingSender;
-use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Symfony\Component\Mime\Email;
 use Tests\TestCase;
 
@@ -259,6 +261,7 @@ class MailingTest extends TestCase
         $this->assertStringContainsString('Ďakujeme za objednávku 2026/12.', $reply->body_html);
         $this->assertStringContainsString('Potvrdzujeme objednávku', $reply->body_html);
         $this->assertSame(1, Conversation::count());
+        $this->assertSame(ConversationMessage::SOURCE_MAILING, $reply->source);
 
         $delivery = MailingDelivery::sole();
         $this->assertSame(MailingDelivery::SENT, $delivery->status);
@@ -267,6 +270,52 @@ class MailingTest extends TestCase
         $webhook = WebhookDelivery::where('webhook_endpoint_id', $endpoint->id)->sole();
         $this->assertSame('order', $webhook->payload['data']['delivery']['ref']['type']);
         $this->assertSame('12', $webhook->payload['data']['delivery']['ref']['id']);
+    }
+
+    public function test_odpoved_kampane_vo_vlakne_nemeni_stav_ani_poradie_v_inboxe(): void
+    {
+        $this->campaign([
+            'trigger_event' => 'order_created', 'delay_hours' => 0, 'reply_in_thread' => true,
+            'subject' => null, 'body' => 'Vyskúšajte aj Anonymizer.',
+        ]);
+
+        $this->api('POST', '/api/v1/messages', [
+            'to' => 'jana@firma.test', 'subject' => 'Objednávka č. 12', 'html' => '<p>Potvrdzujeme objednávku</p>',
+            'ref' => ['type' => 'order', 'id' => 12, 'label' => 'Objednávka 12'], 'kind' => 'order.OrderCreated',
+        ])->assertStatus(202);
+
+        $conversation = Conversation::sole();
+        // Operátor konverzáciu uzavrel.
+        $conversation->forceFill(['status' => 'closed', 'last_message_at' => now()->subDay()])->save();
+        $before = $conversation->fresh()->last_message_at;
+
+        $this->api('POST', '/api/v1/mailing/events', [
+            'event' => 'order_created', 'email' => 'jana@firma.test', 'ref' => ['type' => 'order', 'id' => 12],
+        ])->assertJsonPath('data.queued', 1);
+        $this->assertSame(1, app(MailingSender::class)->runBatch());
+
+        $conversation->refresh();
+        $this->assertSame('closed', $conversation->status->value);
+        $this->assertEquals($before, $conversation->last_message_at);
+    }
+
+    public function test_vlakno_len_s_mailom_kampane_nie_je_v_inboxe(): void
+    {
+        $this->campaign([
+            'trigger_event' => 'order_created', 'delay_hours' => 0, 'reply_in_thread' => true,
+            'subject' => 'Vyskúšajte Anonymizer', 'body' => 'Text',
+        ]);
+
+        $this->api('POST', '/api/v1/mailing/events', [
+            'event' => 'order_created', 'email' => 'jana@firma.test', 'ref' => ['type' => 'order', 'id' => 99],
+        ])->assertJsonPath('data.queued', 1);
+        $this->assertSame(1, app(MailingSender::class)->runBatch());
+
+        $this->assertSame(1, Conversation::count());
+        $this->assertNull(Conversation::sole()->last_message_at);
+
+        $this->actingAs(User::factory()->create())->get('/inbox')
+            ->assertInertia(fn ($page) => $page->has('conversations.data', 0));
     }
 
     public function test_klik_sa_zmeria_a_presmeruje_na_ulozeny_ciel(): void
@@ -305,14 +354,14 @@ class MailingTest extends TestCase
     {
         $campaign = new MailingCampaign(['product_id' => $this->product->id, 'subject' => 'Ponuka', 'body' => "Prevziať profil:\n\n{odkaz_prevzatia}", 'kind' => MailingCampaign::OFFER]);
 
-        $html = app(\App\Services\Mailing\MailingRenderer::class)->render($campaign, null, ['odkaz_prevzatia' => 'https://tixio.eu/pozvanka/abc']);
+        $html = app(MailingRenderer::class)->render($campaign, null, ['odkaz_prevzatia' => 'https://tixio.eu/pozvanka/abc']);
 
         $this->assertStringContainsString('<a href="https://tixio.eu/pozvanka/abc"', $html);
     }
 
     public function test_layout_dosadi_znacky_a_sekcie(): void
     {
-        $html = \App\Services\Mailing\MailingRenderer::template(
+        $html = MailingRenderer::template(
             '<h1>{{heading}}</h1>{{{content}}}{{#unsubscribe_url}}<a href="{{unsubscribe_url}}">x</a>{{/unsubscribe_url}}{{^coupon_code}}bez kupónu{{/coupon_code}}',
             ['heading' => 'A & B', 'content' => '<p>text</p>', 'unsubscribe_url' => null, 'coupon_code' => ''],
         );
@@ -404,7 +453,7 @@ class MailingTest extends TestCase
     }
 
     /** @param array<string, mixed> $data */
-    private function api(string $method, string $uri, array $data): \Illuminate\Testing\TestResponse
+    private function api(string $method, string $uri, array $data): TestResponse
     {
         return $this->withToken($this->token)->json($method, $uri, $data);
     }

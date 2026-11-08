@@ -64,10 +64,13 @@ return [
         'show_as_text' => 'Show as text',
         'show_as_html' => 'Show as email',
         'attachments' => 'Attachments',
+        'mailing_badge' => 'Sent automatically by campaign “:campaign”',
+        'mailing_offer_body' => 'Offer from campaign “:campaign”. Sent by Emailing – the full text is in the campaign.',
         'source' => [
             'project' => 'from project',
             'inbox' => 'from inbox',
             'imap' => 'e-mail',
+            'mailing' => 'from campaign',
         ],
 
         'related_title' => 'Other conversations with this contact or organization',

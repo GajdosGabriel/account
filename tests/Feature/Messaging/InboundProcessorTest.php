@@ -7,6 +7,8 @@ use App\Enums\MessageStatus;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Mailbox;
+use App\Models\MailingCampaign;
+use App\Models\MailingDelivery;
 use App\Models\MailSuppression;
 use App\Models\Product;
 use App\Models\User;
@@ -80,6 +82,49 @@ class InboundProcessorTest extends TestCase
         $this->assertSame('order', $delivery->payload['data']['conversation']['ref']['type']);
         $this->assertSame('1234', $delivery->payload['data']['conversation']['ref']['id']);
         $this->assertSame('Grafiku schvaľujem, ďakujem.', $delivery->payload['data']['message']['reply_text']);
+    }
+
+    public function test_odpoved_na_ponuku_kampane_zalozi_konverzaciu_k_veci(): void
+    {
+        $campaign = MailingCampaign::create([
+            'product_id' => $this->product->id, 'name' => 'Ponuka prevzatia',
+            'subject' => 'Nová akcia: {podujatie}', 'body' => 'Text', 'status' => MailingCampaign::QUEUED,
+            'trigger_event' => 'canal_event_created',
+        ]);
+        $delivery = MailingDelivery::create([
+            'campaign_id' => $campaign->id, 'mailbox_id' => $this->mailbox->id, 'email' => 'spravca@kanal.test',
+            'status' => MailingDelivery::SENT, 'ref_type' => 'canal', 'ref_id' => '42', 'dedupe_key' => 'canal:42',
+            'payload' => ['ref_label' => 'Kanál Kultúra', 'variables' => ['podujatie' => 'Jarmok']],
+            'message_id' => 'ponuka-1@zastavy.test', 'sent_at' => now()->subHour(), 'event_at' => now(), 'due_at' => now(),
+        ]);
+
+        $result = $this->process($this->reply(from: 'spravca@kanal.test', inReplyTo: 'ponuka-1@zastavy.test', body: 'Mám záujem.'));
+
+        $this->assertSame(InboundProcessor::RESULT_STORED, $result);
+
+        $conversation = Conversation::sole();
+        $this->assertSame('canal', $conversation->ref_type);
+        $this->assertSame('42', $conversation->ref_id);
+        $this->assertSame('Kanál Kultúra', $conversation->ref_label);
+        $this->assertSame(ConversationStatus::Open, $conversation->status);
+        $this->assertNotNull($conversation->last_message_at);
+
+        [$offer, $inbound] = $conversation->messages()->get()->all();
+        $this->assertSame(ConversationMessage::KIND_MAILING_OFFER, $offer->kind);
+        $this->assertSame(ConversationMessage::SOURCE_MAILING, $offer->source);
+        $this->assertSame('Nová akcia: Jarmok', $offer->subject);
+        $this->assertSame('ponuka-1@zastavy.test', $offer->message_id);
+        $this->assertSame('Mám záujem.', $inbound->reply_text);
+        $this->assertSame($offer->id, $delivery->fresh()->conversation_message_id);
+
+        $webhook = WebhookDelivery::where('event', 'message.received')->sole();
+        $this->assertSame('canal', $webhook->payload['data']['conversation']['ref']['type']);
+
+        // Ďalšia odpoveď ide do tej istej konverzácie, ponuka sa nezdvojí.
+        $this->process($this->reply(from: 'spravca@kanal.test', inReplyTo: 'ponuka-1@zastavy.test', body: 'Ešte otázka.'));
+        $this->assertSame(1, Conversation::count());
+        $this->assertSame(1, ConversationMessage::where('kind', ConversationMessage::KIND_MAILING_OFFER)->count());
+        $this->assertSame(3, $conversation->messages()->count());
     }
 
     public function test_odpoved_na_stary_mail_projektu_sa_sparuje_podla_thread_id(): void

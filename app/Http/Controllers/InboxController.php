@@ -6,6 +6,7 @@ use App\Enums\ConversationStatus;
 use App\Models\Conversation;
 use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
+use App\Models\MailingCampaign;
 use App\Models\Product;
 use App\Services\Messaging\ConversationService;
 use App\Services\Messaging\MessagingException;
@@ -38,6 +39,7 @@ class InboxController extends Controller
 
         $conversations = Conversation::query()
             ->with(['product', 'organization'])
+            ->visibleInInbox()
             ->when($filters['product'] ?? null, fn ($q, $key) => $q->whereHas('product', fn ($p) => $p->where('key', $key)))
             // Spam je len vo svojej záložke.
             ->when($status !== ConversationStatus::Spam->value, fn ($q) => $q->notSpam())
@@ -85,6 +87,7 @@ class InboxController extends Controller
         $related = Conversation::query()
             ->with('product')
             ->whereKeyNot($conversation->id)
+            ->visibleInInbox()
             ->where(fn ($q) => $q->where('contact_email', $conversation->contact_email)
                 ->when($conversation->organization_id, fn ($w, $id) => $w->orWhere('organization_id', $id)))
             ->orderByDesc('last_message_at')
@@ -105,6 +108,10 @@ class InboxController extends Controller
                 'label' => trim(($c->ref_label ?? $c->ref_type.':'.$c->ref_id).' · '.$c->contact_email),
             ]);
 
+        $campaigns = MailingCampaign::query()
+            ->whereIn('id', $conversation->messages->filter->isFromMailing()->pluck('meta.campaign')->filter()->unique())
+            ->pluck('name', 'id');
+
         return Inertia::render('Inbox/Show', [
             'conversation' => [
                 ...$this->row($conversation),
@@ -114,6 +121,8 @@ class InboxController extends Controller
                     'direction' => $m->direction,
                     'source' => $m->source,
                     'kind' => $m->kind,
+                    'mailing' => $m->isFromMailing(),
+                    'campaign' => $campaigns[$m->meta['campaign'] ?? 0] ?? null,
                     'status' => $m->status->value,
                     'status_label' => $m->status->label(),
                     'status_tone' => $m->status->color(),

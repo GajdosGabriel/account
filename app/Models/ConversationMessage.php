@@ -21,6 +21,19 @@ class ConversationMessage extends Model
 
     public const SOURCE_IMAP = 'imap';
 
+    /**
+     * Automatický e-mail kampane z Emailingu. Ostáva vo vlákne, aby bolo
+     * vidieť, čo klient dostal, ale stav ani poradie konverzácie nemení –
+     * inbox sa pohne až po odpovedi klienta.
+     */
+    public const SOURCE_MAILING = 'mailing';
+
+    /** Odpoveď kampane vo vlákne veci (MailingSender::sendReply). */
+    public const KIND_MAILING_REPLY = 'mailing.reply';
+
+    /** Samostatná ponuka – do vlákna sa doplní až s odpoveďou klienta. */
+    public const KIND_MAILING_OFFER = 'mailing.offer';
+
     protected $fillable = [
         'conversation_id', 'mailbox_id', 'direction', 'source', 'kind', 'status',
         'message_id', 'in_reply_to', 'references',
@@ -75,5 +88,10 @@ class ConversationMessage extends Model
     public function isInbound(): bool
     {
         return $this->direction === self::IN;
+    }
+
+    public function isFromMailing(): bool
+    {
+        return $this->source === self::SOURCE_MAILING;
     }
 }

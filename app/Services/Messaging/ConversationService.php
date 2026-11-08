@@ -37,8 +37,10 @@ class ConversationService
      *     ref: array{type: string, id: string|int, label?: ?string, url?: ?string},
      *     kind?: ?string, organization?: ?Organization, mailbox?: ?string,
      *     conversation?: ?string, thread_id?: ?string, meta?: ?array<string, mixed>,
-     *     attachments?: array<int, array{filename: string, mime?: ?string, content: string}>
-     * }  $data
+     *     attachments?: array<int, array{filename: string, mime?: ?string, content: string}>,
+     *     mailing?: bool
+     * }  $data  `mailing` = e-mail kampane: ide do vlákna, ale stav ani
+     *           poradie konverzácie v inboxe nemení
      */
     public function sendFromProject(Product $product, array $data): ConversationMessage
     {
@@ -49,24 +51,25 @@ class ConversationService
         }
 
         $mailbox = $this->resolveMailbox($product, $data['mailbox'] ?? null);
+        $mailing = (bool) ($data['mailing'] ?? false);
 
-        return DB::transaction(function () use ($product, $data, $email, $mailbox) {
+        return DB::transaction(function () use ($product, $data, $email, $mailbox, $mailing) {
             $conversation = $this->findOrOpen($product, $mailbox, $email, $data);
 
             $message = $this->queue($conversation, $mailbox, [
-                'source' => ConversationMessage::SOURCE_PROJECT,
+                'source' => $mailing ? ConversationMessage::SOURCE_MAILING : ConversationMessage::SOURCE_PROJECT,
                 'kind' => $data['kind'] ?? null,
                 'to_email' => $email,
                 'subject' => $data['subject'],
                 'body_html' => $data['html'] ?? null,
                 'body_text' => $data['text'] ?? ReplyExtractor::htmlToText($data['html'] ?? null),
                 'meta' => $data['meta'] ?? null,
-            ], $data['attachments'] ?? []);
+            ], $data['attachments'] ?? [], touch: ! $mailing);
 
-            $conversation->forceFill([
-                'status' => ConversationStatus::Waiting,
+            $conversation->forceFill(array_filter([
+                'status' => $mailing ? null : ConversationStatus::Waiting,
                 'subject' => $conversation->subject ?? $data['subject'],
-            ])->save();
+            ]))->save();
 
             return $message;
         });
@@ -156,8 +159,9 @@ class ConversationService
      *
      * @param  array<string, mixed>  $attributes
      * @param  array<int, array{filename: string, mime?: ?string, content: string}>  $attachments
+     * @param  bool  $touch  posunúť konverzáciu v inboxe (e-mail kampane nie)
      */
-    public function queue(Conversation $conversation, Mailbox $mailbox, array $attributes, array $attachments = []): ConversationMessage
+    public function queue(Conversation $conversation, Mailbox $mailbox, array $attributes, array $attachments = [], bool $touch = true): ConversationMessage
     {
         $threadIds = $conversation->exists ? $conversation->threadMessageIds() : [];
 
@@ -179,10 +183,12 @@ class ConversationService
             $this->storeAttachment($message, $file['filename'], $file['mime'] ?? null, $file['content']);
         }
 
-        $conversation->forceFill([
-            'last_outbound_at' => now(),
-            'last_message_at' => now(),
-        ])->save();
+        if ($touch) {
+            $conversation->forceFill([
+                'last_outbound_at' => now(),
+                'last_message_at' => now(),
+            ])->save();
+        }
 
         SendConversationMessage::dispatch($message->id)->afterCommit();
 

@@ -66,10 +66,13 @@ return [
         'show_as_text' => 'Zobraziť ako text',
         'show_as_html' => 'Zobraziť ako e-mail',
         'attachments' => 'Prílohy',
+        'mailing_badge' => 'Automaticky z kampane „:campaign“',
+        'mailing_offer_body' => 'Ponuka z kampane „:campaign“. Odoslal ju Emailing – plné znenie je v kampani.',
         'source' => [
             'project' => 'z projektu',
             'inbox' => 'z inboxu',
             'imap' => 'e-mail',
+            'mailing' => 'z kampane',
         ],
 
         'related_title' => 'Iné konverzácie s týmto kontaktom alebo firmou',

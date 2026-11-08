@@ -64,10 +64,13 @@ return [
         'show_as_text' => 'Zobrazit jako text',
         'show_as_html' => 'Zobrazit jako e-mail',
         'attachments' => 'Přílohy',
+        'mailing_badge' => 'Automaticky z kampaně „:campaign“',
+        'mailing_offer_body' => 'Nabídka z kampaně „:campaign“. Odeslal ji Emailing – plné znění je v kampani.',
         'source' => [
             'project' => 'z projektu',
             'inbox' => 'z inboxu',
             'imap' => 'e-mail',
+            'mailing' => 'z kampaně',
         ],
 
         'related_title' => 'Jiné konverzace s tímto kontaktem nebo firmou',

@@ -180,8 +180,14 @@ const hasQuote = (message) => message.direction === 'in'
                 v-for="message in conversation.messages"
                 :key="message.id"
                 class="card p-5"
-                :class="message.direction === 'out' ? 'ml-6 border-brand-100 bg-brand-50/30' : 'mr-6'"
+                :class="message.mailing
+                    ? 'ml-6 border-dashed border-slate-200 bg-slate-50/70 opacity-80'
+                    : (message.direction === 'out' ? 'ml-6 border-brand-100 bg-brand-50/30' : 'mr-6')"
             >
+                <p v-if="message.mailing" class="mb-3 flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                    <Icon name="send" :size="14" />
+                    {{ message.campaign ? t('messaging.inbox.mailing_badge', { campaign: message.campaign }) : t('messaging.inbox.source.mailing') }}
+                </p>
                 <header class="flex flex-wrap items-start justify-between gap-2 text-sm">
                     <div class="min-w-0">
                         <p class="truncate font-medium text-slate-900">{{ message.from }}</p>
