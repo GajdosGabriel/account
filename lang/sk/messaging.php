@@ -66,6 +66,7 @@ return [
         'show_as_text' => 'Zobraziť ako text',
         'show_as_html' => 'Zobraziť ako e-mail',
         'attachments' => 'Prílohy',
+        'show_automatic' => 'Zobraziť aj vlákna len s automatickými e-mailmi (potvrdenia, kampane)',
         'mailing_badge' => 'Automaticky z kampane „:campaign“',
         'mailing_offer_body' => 'Ponuka z kampane „:campaign“. Odoslal ju Emailing – plné znenie je v kampani.',
         'source' => [

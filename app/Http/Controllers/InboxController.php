@@ -33,13 +33,15 @@ class InboxController extends Controller
             'product' => ['nullable', 'string'],
             'status' => ['nullable', 'string'],
             'search' => ['nullable', 'string', 'max:120'],
+            'automatic' => ['nullable', 'boolean'],
         ]);
 
         $status = $filters['status'] ?? null;
 
         $conversations = Conversation::query()
             ->with(['product', 'organization'])
-            ->visibleInInbox()
+            // Vlákna len s automatickými mailmi (potvrdenie, kampaň) na požiadanie.
+            ->when(! $request->boolean('automatic'), fn ($q) => $q->visibleInInbox())
             ->when($filters['product'] ?? null, fn ($q, $key) => $q->whereHas('product', fn ($p) => $p->where('key', $key)))
             // Spam je len vo svojej záložke.
             ->when($status !== ConversationStatus::Spam->value, fn ($q) => $q->notSpam())
@@ -87,7 +89,7 @@ class InboxController extends Controller
         $related = Conversation::query()
             ->with('product')
             ->whereKeyNot($conversation->id)
-            ->visibleInInbox()
+            ->whereNotNull('last_message_at')
             ->where(fn ($q) => $q->where('contact_email', $conversation->contact_email)
                 ->when($conversation->organization_id, fn ($w, $id) => $w->orWhere('organization_id', $id)))
             ->orderByDesc('last_message_at')

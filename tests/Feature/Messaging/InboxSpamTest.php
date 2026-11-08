@@ -53,6 +53,46 @@ class InboxSpamTest extends TestCase
         $this->user = User::factory()->create();
     }
 
+    public function test_potvrdenie_objednavky_je_v_inboxe_az_po_odpovedi_klienta(): void
+    {
+        $sent = app(ConversationService::class)->sendFromProject($this->product, [
+            'to' => 'jana@firma.test', 'subject' => 'Objednávka 12', 'html' => '<p>Potvrdzujeme objednávku</p>',
+            'ref' => ['type' => 'order', 'id' => '12', 'label' => 'Objednávka 12'], 'kind' => 'order.OrderCreated',
+        ])->fresh();
+
+        $this->actingAs($this->user)->get('/inbox')
+            ->assertInertia(fn ($page) => $page->has('conversations.data', 0));
+        $this->actingAs($this->user)->get('/inbox?automatic=1')
+            ->assertInertia(fn ($page) => $page->has('conversations.data', 1));
+
+        // Automatická odpoveď (dovolenka) ju ešte neukáže.
+        $this->process("From: jana@firma.test\r\nTo: obchod@zastavy.test\r\nSubject: Automatická odpoveď\r\n"
+            ."Auto-Submitted: auto-replied\r\nMessage-ID: <auto-".uniqid()."@firma.test>\r\nIn-Reply-To: <{$sent->message_id}>\r\n"
+            ."Content-Type: text/plain; charset=utf-8\r\n\r\nSom na dovolenke.\r\n");
+        $this->actingAs($this->user)->get('/inbox')
+            ->assertInertia(fn ($page) => $page->has('conversations.data', 0));
+
+        $this->process("From: jana@firma.test\r\nTo: obchod@zastavy.test\r\nSubject: Re: Objednávka 12\r\n"
+            .'Message-ID: <odp-'.uniqid()."@firma.test>\r\nIn-Reply-To: <{$sent->message_id}>\r\n"
+            ."Content-Type: text/plain; charset=utf-8\r\n\r\nDoplňte prosím IČO.\r\n");
+        $this->actingAs($this->user)->get('/inbox')
+            ->assertInertia(fn ($page) => $page->has('conversations.data', 1)
+                ->where('conversations.data.0.status', ConversationStatus::Open->value));
+    }
+
+    public function test_odpoved_operatora_ukaze_konverzaciu_v_inboxe(): void
+    {
+        $sent = app(ConversationService::class)->sendFromProject($this->product, [
+            'to' => 'jana@firma.test', 'subject' => 'Objednávka 13', 'html' => '<p>Potvrdenie</p>',
+            'ref' => ['type' => 'order', 'id' => '13'],
+        ]);
+
+        app(ConversationService::class)->reply($sent->conversation, $this->user, 'Dobrý deň, ešte doplním termín.');
+
+        $this->actingAs($this->user)->get('/inbox')
+            ->assertInertia(fn ($page) => $page->has('conversations.data', 1));
+    }
+
     public function test_oznacenie_spamu_zablokuje_odosielatela_a_skryje_konverzaciu(): void
     {
         $this->process($this->mail('spam@lacne-lieky.test', 'Kúpte lieky'));

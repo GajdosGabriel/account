@@ -64,6 +64,7 @@ return [
         'show_as_text' => 'Als Text anzeigen',
         'show_as_html' => 'Als E-Mail anzeigen',
         'attachments' => 'Anhänge',
+        'show_automatic' => 'Auch Verläufe nur mit automatischen E-Mails anzeigen (Bestätigungen, Kampagnen)',
         'mailing_badge' => 'Automatisch aus Kampagne „:campaign“',
         'mailing_offer_body' => 'Angebot aus Kampagne „:campaign“. Von Emailing versendet – der volle Text steht in der Kampagne.',
         'source' => [

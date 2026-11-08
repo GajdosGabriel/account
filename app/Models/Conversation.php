@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ConversationStatus;
+use App\Enums\MessageStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -81,15 +82,23 @@ class Conversation extends Model
     }
 
     /**
-     * Vlákno, v ktorom je zatiaľ len e-mail kampane, do inboxu nepatrí –
-     * `last_message_at` mu nastaví až prvá ľudská správa (odpoveď klienta,
-     * operátor, systémový mail projektu).
+     * Inbox ukazuje len to, na čo treba reagovať: vlákna, kde napísal
+     * človek – klient (okrem automatickej odpovede) alebo operátor z inboxu.
+     * Vlákno s len automatickými mailmi (potvrdenie objednávky, kampaň) sa
+     * objaví až s odpoveďou klienta; dovtedy je len pod „aj automatické“.
      *
      * @param  Builder<self>  $query
      */
     public function scopeVisibleInInbox(Builder $query): void
     {
-        $query->whereNotNull('last_message_at');
+        $query->whereNotNull('last_message_at')
+            ->whereExists(fn ($q) => $q->selectRaw('1')
+                ->from('conversation_messages')
+                ->whereColumn('conversation_messages.conversation_id', 'conversations.id')
+                ->where(fn ($w) => $w
+                    ->where(fn ($in) => $in->where('direction', ConversationMessage::IN)
+                        ->where('status', '!=', MessageStatus::AutoReply->value))
+                    ->orWhere('source', ConversationMessage::SOURCE_INBOX)));
     }
 
     /** @param Builder<self> $query */

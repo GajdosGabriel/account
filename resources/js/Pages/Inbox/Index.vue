@@ -16,7 +16,13 @@ const props = defineProps({
     spamRetentionDays: { type: Number, default: 30 },
 });
 
-const form = ref({ search: '', product: null, status: null, ...props.filters });
+const form = ref({ search: '', product: null, status: null, automatic: null, ...props.filters });
+
+// Vlákna len s automatickými mailmi (potvrdenie objednávky, kampaň) sú skryté.
+const toggleAutomatic = (event) => {
+    form.value.automatic = event.target.checked ? 1 : null;
+    submit();
+};
 let timer = null;
 
 // Hľadanie sa odosiela s oneskorením, filtre hneď.
@@ -42,7 +48,7 @@ const setStatus = (status) => {
 
 const clearFilters = () => {
     const hadSearch = form.value.search !== '';
-    form.value = { search: '', product: null, status: null };
+    form.value = { search: '', product: null, status: null, automatic: null };
     // Zmenu hľadania odošle watcher, inak treba odoslať hneď.
     if (!hadSearch) submit();
 };
@@ -132,6 +138,11 @@ const showSubject = (c) => c.subject && (!c.assigned || !normalize(c.ref_label).
                 <option v-for="p in products" :key="p.key" :value="p.key">{{ p.name }}</option>
             </select>
         </div>
+
+        <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
+            <input type="checkbox" :checked="!!form.automatic" @change="toggleAutomatic" />
+            <span>{{ t('messaging.inbox.show_automatic') }}</span>
+        </label>
 
         <p v-if="hasFilters" class="mt-3 flex items-center gap-3 text-sm text-slate-500">
             {{ t('messaging.inbox.found', { count: conversations.total }) }}

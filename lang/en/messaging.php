@@ -64,6 +64,7 @@ return [
         'show_as_text' => 'Show as text',
         'show_as_html' => 'Show as email',
         'attachments' => 'Attachments',
+        'show_automatic' => 'Also show threads with only automatic e-mails (confirmations, campaigns)',
         'mailing_badge' => 'Sent automatically by campaign “:campaign”',
         'mailing_offer_body' => 'Offer from campaign “:campaign”. Sent by Emailing – the full text is in the campaign.',
         'source' => [
