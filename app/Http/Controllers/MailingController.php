@@ -14,12 +14,14 @@ use App\Models\MailingTrigger;
 use App\Models\MailSuppression;
 use App\Models\Product;
 use App\Services\Mailing\BounceClassifier;
+use App\Services\Mailing\MailingRenderer;
 use App\Services\Mailing\MailingSender;
 use App\Services\Messaging\MessagingException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
@@ -369,7 +371,7 @@ class MailingController extends Controller
                     'product_key' => $l->product?->key,
                     'product' => $l->product?->name,
                 ]),
-            'default_layout' => \App\Services\Mailing\MailingRenderer::defaultLayout(),
+            'default_layout' => MailingRenderer::defaultLayout(),
             'filters' => ['product' => $product?->key],
             'products' => $this->products(),
         ]);
@@ -445,20 +447,20 @@ class MailingController extends Controller
         $product = isset($filters['product']) ? Product::where('key', $filters['product'])->first() : null;
 
         $contacts = MailingContact::query()->with('product')
-                ->when($product, fn ($q) => $q->where('product_id', $product->id))
-                ->when($filters['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('email', 'like', '%'.$s.'%')->orWhere('name', 'like', '%'.$s.'%')))
-                ->when($filters['tag'] ?? null, fn ($q, $tag) => $q->whereJsonContains('tags', $tag))
-                ->when(($filters['state'] ?? null) === 'active', fn ($q) => $q->reachable())
+            ->when($product, fn ($q) => $q->where('product_id', $product->id))
+            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('email', 'like', '%'.$s.'%')->orWhere('name', 'like', '%'.$s.'%')))
+            ->when($filters['tag'] ?? null, fn ($q, $tag) => $q->withTag($tag))
+            ->when(($filters['state'] ?? null) === 'active', fn ($q) => $q->reachable())
                 // Bez súhlasu s ponukami: dostanú len oznámenia o službe.
-                ->when(($filters['state'] ?? null) === 'service', fn ($q) => $q->whereNull('permission_at')->whereNull('permission_note')->notBlocked())
-                ->when(($filters['state'] ?? null) === 'unsubscribed', fn ($q) => $q->whereNotNull('unsubscribed_at'))
-                ->when(($filters['state'] ?? null) === 'bounced', fn ($q) => $q->where(fn ($q) => $q->whereNotNull('bounced_at')
-                    ->orWhereExists(fn ($s) => $s->from('mail_suppressions')
-                        ->whereColumn('mail_suppressions.product_id', 'mailing_contacts.product_id')
-                        ->whereColumn('mail_suppressions.email', 'mailing_contacts.email'))))
-                ->orderByDesc('id')
-                ->paginate(50)
-                ->withQueryString();
+            ->when(($filters['state'] ?? null) === 'service', fn ($q) => $q->whereNull('permission_at')->whereNull('permission_note')->notBlocked())
+            ->when(($filters['state'] ?? null) === 'unsubscribed', fn ($q) => $q->whereNotNull('unsubscribed_at'))
+            ->when(($filters['state'] ?? null) === 'bounced', fn ($q) => $q->where(fn ($q) => $q->whereNotNull('bounced_at')
+                ->orWhereExists(fn ($s) => $s->from('mail_suppressions')
+                    ->whereColumn('mail_suppressions.product_id', 'mailing_contacts.product_id')
+                    ->whereColumn('mail_suppressions.email', 'mailing_contacts.email'))))
+            ->orderByDesc('id')
+            ->paginate(50)
+            ->withQueryString();
 
         // Blokované adresy len pre zobrazenú stranu.
         $suppressed = MailSuppression::query()
@@ -473,6 +475,7 @@ class MailingController extends Controller
                 'name' => $c->name,
                 'product' => $c->product?->name,
                 'tags' => $c->tags ?? [],
+                'manual_tags' => $c->manual_tags ?? [],
                 'permission_note' => $c->permission_note,
                 'permission_at' => $c->permission_at?->toIso8601String(),
                 'unsubscribed_at' => $c->unsubscribed_at?->toIso8601String(),
@@ -493,10 +496,13 @@ class MailingController extends Controller
             'emails' => ['required', 'string', 'max:50000'],
             'permission_note' => ['required', 'string', 'min:5', 'max:255'],
             'confirmed' => ['accepted'],
+            'tags' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $product = Product::where('key', $data['product_key'])->firstOrFail();
+        $tags = MailingContact::normalizeTags($data['tags'] ?? null);
         $added = 0;
+        $tagged = 0;
         $skipped = 0;
 
         // Riadok „meno <adresa>“ alebo len adresa; oddeľovač je nový riadok, čiarka alebo bodkočiarka.
@@ -512,8 +518,16 @@ class MailingController extends Controller
 
             $contact = MailingContact::withTrashed()->firstOrNew(['product_id' => $product->id, 'email' => $email]);
 
+            // Existujúci kontakt sa nemení, len dostane zadané štítky.
             if ($contact->exists && ! $contact->trashed()) {
-                $skipped++;
+                $merged = MailingContact::normalizeTags([...($contact->manual_tags ?? []), ...$tags]);
+
+                if ($tags && $merged !== ($contact->manual_tags ?? [])) {
+                    $contact->forceFill(['manual_tags' => $merged])->save();
+                    $tagged++;
+                } else {
+                    $skipped++;
+                }
 
                 continue;
             }
@@ -525,11 +539,24 @@ class MailingController extends Controller
                 'permission_note' => $data['permission_note'],
                 'permission_at' => now(),
                 'created_by' => $request->user()->id,
+                'manual_tags' => MailingContact::normalizeTags([...($contact->manual_tags ?? []), ...$tags]) ?: null,
             ])->save();
             $added++;
         }
 
-        return back()->with('success', __('mailing.contacts.added', ['added' => $added, 'skipped' => $skipped]));
+        return back()->with('success', $tagged
+            ? __('mailing.contacts.added_tagged', ['added' => $added, 'tagged' => $tagged, 'skipped' => $skipped])
+            : __('mailing.contacts.added', ['added' => $added, 'skipped' => $skipped]));
+    }
+
+    /** Ručné štítky kontaktu; štítky z projektu sa tu nemenia. */
+    public function updateContactTags(Request $request, MailingContact $contact): RedirectResponse
+    {
+        $data = $request->validate(['tags' => ['nullable', 'string', 'max:1000']]);
+
+        $contact->forceFill(['manual_tags' => MailingContact::normalizeTags($data['tags'] ?? null) ?: null])->save();
+
+        return back()->with('success', __('mailing.contacts.tags_saved'));
     }
 
     public function unsubscribeContact(MailingContact $contact): RedirectResponse
@@ -806,10 +833,11 @@ class MailingController extends Controller
     /** @return list<string> */
     private function contactTags(Product $product): array
     {
-        return MailingContact::query()->where('product_id', $product->id)->whereNotNull('tags')
-            ->distinct()->pluck('tags')
-            ->flatMap(fn ($tags) => is_array($tags) ? $tags : (json_decode((string) $tags, true) ?: []))
-            ->unique()->sort()->values()->all();
+        $decode = fn ($tags) => is_array($tags) ? $tags : (json_decode((string) $tags, true) ?: []);
+        $query = fn (string $column) => MailingContact::query()->where('product_id', $product->id)
+            ->whereNotNull($column)->distinct()->pluck($column)->flatMap($decode);
+
+        return $query('tags')->merge($query('manual_tags'))->unique()->sort()->values()->all();
     }
 
     /** @return list<string> */
@@ -821,7 +849,7 @@ class MailingController extends Controller
             ->unique()->sort()->values()->all();
     }
 
-    /** @return \Illuminate\Support\Collection<int, Product> */
+    /** @return Collection<int, Product> */
     private function products()
     {
         return Product::query()->orderBy('name')->get(['key', 'name']);

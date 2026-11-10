@@ -17,6 +17,10 @@ use Illuminate\Support\Str;
  * Kontakt, ktorý projekt odstráni, je len skrytý (soft delete) – nedostane
  * žiadnu kampaň, ale keď ho projekt pošle znova, obnoví sa s odhlásením,
  * tokenom aj históriou. Ručné zmazanie v Accounte je trvalé.
+ *
+ * Štítky sú dvojaké: `tags` posiela projekt a synchronizácia ich celé
+ * nahradí, `manual_tags` sa zadávajú v Accounte a projekt ich nemení.
+ * Segment kampane berie do úvahy oba zoznamy.
  */
 class MailingContact extends Model
 {
@@ -27,7 +31,7 @@ class MailingContact extends Model
     protected $fillable = [
         'product_id', 'organization_id', 'email', 'name', 'permission_note', 'permission_at',
         'created_by', 'token', 'unsubscribed_at', 'unsubscribed_changed_at', 'bounced_at', 'bounce_reason', 'soft_bounces',
-        'attributes', 'tags',
+        'attributes', 'tags', 'manual_tags',
     ];
 
     protected function casts(): array
@@ -39,6 +43,7 @@ class MailingContact extends Model
             'bounced_at' => 'datetime',
             'attributes' => 'array',
             'tags' => 'array',
+            'manual_tags' => 'array',
         ];
     }
 
@@ -110,12 +115,54 @@ class MailingContact extends Model
         $none = $campaign->audienceTags('none');
 
         if ($any) {
-            $query->where(fn ($q) => collect($any)->each(fn ($tag) => $q->orWhereJsonContains('tags', $tag)));
+            $query->where(fn ($q) => collect($any)->each(fn ($tag) => $q->orWhere(fn ($q) => $q->withTag($tag))));
         }
 
         foreach ($none as $tag) {
-            $query->where(fn ($q) => $q->whereNull('tags')->orWhereJsonDoesntContain('tags', $tag));
+            $query->whereNot(fn ($q) => $q->withTag($tag));
         }
+    }
+
+    /**
+     * Kontakt má štítok – z projektu alebo zadaný ručne.
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWithTag(Builder $query, string $tag): void
+    {
+        $query->where(fn ($q) => $q
+            ->where(fn ($q) => $q->whereNotNull('mailing_contacts.tags')->whereJsonContains('mailing_contacts.tags', $tag))
+            ->orWhere(fn ($q) => $q->whereNotNull('mailing_contacts.manual_tags')->whereJsonContains('mailing_contacts.manual_tags', $tag)));
+    }
+
+    /** @return list<string> Štítky z projektu aj ručné, bez duplicít. */
+    public function allTags(): array
+    {
+        $tags = array_values(array_unique([...($this->tags ?? []), ...($this->manual_tags ?? [])]));
+        sort($tags);
+
+        return $tags;
+    }
+
+    /**
+     * Ručné štítky z textu „Samospráva, nový klient“ – kľúč bez diakritiky,
+     * v rovnakom tvare ako štítky z projektu. Najviac 20.
+     *
+     * @param  string|list<string>|null  $input
+     * @return list<string>
+     */
+    public static function normalizeTags(string|array|null $input): array
+    {
+        $parts = is_array($input) ? $input : preg_split('/[,;\r\n]+/', (string) $input);
+
+        return collect($parts)
+            ->map(fn ($tag) => Str::limit(Str::slug(trim((string) $tag)), 60, ''))
+            ->filter()
+            ->unique()
+            ->sort()
+            ->take(20)
+            ->values()
+            ->all();
     }
 
     public function hasConsent(): bool
@@ -135,7 +182,7 @@ class MailingContact extends Model
 
     public function matchesAudience(MailingCampaign $campaign): bool
     {
-        $tags = $this->tags ?? [];
+        $tags = $this->allTags();
         $any = $campaign->audienceTags('any');
 
         return (! $any || array_intersect($any, $tags)) && ! array_intersect($campaign->audienceTags('none'), $tags);

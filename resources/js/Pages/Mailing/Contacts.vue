@@ -31,11 +31,21 @@ watch(() => filter.value.search, () => {
 
 const panel = ref(null);
 
-const add = useForm({ product_key: props.filters.product ?? props.products[0]?.key ?? null, emails: '', permission_note: '', confirmed: false });
+const add = useForm({ product_key: props.filters.product ?? props.products[0]?.key ?? null, emails: '', permission_note: '', tags: '', confirmed: false });
 const bounce = useForm({ product_key: props.filters.product ?? props.products[0]?.key ?? null, emails: '', type: 'hard', reason: '' });
 
 const saveAdd = () => add.post('/mailing/contacts', { preserveScroll: true, onSuccess: () => { add.reset('emails', 'confirmed'); panel.value = null; } });
 const saveBounce = () => bounce.post('/mailing/contacts/bounce', { preserveScroll: true, onSuccess: () => { bounce.reset('emails', 'reason'); panel.value = null; } });
+
+// Úprava ručných štítkov jedného kontaktu priamo v riadku.
+const editing = ref(null);
+const tagsForm = useForm({ tags: '' });
+const editTags = (contact) => {
+    editing.value = contact.id;
+    tagsForm.clearErrors();
+    tagsForm.tags = contact.manual_tags.join(', ');
+};
+const saveTags = (contact) => tagsForm.put(`/mailing/contacts/${contact.id}/tags`, { preserveScroll: true, onSuccess: () => { editing.value = null; } });
 
 const action = (contact, name) => router.post(`/mailing/contacts/${contact.id}/${name}`, {}, { preserveScroll: true });
 const remove = (contact) => confirm(t('mailing.contacts.confirm_delete', { email: contact.email }))
@@ -84,6 +94,12 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
             <label for="c_emails">{{ t('mailing.contacts.emails') }}</label>
             <textarea id="c_emails" v-model="add.emails" rows="6" :placeholder="t('mailing.contacts.emails_placeholder')" required></textarea>
             <InputError :message="add.errors.emails" />
+        </div>
+        <div>
+            <label for="c_tags">{{ t('mailing.contacts.tags') }}</label>
+            <input id="c_tags" v-model="add.tags" type="text" :placeholder="t('mailing.contacts.tags_placeholder')" />
+            <p class="mt-1 text-xs text-slate-500">{{ t('mailing.contacts.tags_hint') }}</p>
+            <InputError :message="add.errors.tags" />
         </div>
         <label class="flex items-start gap-2 text-sm">
             <input v-model="add.confirmed" type="checkbox" class="mt-1" />
@@ -155,8 +171,17 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
                 <tr v-for="c in contacts.data" :key="c.id">
                     <td class="px-4 py-2">
                         {{ c.email }}<span v-if="c.name" class="text-slate-500"> · {{ c.name }}</span>
-                        <span v-if="c.tags.length" class="mt-1 flex flex-wrap gap-1">
-                            <span v-for="tag in c.tags" :key="tag" class="rounded bg-slate-100 px-1.5 text-xs text-slate-600">{{ tagLabel(tag) }}</span>
+                        <form v-if="editing === c.id" class="mt-1 flex flex-wrap items-center gap-2" @submit.prevent="saveTags(c)">
+                            <input v-model="tagsForm.tags" type="text" class="!py-1 text-xs md:w-64" :placeholder="t('mailing.contacts.tags_placeholder')" :aria-label="t('mailing.contacts.tags')" />
+                            <button type="submit" class="link text-xs" :disabled="tagsForm.processing">{{ t('mailing.contacts.save_tags') }}</button>
+                            <button type="button" class="text-xs text-slate-500 hover:underline" @click="editing = null">{{ t('mailing.contacts.cancel') }}</button>
+                            <InputError :message="tagsForm.errors.tags" class="w-full" />
+                        </form>
+                        <span v-if="c.tags.length || (c.manual_tags.length && editing !== c.id)" class="mt-1 flex flex-wrap gap-1">
+                            <span v-for="tag in c.tags" :key="'p-' + tag" class="rounded bg-slate-100 px-1.5 text-xs text-slate-600" :title="t('mailing.contacts.project_tag')">{{ tagLabel(tag) }}</span>
+                            <template v-if="editing !== c.id">
+                                <span v-for="tag in c.manual_tags" :key="'m-' + tag" class="rounded bg-brand-50 px-1.5 text-xs text-brand-700" :title="t('mailing.contacts.manual_tag')">{{ tagLabel(tag) }}</span>
+                            </template>
                         </span>
                     </td>
                     <td class="px-4 py-2 text-slate-600">{{ c.product }}</td>
@@ -166,6 +191,7 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
                         <p v-if="c.bounce_reason" class="mt-1 text-xs text-slate-500">{{ c.bounce_reason }}</p>
                     </td>
                     <td class="whitespace-nowrap px-4 py-2 text-right">
+                        <button type="button" class="link mr-3 text-xs" @click="editTags(c)">{{ t('mailing.contacts.edit_tags') }}</button>
                         <button v-if="!c.unsubscribed_at" type="button" class="link text-xs" @click="action(c, 'unsubscribe')">{{ t('mailing.contacts.unsubscribe') }}</button>
                         <button v-if="c.bounced_at || c.suppression === 'hard_bounce'" type="button" class="link ml-3 text-xs" @click="action(c, 'reactivate')">{{ t('mailing.contacts.reactivate') }}</button>
                         <button type="button" class="ml-3 text-xs text-rose-600 hover:underline" @click="remove(c)">{{ t('mailing.campaigns.delete') }}</button>

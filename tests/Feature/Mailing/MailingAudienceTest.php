@@ -16,6 +16,7 @@ use App\Services\Mailing\MailingSender;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Symfony\Component\Mime\Email;
 use Tests\TestCase;
 
@@ -254,6 +255,58 @@ class MailingAudienceTest extends TestCase
                 ->where('contacts_by_product.0.total', 2));
     }
 
+    public function test_rucne_stitky_pri_pridani_doplnia_aj_existujucim_kontaktom(): void
+    {
+        $this->contact('jana@firma.test', ['user']);
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->post('/mailing/contacts', [
+            'product_key' => 'anonymizer',
+            'emails' => "jana@firma.test\nPeter <peter@firma.test>",
+            'permission_note' => 'zmluva so samosprávou',
+            'tags' => 'Samospráva, nový klient, samosprava',
+            'confirmed' => true,
+        ])->assertSessionHas('success', __('mailing.contacts.added_tagged', ['added' => 1, 'tagged' => 1, 'skipped' => 0]));
+
+        $jana = MailingContact::where('email', 'jana@firma.test')->sole();
+        $this->assertSame(['user'], $jana->tags);
+        $this->assertSame(['novy-klient', 'samosprava'], $jana->manual_tags);
+        $this->assertSame(['novy-klient', 'samosprava'], MailingContact::where('email', 'peter@firma.test')->sole()->manual_tags);
+
+        $this->actingAs($user)->get('/mailing/contacts?product=anonymizer&tag=samosprava')->assertOk()
+            ->assertInertia(fn ($page) => $page->has('contacts.data', 2)->where('tags', fn ($tags) => collect($tags)->pluck('key')->contains('samosprava')));
+    }
+
+    public function test_synchronizacia_z_projektu_nezmaze_rucne_stitky(): void
+    {
+        $contact = $this->contact('jana@firma.test', ['user']);
+        $this->actingAs(User::factory()->create())
+            ->put("/mailing/contacts/{$contact->id}/tags", ['tags' => 'Samospráva'])
+            ->assertSessionHas('success');
+
+        $this->api('POST', '/api/v1/mailing/contacts', ['contacts' => [
+            ['email' => 'jana@firma.test', 'tags' => ['verified']],
+        ]])->assertSuccessful();
+
+        $contact->refresh();
+        $this->assertSame(['verified'], $contact->tags);
+        $this->assertSame(['samosprava'], $contact->manual_tags);
+    }
+
+    public function test_segment_kampane_zahrna_rucne_stitky(): void
+    {
+        $this->contact('samosprava@firma.test')->forceFill(['manual_tags' => ['samosprava']])->save();
+        $this->contact('obe@firma.test', ['trial'])->forceFill(['manual_tags' => ['samosprava', 'stary-klient']])->save();
+        $this->contact('trial@firma.test', ['trial']);
+        $this->contact('bezstitku@firma.test');
+
+        $campaign = $this->campaign(['status' => MailingCampaign::DRAFT, 'audience' => ['any' => ['samosprava', 'trial'], 'none' => ['stary-klient']]]);
+        $this->assertSame(['samosprava@firma.test', 'trial@firma.test'], MailingContact::audience($campaign)->orderBy('email')->pluck('email')->all());
+
+        $this->assertTrue(MailingContact::where('email', 'samosprava@firma.test')->sole()->matchesAudience($campaign));
+        $this->assertFalse(MailingContact::where('email', 'obe@firma.test')->sole()->matchesAudience($campaign));
+    }
+
     /** @param array<string, mixed> $attributes */
     private function campaign(array $attributes = []): MailingCampaign
     {
@@ -285,7 +338,7 @@ class MailingAudienceTest extends TestCase
     }
 
     /** @param array<string, mixed> $data */
-    private function api(string $method, string $uri, array $data): \Illuminate\Testing\TestResponse
+    private function api(string $method, string $uri, array $data): TestResponse
     {
         return $this->withToken($this->token)->json($method, $uri, $data);
     }
