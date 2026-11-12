@@ -4,6 +4,7 @@ namespace Tests\Feature\Messaging;
 
 use App\Enums\ConversationStatus;
 use App\Enums\MessageStatus;
+use App\Mail\InboxMessageNotificationMail;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Mailbox;
@@ -19,6 +20,7 @@ use App\Services\Messaging\InboundProcessor;
 use App\Services\Messaging\MailboxReader;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -264,6 +266,39 @@ class InboundProcessorTest extends TestCase
         $this->assertSame(ConversationStatus::Waiting, $conversation->status);
         $this->assertSame(0, $conversation->unread_count);
         $this->assertSame(0, WebhookDelivery::where('event', 'message.received')->count());
+    }
+
+    public function test_nova_sprava_posle_upozornenie_prvemu_pouzivatelovi(): void
+    {
+        Mail::fake();
+        $admin = User::factory()->create(['email' => 'spravca@account.test']);
+        User::factory()->create(['email' => 'iny@account.test']);
+
+        $this->process($this->reply(from: 'Obec Lehota <obec@lehota.test>', body: 'Objednávame 2 ks vlajky SR.'));
+
+        Mail::assertSent(InboxMessageNotificationMail::class, function (InboxMessageNotificationMail $mail) use ($admin) {
+            $mail->assertSeeInHtml('Objednávame 2 ks vlajky SR.');
+
+            return $mail->hasTo($admin->email) && ! $mail->hasTo('iny@account.test');
+        });
+        Mail::assertSentCount(1);
+    }
+
+    public function test_automaticka_odpoved_ani_bounce_upozornenie_neposlu(): void
+    {
+        Mail::fake();
+        User::factory()->create();
+        $sent = $this->sendOrderMessage('1234', 'jan@firma.test');
+
+        $this->process($this->reply(
+            from: 'jan@firma.test',
+            inReplyTo: $sent->message_id,
+            body: 'Som na dovolenke.',
+            extraHeaders: "Auto-Submitted: auto-replied\r\n",
+        ));
+        $this->process($this->bounce($sent->message_id, 'jan@firma.test', '5.1.1'));
+
+        Mail::assertNothingSent();
     }
 
     public function test_ta_ista_sprava_sa_neulozi_dvakrat(): void

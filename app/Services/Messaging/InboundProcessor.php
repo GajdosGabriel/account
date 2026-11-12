@@ -4,17 +4,21 @@ namespace App\Services\Messaging;
 
 use App\Enums\ConversationStatus;
 use App\Enums\MessageStatus;
+use App\Mail\InboxMessageNotificationMail;
 use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\InboundBlock;
 use App\Models\Mailbox;
 use App\Models\MailingDelivery;
 use App\Models\MailSuppression;
+use App\Models\User;
 use App\Services\Mailing\BounceClassifier;
 use App\Services\Mailing\MailingRenderer;
 use App\Services\Mailing\MailingSender;
 use App\Services\Mailing\MailingWebhooks;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Throwable;
 use ZBateson\MailMimeParser\Header\AddressHeader;
 use ZBateson\MailMimeParser\IMessage;
 use ZBateson\MailMimeParser\Message;
@@ -33,6 +37,8 @@ use ZBateson\MailMimeParser\Message\IMessagePart;
  *        konverzáciou → inak nepriradená (operátor ju priradí v inboxe);
  *   4. nepriradený mail od blokovaného odosielateľa (alebo do konverzácie
  *      v Spame) → ide do Spamu, projekt ani počítadlo sa nedozvedia.
+ *   5. skutočná správa od klienta → prvý používateľ (správca) dostane
+ *      upozornenie e-mailom.
  */
 class InboundProcessor
 {
@@ -147,6 +153,9 @@ class InboundProcessor
             return self::RESULT_AUTO_REPLY;
         }
 
+        $message->setRelation('conversation', $conversation);
+        DB::afterCommit(fn () => $this->notifyAdmin($message));
+
         if ($unassigned) {
             $this->webhooks->dispatchUnassigned($message->setRelation('conversation', $conversation));
 
@@ -156,6 +165,25 @@ class InboundProcessor
         $this->webhooks->dispatch('message.received', $message->setRelation('conversation', $conversation));
 
         return self::RESULT_STORED;
+    }
+
+    /**
+     * Upozornenie e-mailom prvému používateľovi (správcovi Accountu).
+     * Zlyhanie odoslania nesmie zastaviť sťahovanie pošty – len sa zaloguje.
+     */
+    private function notifyAdmin(ConversationMessage $message): void
+    {
+        $admin = User::query()->orderBy('id')->first();
+
+        if (! $admin || blank($admin->email)) {
+            return;
+        }
+
+        try {
+            Mail::to($admin->email)->send(new InboxMessageNotificationMail($message));
+        } catch (Throwable $e) {
+            report($e);
+        }
     }
 
     private function match(Mailbox $mailbox, IMessage $mail, string $email): ?Conversation
