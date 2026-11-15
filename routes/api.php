@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::prefix('v1')->group(function () {
+Route::prefix('v1')->middleware('throttle:api')->group(function () {
 
     Route::middleware('service:organizations:read')->group(function () {
         Route::get('organizations', [OrganizationApiController::class, 'index']);
@@ -78,4 +78,5 @@ Route::prefix('v1')->group(function () {
 |--------------------------------------------------------------------------
 */
 
-Route::post('webhooks/stripe', StripeWebhookController::class)->name('webhooks.stripe');
+Route::post('webhooks/stripe', StripeWebhookController::class)
+    ->middleware('throttle:120,1')->name('webhooks.stripe');

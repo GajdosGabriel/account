@@ -294,5 +294,8 @@ Route::middleware('auth')->group(function () {
     Route::get('settings', [ProfileController::class, 'edit'])->name('settings.edit');
     Route::patch('settings/profile', [ProfileController::class, 'update'])->name('settings.profile.update');
     Route::put('settings/password', [PasswordController::class, 'update'])->name('settings.password.update');
-    Route::post('settings/operators', [ProfileController::class, 'storeOperator'])->name('settings.operators.store');
+    Route::post('settings/operators', [ProfileController::class, 'storeOperator'])
+        ->middleware('throttle:10,1')->name('settings.operators.store');
+    Route::delete('settings/operators/{operator}', [ProfileController::class, 'destroyOperator'])
+        ->name('settings.operators.destroy');
 });

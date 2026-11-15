@@ -7,6 +7,7 @@ use App\Models\Subscription;
 use App\Services\Billing\SubscriptionManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -16,6 +17,9 @@ use Illuminate\Support\Facades\Log;
  */
 class StripeWebhookController extends Controller
 {
+    /** Ako dlho si pamätáme spracované udalosti. Stripe opakuje doručenie až 3 dni. */
+    private const SEEN_TTL_DAYS = 4;
+
     public function __invoke(Request $request, SubscriptionManager $manager): JsonResponse
     {
         if (! $this->signatureIsValid($request)) {
@@ -25,10 +29,20 @@ class StripeWebhookController extends Controller
         $type = $request->input('type');
         $object = $request->input('data.object', []);
 
-        $subscription = $this->resolveSubscription($object);
+        $subscription = $this->resolveSubscription(is_array($object) ? $object : []);
 
         if (! $subscription) {
             return response()->json(['message' => 'Predplatné sa nenašlo, ignorujem.'], 202);
+        }
+
+        // Stripe tú istú udalosť pokojne doručí viackrát (timeout, opakovanie).
+        // Prechod stavu sa však nesmie zopakovať – napr. druhé „activate“
+        // po medzitým prijatom „payment_failed“ by vrátilo prístup.
+        $eventId = $request->input('id');
+
+        if (is_string($eventId) && $eventId !== ''
+            && ! Cache::add('stripe:event:'.$eventId, true, now()->addDays(self::SEEN_TTL_DAYS))) {
+            return response()->json(['received' => true, 'duplicate' => true]);
         }
 
         match ($type) {
@@ -45,36 +59,57 @@ class StripeWebhookController extends Controller
         return response()->json(['received' => true]);
     }
 
-    /** @param array<string, mixed> $object */
+    /**
+     * Predplatné hľadáme podľa jeho Stripe ID. Zákazník (cus_…) môže mať
+     * predplatných viac, preto podľa neho párujeme len vtedy, keď je
+     * jednoznačný – inak by sa zrušenie jedného projektu prenieslo na iný.
+     *
+     * @param  array<string, mixed>  $object
+     */
     protected function resolveSubscription(array $object): ?Subscription
     {
-        $subscriptionId = $object['subscription'] ?? $object['id'] ?? null;
+        $subscriptionId = $object['subscription'] ?? null;
+
+        // Pri udalostiach customer.subscription.* je predplatným samotný objekt.
+        if (! $subscriptionId && ($object['object'] ?? null) === 'subscription') {
+            $subscriptionId = $object['id'] ?? null;
+        }
+
+        if (is_string($subscriptionId) && $subscriptionId !== '') {
+            return Subscription::query()->where('external_id', $subscriptionId)->first();
+        }
+
         $customerId = $object['customer'] ?? null;
 
-        return Subscription::query()
-            ->when($subscriptionId, fn ($q) => $q->orWhere('external_id', $subscriptionId))
-            ->when($customerId, fn ($q) => $q->orWhere('external_customer_id', $customerId))
-            ->first();
+        if (! is_string($customerId) || $customerId === '') {
+            return null;
+        }
+
+        $matches = Subscription::query()->where('external_customer_id', $customerId)->limit(2)->get();
+
+        return $matches->count() === 1 ? $matches->first() : null;
     }
 
     protected function signatureIsValid(Request $request): bool
     {
         $secret = config('services.stripe.webhook_secret');
 
-        // V lokálnom vývoji bez kľúča webhook prepúšťame.
+        // Bez kľúča prepúšťame len lokálny vývoj a testy. Staging či produkcia
+        // so zabudnutým kľúčom musia webhook odmietnuť, nie mu veriť.
         if (blank($secret)) {
-            return ! app()->isProduction();
+            return app()->environment('local', 'testing');
         }
 
-        $header = $request->header('Stripe-Signature', '');
+        $header = (string) $request->header('Stripe-Signature', '');
 
         preg_match('/t=(\d+)/', $header, $timestampMatch);
-        preg_match('/v1=([a-f0-9]+)/', $header, $signatureMatch);
+        // Pri rotácii kľúča posiela Stripe viac podpisov v1 – stačí jeden platný.
+        preg_match_all('/v1=([a-f0-9]+)/', $header, $signatureMatches);
 
         $timestamp = $timestampMatch[1] ?? null;
-        $signature = $signatureMatch[1] ?? null;
+        $signatures = $signatureMatches[1] ?? [];
 
-        if (! $timestamp || ! $signature) {
+        if (! $timestamp || $signatures === []) {
             return false;
         }
 
@@ -85,6 +120,12 @@ class StripeWebhookController extends Controller
 
         $expected = hash_hmac('sha256', $timestamp.'.'.$request->getContent(), $secret);
 
-        return hash_equals($expected, $signature);
+        foreach ($signatures as $signature) {
+            if (hash_equals($expected, $signature)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

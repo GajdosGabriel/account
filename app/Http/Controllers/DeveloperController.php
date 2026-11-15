@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ServiceClient;
 use App\Models\WebhookEndpoint;
+use App\Rules\PublicWebhookUrl;
 use App\Services\Mailing\MailingWebhooks;
 use App\Services\Messaging\MessagingWebhooks;
 use App\Support\Abilities;
@@ -212,7 +213,7 @@ class DeveloperController extends Controller
     {
         $data = $request->validate([
             'product_key' => ['required', 'exists:products,key'],
-            'url' => ['required', 'url', 'max:255'],
+            'url' => ['required', 'url', 'max:255', new PublicWebhookUrl],
             'events' => ['array'],
             'events.*' => ['string'],
         ]);
@@ -236,7 +237,7 @@ class DeveloperController extends Controller
         $this->authorize('update', $endpoint);
 
         $data = $request->validate([
-            'url' => ['required', 'url', 'max:255'],
+            'url' => ['required', 'url', 'max:255', new PublicWebhookUrl],
             'events' => ['array'],
             'events.*' => ['string'],
             'is_active' => ['boolean'],

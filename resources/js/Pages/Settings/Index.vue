@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm } from '@inertiajs/vue3';
 import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import PageHeader from '../../Components/PageHeader.vue';
@@ -17,7 +17,7 @@ const passwordForm = useForm({
     current_password: '', password: '', password_confirmation: '',
 });
 
-const operatorForm = useForm({ name: '', email: '', password: '' });
+const operatorForm = useForm({ name: '', email: '' });
 const addingOperator = ref(false);
 
 const updateProfile = () => profileForm.patch('/settings/profile', { preserveScroll: true });
@@ -32,6 +32,11 @@ const addOperator = () => operatorForm.post('/settings/operators', {
     preserveScroll: true,
     onSuccess: () => { operatorForm.reset(); addingOperator.value = false; },
 });
+
+const removeOperator = (op) => {
+    if (!confirm(`Odobrať prístup operátorovi ${op.email}? Odhlási sa zo všetkých zariadení.`)) return;
+    router.delete(`/settings/operators/${op.id}`, { preserveScroll: true });
+};
 </script>
 
 <template>
@@ -120,12 +125,21 @@ const addOperator = () => operatorForm.post('/settings/operators', {
             </template>
 
             <ul class="divide-y divide-slate-100 text-sm">
-                <li v-for="op in operators" :key="op.email" class="py-2.5">
-                    <p class="font-medium text-slate-900">
-                        {{ op.name }}
-                        <span v-if="op.is_me" class="ml-1 text-xs font-normal text-brand-600">(vy)</span>
-                    </p>
-                    <p class="text-xs text-slate-500">{{ op.email }}</p>
+                <li v-for="op in operators" :key="op.id" class="flex items-start justify-between gap-3 py-2.5">
+                    <div class="min-w-0">
+                        <p class="font-medium text-slate-900">
+                            {{ op.name }}
+                            <span v-if="op.is_me" class="ml-1 text-xs font-normal text-brand-600">(vy)</span>
+                        </p>
+                        <p class="truncate text-xs text-slate-500">{{ op.email }}</p>
+                        <p class="text-xs text-slate-400">{{ op.last_login_at ? `prihlásený ${op.last_login_at}` : 'ešte sa neprihlásil' }}</p>
+                    </div>
+                    <button
+                        v-if="!op.is_me"
+                        type="button"
+                        class="shrink-0 text-xs text-rose-600 hover:text-rose-700"
+                        @click="removeOperator(op)"
+                    >Odobrať</button>
                 </li>
             </ul>
 
@@ -140,11 +154,7 @@ const addOperator = () => operatorForm.post('/settings/operators', {
                     <input id="op_email" v-model="operatorForm.email" type="email" required />
                     <InputError :message="operatorForm.errors.email" />
                 </div>
-                <div>
-                    <label for="op_password">Dočasné heslo</label>
-                    <input id="op_password" v-model="operatorForm.password" type="text" required />
-                    <InputError :message="operatorForm.errors.password" />
-                </div>
+                <p class="text-xs text-slate-500">Na e-mail mu príde odkaz, cez ktorý si nastaví vlastné heslo.</p>
                 <button type="submit" class="btn-primary btn-sm w-full" :disabled="operatorForm.processing">Vytvoriť operátora</button>
             </form>
         </CardSection>

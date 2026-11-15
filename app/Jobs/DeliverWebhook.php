@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\WebhookDelivery;
+use App\Rules\PublicWebhookUrl;
 use App\Services\Webhooks\WebhookDispatcher;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -23,13 +24,30 @@ class DeliverWebhook implements ShouldQueue
         }
 
         $endpoint = $delivery->endpoint;
+
+        // Kontrola aj pri odoslaní: staršie endpointy vznikli pred pravidlom
+        // a DNS verejnej domény sa dá neskôr presmerovať do vnútornej siete.
+        if (! PublicWebhookUrl::allowed($endpoint->url)) {
+            $delivery->increment('attempts');
+            $delivery->forceFill([
+                'response_status' => null,
+                'response_body' => 'Adresa nie je verejná https adresa, doručenie zablokované.',
+                'failed_at' => now(),
+                'next_attempt_at' => null,
+            ])->save();
+
+            return;
+        }
+
         $body = json_encode($delivery->payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         $timestamp = now()->getTimestamp();
 
         $delivery->increment('attempts');
 
         try {
+            // Bez presmerovaní – 302 by inak obišlo kontrolu adresy vyššie.
             $response = Http::timeout(config('accounts.webhooks.timeout'))
+                ->withoutRedirecting()
                 ->withHeaders([
                     config('accounts.webhooks.signature_header') => WebhookDispatcher::signature($endpoint->secret, $timestamp, $body),
                     config('accounts.webhooks.timestamp_header') => (string) $timestamp,

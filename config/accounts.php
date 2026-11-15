@@ -35,6 +35,15 @@ return [
     ],
 
     /*
+    | Limit požiadaviek na /api/v1 – za minútu, pre každý service token zvlášť.
+    | Je štedrý: projekty posielajú kontakty a udalosti aj v dávkach. Účelom je
+    | zastaviť zacyklený projekt alebo uniknutý token, nie bežnú prevádzku.
+    */
+    'api' => [
+        'rate_limit' => (int) env('ACCOUNTS_API_RATE_LIMIT', 600),
+    ],
+
+    /*
     |--------------------------------------------------------------------------
     | Registre na overovanie firemnych udajov
     |--------------------------------------------------------------------------
@@ -65,6 +74,9 @@ return [
         'timeout' => 8,
         'signature_header' => 'X-Accounts-Signature',
         'timestamp_header' => 'X-Accounts-Timestamp',
+        // Adresy v lokálnej sieti (127.0.0.1, 10.x, *.local…) a obyčajné http.
+        // Na produkcii zakázané, aby webhook nemohol siahať na interné služby.
+        'allow_private' => (bool) env('ACCOUNTS_WEBHOOKS_ALLOW_PRIVATE', env('APP_ENV', 'production') !== 'production'),
     ],
 
     /*
