@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
-    /** @use HasFactory<\Database\Factories\ProductFactory> */
+    /** @use HasFactory<ProductFactory> */
     use HasFactory, SoftDeletes;
 
     protected $fillable = ['key', 'name', 'url', 'description', 'is_active'];
@@ -103,6 +104,12 @@ class Product extends Model
     public function mailingTags(): HasMany
     {
         return $this->hasMany(MailingTag::class)->orderBy('id');
+    }
+
+    /** @return HasMany<MailingLabel, $this> */
+    public function mailingLabels(): HasMany
+    {
+        return $this->hasMany(MailingLabel::class)->orderBy('name');
     }
 
     public function defaultPlan(): ?Plan

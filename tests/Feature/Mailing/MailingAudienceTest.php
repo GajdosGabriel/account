@@ -265,8 +265,7 @@ class MailingAudienceTest extends TestCase
             'emails' => "jana@firma.test\nPeter <peter@firma.test>",
             'permission_note' => 'zmluva so samosprávou',
             'tags' => 'Samospráva, nový klient, samosprava',
-            'confirmed' => true,
-        ])->assertSessionHas('success', __('mailing.contacts.added_tagged', ['added' => 1, 'tagged' => 1, 'skipped' => 0]));
+        ])->assertSessionHas('success', __('mailing.contacts.imported', ['added' => 1, 'updated' => 1, 'unchanged' => 0, 'skipped' => 0]));
 
         $jana = MailingContact::where('email', 'jana@firma.test')->sole();
         $this->assertSame(['user'], $jana->tags);

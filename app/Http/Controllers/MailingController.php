@@ -6,6 +6,7 @@ use App\Models\Mailbox;
 use App\Models\MailingCampaign;
 use App\Models\MailingContact;
 use App\Models\MailingDelivery;
+use App\Models\MailingLabel;
 use App\Models\MailingLayout;
 use App\Models\MailingLink;
 use App\Models\MailingTag;
@@ -17,13 +18,16 @@ use App\Services\Mailing\BounceClassifier;
 use App\Services\Mailing\MailingRenderer;
 use App\Services\Mailing\MailingSender;
 use App\Services\Messaging\MessagingException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -437,27 +441,10 @@ class MailingController extends Controller
 
     public function contacts(Request $request): Response
     {
-        $filters = $request->validate([
-            'product' => ['nullable', 'exists:products,key'],
-            'search' => ['nullable', 'string', 'max:255'],
-            'state' => ['nullable', Rule::in(['active', 'service', 'unsubscribed', 'bounced'])],
-            'tag' => ['nullable', 'string', 'max:60'],
-        ]);
-
+        $filters = $this->contactFilters($request);
         $product = isset($filters['product']) ? Product::where('key', $filters['product'])->first() : null;
 
-        $contacts = MailingContact::query()->with('product')
-            ->when($product, fn ($q) => $q->where('product_id', $product->id))
-            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('email', 'like', '%'.$s.'%')->orWhere('name', 'like', '%'.$s.'%')))
-            ->when($filters['tag'] ?? null, fn ($q, $tag) => $q->withTag($tag))
-            ->when(($filters['state'] ?? null) === 'active', fn ($q) => $q->reachable())
-                // Bez súhlasu s ponukami: dostanú len oznámenia o službe.
-            ->when(($filters['state'] ?? null) === 'service', fn ($q) => $q->whereNull('permission_at')->whereNull('permission_note')->notBlocked())
-            ->when(($filters['state'] ?? null) === 'unsubscribed', fn ($q) => $q->whereNotNull('unsubscribed_at'))
-            ->when(($filters['state'] ?? null) === 'bounced', fn ($q) => $q->where(fn ($q) => $q->whereNotNull('bounced_at')
-                ->orWhereExists(fn ($s) => $s->from('mail_suppressions')
-                    ->whereColumn('mail_suppressions.product_id', 'mailing_contacts.product_id')
-                    ->whereColumn('mail_suppressions.email', 'mailing_contacts.email'))))
+        $contacts = $this->contactsQuery($filters)->with('product')
             ->orderByDesc('id')
             ->paginate(50)
             ->withQueryString();
@@ -468,14 +455,23 @@ class MailingController extends Controller
             ->get(['product_id', 'email', 'reason'])
             ->keyBy(fn (MailSuppression $s) => $s->product_id.':'.$s->email);
 
+        $labels = MailingLabel::query()->with('product:id,key,name')->orderBy('name')->get();
+        $counts = $this->labelCounts();
+        $labelOf = $labels->keyBy(fn (MailingLabel $l) => $l->product_id.':'.$l->key);
+
         return Inertia::render('Mailing/Contacts', [
             'contacts' => $contacts->through(fn (MailingContact $c) => [
                 'id' => $c->id,
                 'email' => $c->email,
                 'name' => $c->name,
                 'product' => $c->product?->name,
+                'product_key' => $c->product?->key,
                 'tags' => $c->tags ?? [],
-                'manual_tags' => $c->manual_tags ?? [],
+                'manual_tags' => collect($c->manual_tags ?? [])->map(fn ($key) => [
+                    'key' => $key,
+                    'name' => $labelOf[$c->product_id.':'.$key]->name ?? $key,
+                    'color' => $labelOf[$c->product_id.':'.$key]->color ?? 'indigo',
+                ])->sortBy('name', SORT_NATURAL | SORT_FLAG_CASE)->values(),
                 'permission_note' => $c->permission_note,
                 'permission_at' => $c->permission_at?->toIso8601String(),
                 'unsubscribed_at' => $c->unsubscribed_at?->toIso8601String(),
@@ -484,87 +480,157 @@ class MailingController extends Controller
                 'suppression' => $suppressed[$c->product_id.':'.$c->email]->reason ?? null,
             ]),
             'filters' => ['product' => $product?->key, 'search' => $filters['search'] ?? '', 'state' => $filters['state'] ?? null, 'tag' => $filters['tag'] ?? null],
-            'tags' => $product ? $this->productTags($product->load('mailingTags')) : [],
+            'tags' => $product ? $this->productTags($product->load('mailingTags', 'mailingLabels')) : [],
+            'labels' => $labels->map(fn (MailingLabel $l) => [
+                'id' => $l->id,
+                'key' => $l->key,
+                'name' => $l->name,
+                'color' => $l->color,
+                'product_key' => $l->product?->key,
+                'product' => $l->product?->name,
+                'count' => $counts[$l->product_id.':'.$l->key] ?? 0,
+            ]),
+            'colors' => MailingLabel::COLORS,
             'products' => $this->products(),
         ]);
     }
 
+    /**
+     * Pridanie a import kontaktov. Riadok „meno <adresa>“, len adresa alebo
+     * riadok z CSV („adresa;meno“, „meno,adresa“ …); riadky bez adresy
+     * (napr. hlavička CSV) sa preskočia.
+     *
+     * Kontakt pridaný v Accounte má predvolene súhlas s ponukami. Existujúci
+     * kontakt dostane zvolené štítky a – ak súhlas chýbal – aj súhlas;
+     * odhlásenie sa nemení.
+     */
     public function storeContacts(Request $request): RedirectResponse
     {
         $data = $request->validate([
             'product_key' => ['required', 'exists:products,key'],
-            'emails' => ['required', 'string', 'max:50000'],
-            'permission_note' => ['required', 'string', 'min:5', 'max:255'],
-            'confirmed' => ['accepted'],
+            'emails' => ['required', 'string', 'max:2000000'],
+            'consent' => ['boolean'],
+            'permission_note' => ['nullable', 'string', 'max:255'],
+            'labels' => ['nullable', 'array', 'max:'.MailingLabel::MAX_PER_CONTACT],
+            'labels.*' => ['string', 'max:60'],
             'tags' => ['nullable', 'string', 'max:1000'],
         ]);
 
         $product = Product::where('key', $data['product_key'])->firstOrFail();
-        $tags = MailingContact::normalizeTags($data['tags'] ?? null);
+        $consent = (bool) ($data['consent'] ?? true);
+        $note = trim((string) ($data['permission_note'] ?? '')) ?: __('mailing.contacts.permission_default', ['user' => $request->user()->name]);
+        $labels = MailingLabel::resolve($product->id, [...($data['labels'] ?? []), ...preg_split('/[,;]+/', (string) ($data['tags'] ?? ''))]);
+        [$rows, $skipped] = self::parseContacts($data['emails']);
         $added = 0;
-        $tagged = 0;
-        $skipped = 0;
+        $updated = 0;
+        $unchanged = 0;
 
-        // Riadok „meno <adresa>“ alebo len adresa; oddeľovač je nový riadok, čiarka alebo bodkočiarka.
-        foreach (preg_split('/[\r\n,;]+/', trim($data['emails']), -1, PREG_SPLIT_NO_EMPTY) as $line) {
-            preg_match('/^\s*(?:"?([^"<]*?)"?\s*<)?\s*([^\s<>]+@[^\s<>]+)\s*>?\s*$/', $line, $m);
-            $email = strtolower(trim($m[2] ?? ''));
+        DB::transaction(function () use ($rows, $product, $consent, $note, $labels, $request, &$added, &$updated, &$unchanged) {
+            foreach ($rows as $email => $name) {
+                $contact = MailingContact::withTrashed()->firstOrNew(['product_id' => $product->id, 'email' => $email]);
+                $tags = self::mergeLabels($contact->manual_tags ?? [], $labels);
 
-            if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
-                $skipped++;
+                if ($contact->exists && ! $contact->trashed()) {
+                    $contact->manual_tags = $tags ?: null;
+                    $contact->name ??= $name;
 
-                continue;
-            }
+                    if ($consent && ! $contact->hasConsent()) {
+                        $contact->fill(['permission_note' => $note, 'permission_at' => now()]);
+                    }
 
-            $contact = MailingContact::withTrashed()->firstOrNew(['product_id' => $product->id, 'email' => $email]);
+                    $contact->isDirty() ? $updated++ : $unchanged++;
+                    $contact->save();
 
-            // Existujúci kontakt sa nemení, len dostane zadané štítky.
-            if ($contact->exists && ! $contact->trashed()) {
-                $merged = MailingContact::normalizeTags([...($contact->manual_tags ?? []), ...$tags]);
-
-                if ($tags && $merged !== ($contact->manual_tags ?? [])) {
-                    $contact->forceFill(['manual_tags' => $merged])->save();
-                    $tagged++;
-                } else {
-                    $skipped++;
+                    continue;
                 }
 
-                continue;
+                // Kontakt odstránený projektom sa obnoví aj s odhlásením.
+                $contact->deleted_at = null;
+                $contact->fill([
+                    'name' => $name ?? $contact->name,
+                    'created_by' => $request->user()->id,
+                    'manual_tags' => $tags ?: null,
+                ]);
+
+                if ($consent && ! $contact->hasConsent()) {
+                    $contact->fill(['permission_note' => $note, 'permission_at' => now()]);
+                }
+
+                $contact->save();
+                $added++;
             }
+        });
 
-            // Kontakt odstránený projektom sa obnoví aj s odhlásením.
-            $contact->deleted_at = null;
-            $contact->fill([
-                'name' => trim($m[1] ?? '') ?: null,
-                'permission_note' => $data['permission_note'],
-                'permission_at' => now(),
-                'created_by' => $request->user()->id,
-                'manual_tags' => MailingContact::normalizeTags([...($contact->manual_tags ?? []), ...$tags]) ?: null,
-            ])->save();
-            $added++;
-        }
-
-        return back()->with('success', $tagged
-            ? __('mailing.contacts.added_tagged', ['added' => $added, 'tagged' => $tagged, 'skipped' => $skipped])
-            : __('mailing.contacts.added', ['added' => $added, 'skipped' => $skipped]));
+        return back()->with('success', __('mailing.contacts.imported', [
+            'added' => $added, 'updated' => $updated, 'unchanged' => $unchanged, 'skipped' => $skipped,
+        ]));
     }
 
     /** Ručné štítky kontaktu; štítky z projektu sa tu nemenia. */
     public function updateContactTags(Request $request, MailingContact $contact): RedirectResponse
     {
-        $data = $request->validate(['tags' => ['nullable', 'string', 'max:1000']]);
+        $data = $request->validate([
+            'labels' => ['nullable', 'array', 'max:'.MailingLabel::MAX_PER_CONTACT],
+            'labels.*' => ['string', 'max:60'],
+            'tags' => ['nullable', 'string', 'max:1000'],
+        ]);
 
-        $contact->forceFill(['manual_tags' => MailingContact::normalizeTags($data['tags'] ?? null) ?: null])->save();
+        $keys = MailingLabel::resolve($contact->product_id, $data['labels'] ?? $data['tags'] ?? null);
+        $contact->forceFill(['manual_tags' => $keys ?: null])->save();
 
         return back()->with('success', __('mailing.contacts.tags_saved'));
+    }
+
+    /**
+     * Hromadná akcia nad vybranými kontaktmi alebo nad všetkými, ktoré
+     * zodpovedajú filtru (aj na ďalších stranách).
+     */
+    public function bulkContacts(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'action' => ['required', Rule::in(['add_labels', 'remove_labels', 'consent', 'unsubscribe', 'delete'])],
+            'all' => ['boolean'],
+            'ids' => ['required_unless:all,true', 'array', 'max:1000'],
+            'ids.*' => ['integer'],
+            'filters' => ['nullable', 'array'],
+            'labels' => ['required_if:action,add_labels,remove_labels', 'array', 'max:'.MailingLabel::MAX_PER_CONTACT],
+            'labels.*' => ['string', 'max:60'],
+        ]);
+
+        $query = ($data['all'] ?? false)
+            ? $this->contactsQuery(validator($data['filters'] ?? [], $this->contactFilterRules())->validate())
+            : MailingContact::query()->whereIn('id', $data['ids'] ?? []);
+
+        $note = __('mailing.contacts.permission_default', ['user' => $request->user()->name]);
+        $keys = [];
+        $label = function (int $productId) use (&$keys, $data) {
+            return $keys[$productId] ??= MailingLabel::resolve($productId, $data['labels'] ?? [], $data['action'] === 'add_labels');
+        };
+        $count = 0;
+
+        DB::transaction(function () use ($query, $data, $note, $label, &$count) {
+            $query->chunkById(500, function ($contacts) use ($data, $note, $label, &$count) {
+                foreach ($contacts as $contact) {
+                    $changed = match ($data['action']) {
+                        'add_labels' => $this->setLabels($contact, self::mergeLabels($contact->manual_tags ?? [], $label($contact->product_id))),
+                        'remove_labels' => $this->setLabels($contact, array_values(array_diff($contact->manual_tags ?? [], $label($contact->product_id)))),
+                        'consent' => ! $contact->hasConsent() && $contact->forceFill(['permission_note' => $note, 'permission_at' => now()])->save(),
+                        'unsubscribe' => ! $contact->unsubscribed_at && $this->unsubscribe($contact),
+                        'delete' => (bool) $contact->forceDelete(),
+                    };
+
+                    $count += (int) $changed;
+                }
+            }, 'mailing_contacts.id', 'id');
+        });
+
+        return back()->with('success', __('mailing.contacts.bulk_done.'.$data['action'], ['count' => $count]));
     }
 
     public function unsubscribeContact(MailingContact $contact): RedirectResponse
     {
         if (! $contact->unsubscribed_at) {
-            $contact->forceFill(['unsubscribed_at' => now()])->save();
-            MailingDelivery::query()->where('contact_id', $contact->id)->where('status', MailingDelivery::PENDING)
-                ->update(['status' => MailingDelivery::SKIPPED, 'error' => __('mailing.errors.unsubscribed'), 'updated_at' => now()]);
+            $this->unsubscribe($contact);
         }
 
         return back()->with('success', __('mailing.contacts.unsubscribed'));
@@ -590,6 +656,53 @@ class MailingController extends Controller
         $contact->forceDelete();
 
         return back()->with('success', __('mailing.contacts.deleted'));
+    }
+
+    /* ---------------------------------------------------------------
+     | Ručné štítky
+     |---------------------------------------------------------------*/
+
+    public function storeLabel(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'product_key' => ['required', 'exists:products,key'],
+            'name' => ['required', 'string', 'max:60', 'regex:/[\pL\pN]/u'],
+            'color' => ['required', Rule::in(MailingLabel::COLORS)],
+        ]);
+
+        $product = Product::where('key', $data['product_key'])->firstOrFail();
+        $this->ensureUniqueLabel($product->id, $data['name']);
+
+        MailingLabel::create(['product_id' => $product->id, 'key' => Str::limit(Str::slug($data['name']), 60, ''), 'name' => trim($data['name']), 'color' => $data['color']]);
+
+        return back()->with('success', __('mailing.labels.created'));
+    }
+
+    /** Premenovanie mení len názov – kľúč pri kontaktoch a v kampaniach ostáva. */
+    public function updateLabel(Request $request, MailingLabel $label): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:60', 'regex:/[\pL\pN]/u'],
+            'color' => ['required', Rule::in(MailingLabel::COLORS)],
+        ]);
+
+        $this->ensureUniqueLabel($label->product_id, $data['name'], $label);
+        $label->update(['name' => trim($data['name']), 'color' => $data['color']]);
+
+        return back()->with('success', __('mailing.labels.updated'));
+    }
+
+    /** Štítok zmizne aj zo všetkých kontaktov; kontakty samotné ostávajú. */
+    public function destroyLabel(MailingLabel $label): RedirectResponse
+    {
+        DB::transaction(function () use ($label) {
+            MailingContact::withTrashed()->where('product_id', $label->product_id)->withManualTag($label->key)
+                ->chunkById(500, fn ($contacts) => $contacts->each(fn (MailingContact $c) => $this->setLabels($c, array_values(array_diff($c->manual_tags ?? [], [$label->key])))));
+
+            $label->delete();
+        });
+
+        return back()->with('success', __('mailing.labels.deleted'));
     }
 
     /** Ručné nahlásenie nedoručiteľných adries (napr. zo správy o nedoručení). */
@@ -623,7 +736,7 @@ class MailingController extends Controller
         return Inertia::render('Mailing/Edit', [
             'campaign' => $this->campaignPayload($campaign),
             'products' => Product::query()->orderBy('name')
-                ->with(['mailboxes' => fn ($q) => $q->active()->orderByDesc('is_default'), 'mailingTriggers', 'mailingTags'])
+                ->with(['mailboxes' => fn ($q) => $q->active()->orderByDesc('is_default'), 'mailingTriggers', 'mailingTags', 'mailingLabels'])
                 ->get()
                 ->map(fn (Product $p) => [
                     'key' => $p->key,
@@ -811,6 +924,171 @@ class MailingController extends Controller
         return ['product_id' => $product->id, 'name' => $data['name'], 'html' => $data['html']];
     }
 
+    /** @return array<string, list<mixed>> */
+    private function contactFilterRules(): array
+    {
+        return [
+            'product' => ['nullable', 'exists:products,key'],
+            'search' => ['nullable', 'string', 'max:255'],
+            'state' => ['nullable', Rule::in(['active', 'service', 'unsubscribed', 'bounced'])],
+            'tag' => ['nullable', 'string', 'max:60'],
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function contactFilters(Request $request): array
+    {
+        return $request->validate($this->contactFilterRules());
+    }
+
+    /**
+     * Kontakty podľa filtra v zozname – rovnaký výber pre zobrazenie
+     * aj pre hromadnú akciu „všetky podľa filtra“.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return Builder<MailingContact>
+     */
+    private function contactsQuery(array $filters): Builder
+    {
+        $product = isset($filters['product']) ? Product::where('key', $filters['product'])->first() : null;
+        $state = $filters['state'] ?? null;
+
+        return MailingContact::query()
+            ->when($product, fn ($q) => $q->where('mailing_contacts.product_id', $product->id))
+            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where(fn ($q) => $q->where('email', 'like', '%'.$s.'%')->orWhere('name', 'like', '%'.$s.'%')))
+            ->when($filters['tag'] ?? null, fn ($q, $tag) => $q->withTag($tag))
+            ->when($state === 'active', fn ($q) => $q->reachable())
+            // Bez súhlasu s ponukami: dostanú len oznámenia o službe.
+            ->when($state === 'service', fn ($q) => $q->whereNull('permission_at')->whereNull('permission_note')->notBlocked())
+            ->when($state === 'unsubscribed', fn ($q) => $q->whereNotNull('unsubscribed_at'))
+            ->when($state === 'bounced', fn ($q) => $q->where(fn ($q) => $q->whereNotNull('bounced_at')
+                ->orWhereExists(fn ($s) => $s->from('mail_suppressions')
+                    ->whereColumn('mail_suppressions.product_id', 'mailing_contacts.product_id')
+                    ->whereColumn('mail_suppressions.email', 'mailing_contacts.email'))));
+    }
+
+    /**
+     * Adresy z vloženého textu alebo CSV: [adresa => meno|null] bez duplicít
+     * a počet neplatných adries.
+     *
+     * @return array{0: array<string, ?string>, 1: int}
+     */
+    private static function parseContacts(string $text): array
+    {
+        $rows = [];
+        $skipped = 0;
+
+        foreach (preg_split('/\R/u', $text) as $line) {
+            $line = trim($line);
+
+            // Riadok bez zavináča (hlavička CSV, prázdny riadok) nie je kontakt.
+            if (! str_contains($line, '@')) {
+                continue;
+            }
+
+            $fields = array_values(array_filter(array_map(
+                fn ($field) => trim($field, " \t\"'"),
+                preg_split('/[,;\t]+/', $line),
+            ), fn ($field) => $field !== ''));
+            $emails = [];
+            $names = [];
+
+            foreach ($fields as $field) {
+                // „Jana Nová <jana@firma.sk>“
+                if (preg_match('/^(.*?)<\s*([^<>\s]+@[^<>\s]+)\s*>$/u', $field, $m)) {
+                    $emails[] = $m[2];
+                    $names[] = trim($m[1], " \t\"'");
+                } elseif (str_contains($field, '@')) {
+                    $emails[] = $field;
+                } else {
+                    $names[] = $field;
+                }
+            }
+
+            // Jedna adresa v riadku: meno je prvé ďalšie pole; viac adries je len zoznam.
+            $name = count($emails) === 1 ? (collect($names)->first(fn ($n) => $n !== '' && ! is_numeric($n))) : null;
+
+            foreach ($emails as $email) {
+                $email = strtolower(trim($email, " \t\"'<>"));
+
+                if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $rows[$email] ??= $name ? Str::limit($name, 255, '') : null;
+            }
+        }
+
+        return [$rows, $skipped];
+    }
+
+    /**
+     * @param  list<string>  $current
+     * @param  list<string>  $add
+     * @return list<string>
+     */
+    private static function mergeLabels(array $current, array $add): array
+    {
+        $tags = array_values(array_unique([...$current, ...$add]));
+        sort($tags);
+
+        return array_slice($tags, 0, MailingLabel::MAX_PER_CONTACT);
+    }
+
+    /** @param list<string> $keys */
+    private function setLabels(MailingContact $contact, array $keys): bool
+    {
+        sort($keys);
+
+        if ($keys === ($contact->manual_tags ?? [])) {
+            return false;
+        }
+
+        return $contact->forceFill(['manual_tags' => $keys ?: null])->save();
+    }
+
+    private function unsubscribe(MailingContact $contact): bool
+    {
+        $contact->forceFill(['unsubscribed_at' => now()])->save();
+        MailingDelivery::query()->where('contact_id', $contact->id)->where('status', MailingDelivery::PENDING)
+            ->update(['status' => MailingDelivery::SKIPPED, 'error' => __('mailing.errors.unsubscribed'), 'updated_at' => now()]);
+
+        return true;
+    }
+
+    /** @return array<string, int> počet kontaktov podľa „produkt:kľúč“ */
+    private function labelCounts(): array
+    {
+        $counts = [];
+
+        MailingContact::query()->whereNotNull('manual_tags')->select(['id', 'product_id', 'manual_tags'])
+            ->chunkById(2000, function ($contacts) use (&$counts) {
+                foreach ($contacts as $contact) {
+                    foreach ($contact->manual_tags ?? [] as $key) {
+                        $counts[$contact->product_id.':'.$key] = ($counts[$contact->product_id.':'.$key] ?? 0) + 1;
+                    }
+                }
+            });
+
+        return $counts;
+    }
+
+    /** Dva štítky projektu nesmú mať rovnaký názov ani kľúč. */
+    private function ensureUniqueLabel(int $productId, string $name, ?MailingLabel $ignore = null): void
+    {
+        $name = trim($name);
+        $taken = MailingLabel::query()->where('product_id', $productId)
+            ->when($ignore, fn ($q) => $q->whereKeyNot($ignore->id))
+            ->get()
+            ->contains(fn (MailingLabel $l) => mb_strtolower($l->name) === mb_strtolower($name) || (! $ignore && $l->key === Str::slug($name)));
+
+        if ($taken) {
+            throw ValidationException::withMessages(['name' => __('mailing.labels.taken')]);
+        }
+    }
+
     /**
      * Štítky projektu: zaregistrované s popisom a k nim tie, ktoré kontakty
      * majú, hoci ich projekt (zatiaľ) nezaregistroval.
@@ -822,6 +1100,11 @@ class MailingController extends Controller
         $tags = $product->mailingTags->mapWithKeys(fn (MailingTag $t) => [$t->key => [
             'key' => $t->key, 'label' => $t->label, 'description' => $t->description,
         ]])->all();
+
+        // Ručné štítky s názvom zo správy štítkov.
+        foreach ($product->mailingLabels as $label) {
+            $tags[$label->key] ??= ['key' => $label->key, 'label' => $label->name, 'description' => null, 'manual' => true, 'color' => $label->color];
+        }
 
         foreach ($this->contactTags($product) as $key) {
             $tags[$key] ??= ['key' => $key, 'label' => $key, 'description' => null];

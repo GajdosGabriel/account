@@ -135,6 +135,16 @@ class MailingContact extends Model
             ->orWhere(fn ($q) => $q->whereNotNull('mailing_contacts.manual_tags')->whereJsonContains('mailing_contacts.manual_tags', $tag)));
     }
 
+    /**
+     * Kontakt má ručný štítok (zadaný v Accounte).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeWithManualTag(Builder $query, string $key): void
+    {
+        $query->whereNotNull('mailing_contacts.manual_tags')->whereJsonContains('mailing_contacts.manual_tags', $key);
+    }
+
     /** @return list<string> Štítky z projektu aj ručné, bez duplicít. */
     public function allTags(): array
     {

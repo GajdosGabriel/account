@@ -256,6 +256,10 @@ Route::middleware('auth')->group(function () {
     Route::get('mailing/contacts', [MailingController::class, 'contacts'])->name('mailing.contacts');
     Route::post('mailing/contacts', [MailingController::class, 'storeContacts'])->name('mailing.contacts.store');
     Route::post('mailing/contacts/bounce', [MailingController::class, 'bounce'])->name('mailing.contacts.bounce');
+    Route::post('mailing/contacts/bulk', [MailingController::class, 'bulkContacts'])->name('mailing.contacts.bulk');
+    Route::post('mailing/labels', [MailingController::class, 'storeLabel'])->name('mailing.labels.store');
+    Route::patch('mailing/labels/{label}', [MailingController::class, 'updateLabel'])->name('mailing.labels.update');
+    Route::delete('mailing/labels/{label}', [MailingController::class, 'destroyLabel'])->name('mailing.labels.destroy');
     Route::put('mailing/contacts/{contact}/tags', [MailingController::class, 'updateContactTags'])->name('mailing.contacts.tags');
     Route::post('mailing/contacts/{contact}/unsubscribe', [MailingController::class, 'unsubscribeContact'])->name('mailing.contacts.unsubscribe');
     Route::post('mailing/contacts/{contact}/reactivate', [MailingController::class, 'reactivateContact'])->name('mailing.contacts.reactivate');
