@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 /** Uložený obsah, z ktorého sa začína nová kampaň. */
 class MailingTemplate extends Model
 {
-    protected $fillable = ['product_id', 'layout_id', 'name', 'subject', 'heading', 'body', 'button_label', 'button_url'];
+    protected $fillable = ['product_id', 'layout_id', 'mailbox_id', 'name', 'subject', 'heading', 'body', 'button_label', 'button_url'];
 
     /** @return BelongsTo<Product, $this> */
     public function product(): BelongsTo
@@ -20,5 +20,11 @@ class MailingTemplate extends Model
     public function layout(): BelongsTo
     {
         return $this->belongsTo(MailingLayout::class);
+    }
+
+    /** @return BelongsTo<Mailbox, $this> */
+    public function mailbox(): BelongsTo
+    {
+        return $this->belongsTo(Mailbox::class);
     }
 }

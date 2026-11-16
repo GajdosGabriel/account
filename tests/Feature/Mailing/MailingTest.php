@@ -418,6 +418,20 @@ class MailingTest extends TestCase
         $this->assertSame(2, MailingLink::where('token', str_repeat('e', 64))->value('click_count'));
         // Prednastavené šablóny z admina zastáv pribudnú k exportovaným.
         $this->assertSame(1 + count(ImportMailing::PRESETS['zastavy']), MailingTemplate::count());
+        // Layout Samosprávy dodáva Account, v exporte projektu nie je.
+        $samosprava = MailingTemplate::where('name', 'Samospráva – pozvanie na spoluprácu')->sole();
+        $this->assertNotNull($samosprava->layout_id);
+        // Odosiela aj prijíma odpovede samosprava@; kým správca nedoplní heslo, schránka je vypnutá.
+        $this->assertSame('samosprava@spisor.eu', $samosprava->mailbox->from_address);
+        $this->assertFalse($samosprava->mailbox->is_active);
+
+        // Kampaň zo šablóny prevezme odosielateľa a s vypnutou schránkou sa nespustí.
+        $user = User::factory()->create();
+        $this->actingAs($user)->get("/mailing/create?template={$samosprava->id}")->assertOk()
+            ->assertInertia(fn ($page) => $page->where('campaign.mailbox_id', $samosprava->mailbox_id));
+        $campaign = MailingCampaign::create([...$samosprava->only(['product_id', 'layout_id', 'mailbox_id', 'name', 'subject', 'body']), 'status' => MailingCampaign::DRAFT]);
+        $this->actingAs($user)->post("/mailing/{$campaign->id}/queue")
+            ->assertSessionHas('error', __('messaging.errors.mailbox_inactive', ['address' => 'samosprava@spisor.eu']));
 
         unlink($file);
     }

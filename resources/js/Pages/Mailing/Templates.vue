@@ -11,6 +11,7 @@ import { t } from '../../Composables/useLang';
 const props = defineProps({
     templates: { type: Array, default: () => [] },
     layouts: { type: Array, default: () => [] },
+    mailboxes: { type: Array, default: () => [] },
     default_layout: { type: String, default: '' },
     filters: { type: Object, default: () => ({}) },
     products: { type: Array, default: () => [] },
@@ -23,7 +24,7 @@ const firstProduct = () => productFilter.value ?? props.products[0]?.key ?? null
 
 /* ---------- šablóny ---------- */
 
-const blankTemplate = () => ({ product_key: firstProduct(), layout_id: null, name: '', subject: '', heading: '', body: '', button_label: '', button_url: '' });
+const blankTemplate = () => ({ product_key: firstProduct(), layout_id: null, mailbox_id: null, name: '', subject: '', heading: '', body: '', button_label: '', button_url: '' });
 const template = useForm(blankTemplate());
 const editingTemplate = ref(undefined);
 
@@ -44,6 +45,7 @@ const destroyTemplate = (tpl) => confirm(t('mailing.templates.confirm_delete', {
     && router.delete(`/mailing/templates/${tpl.id}`, { preserveScroll: true });
 
 const templateLayouts = computed(() => props.layouts.filter((l) => l.product_key === template.product_key));
+const templateMailboxes = computed(() => props.mailboxes.filter((m) => m.product_key === template.product_key));
 
 /* ---------- layouty ---------- */
 
@@ -118,6 +120,13 @@ const layoutPreview = computed(() => layout.html
                     </select>
                 </div>
             </div>
+            <div>
+                <label for="t_mailbox">{{ t('mailing.fields.mailbox') }}</label>
+                <select id="t_mailbox" v-model="template.mailbox_id">
+                    <option :value="null">{{ t('mailing.fields.mailbox_default') }}</option>
+                    <option v-for="m in templateMailboxes" :key="m.id" :value="m.id">{{ m.label }}</option>
+                </select>
+            </div>
             <div class="grid gap-4 md:grid-cols-2">
                 <div>
                     <label for="t_subject">{{ t('mailing.fields.subject') }}</label>
@@ -154,7 +163,7 @@ const layoutPreview = computed(() => layout.html
             <div v-for="tpl in templates" :key="tpl.id" class="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div class="min-w-0">
                     <p class="font-medium text-slate-900">{{ tpl.name }}</p>
-                    <p class="truncate text-xs text-slate-500">{{ tpl.product }} · {{ tpl.subject }}<span v-if="tpl.layout"> · {{ tpl.layout }}</span></p>
+                    <p class="truncate text-xs text-slate-500">{{ tpl.product }} · {{ tpl.subject }}<span v-if="tpl.layout"> · {{ tpl.layout }}</span><span v-if="tpl.mailbox"> · {{ tpl.mailbox }}</span></p>
                 </div>
                 <div class="flex gap-2">
                     <Link :href="`/mailing/create?template=${tpl.id}`" class="btn-primary btn-sm">{{ t('mailing.templates.use') }}</Link>

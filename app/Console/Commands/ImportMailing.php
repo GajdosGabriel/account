@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Mailbox;
 use App\Models\MailingCampaign;
 use App\Models\MailingContact;
 use App\Models\MailingDelivery;
@@ -68,6 +69,40 @@ class ImportMailing extends Command
                 'heading' => 'Vlajka presne podľa vás.',
                 'body' => "Chystáte podujatie alebo chcete zviditeľniť svoju firmu? Vyrobíme vám vlajky a zástavy s vlastnou potlačou.\n\nNapíšte nám svoju predstavu. Pomôžeme s grafikou, materiálom aj výberom správneho uchytenia.",
             ],
+            [
+                'name' => 'Samospráva – pozvanie na spoluprácu', 'layout' => 'Samospráva',
+                'subject' => 'Pozvánka na spoluprácu pri vývoji aplikácie Samospráva',
+                'heading' => 'pri vývoji aplikácie pre zasadnutia obecného zastupiteľstva',
+                'body' => "dovoľujeme si vás osloviť s prosbou o spoluprácu. Vyvíjame aplikáciu Samospráva, ktorá má obciam uľahčiť prípravu a priebeh zasadnutí zastupiteľstva – od programu a podkladov cez hlasovanie až po zápisnicu a zverejnenie uznesení.\n\nZáklad aplikácie je hotový a vyskúšali sme ho na modelových zasadnutiach. Aby zodpovedala tomu, ako zastupiteľstvá naozaj pracujú, radi by sme ju ďalej rozvíjali spolu so starostami, prednostami, zapisovateľmi a poslancami. Vaše skúsenosti by nám pomohli rozhodnúť, čo je potrebné upraviť a čo doplniť.\n\nSpoluprácu prispôsobíme vašim možnostiam a časovej kapacite. Budeme radi aj za krátky rozhovor alebo niekoľko pripomienok.",
+                'button_label' => 'Viac o projekte', 'button_url' => 'https://samosprava.spisor.sk',
+                'mailbox' => 'samosprava@spisor.eu',
+            ],
+        ],
+    ];
+
+    /**
+     * Schránky, z ktorých posielajú prednastavené šablóny (`mailbox` = adresa).
+     * Vznikajú vypnuté a bez hesiel – heslo SMTP/IMAP doplní a schránku zapne
+     * správca v Doručenej pošte → Schránky.
+     */
+    public const MAILBOXES = [
+        'zastavy' => [
+            [
+                'name' => 'Samospráva', 'from_address' => 'samosprava@spisor.eu', 'from_name' => 'Samospráva',
+                'smtp_host' => 'smtp.websupport.sk', 'smtp_port' => 465, 'smtp_encryption' => 'ssl', 'smtp_username' => 'samosprava@spisor.eu',
+                'imap_host' => 'imap.websupport.sk', 'imap_port' => 993, 'imap_encryption' => 'ssl', 'imap_username' => 'samosprava@spisor.eu',
+                'imap_folder' => 'INBOX',
+            ],
+        ],
+    ];
+
+    /**
+     * Layouty, ktoré export projektu nemá a dodáva ich Account
+     * (resources/views/mailing/layouts). Kľúč je projekt, potom názov layoutu → súbor.
+     */
+    public const LAYOUTS = [
+        'zastavy' => [
+            'Samospráva' => 'samosprava.html',
         ],
     ];
 
@@ -222,16 +257,36 @@ class ImportMailing extends Command
         }
     }
 
-    /** Doplní prednastavené šablóny projektu; tie s rovnakým názvom preskočí. */
+    /** Doplní prednastavené layouty a šablóny projektu; tie s rovnakým názvom preskočí. */
     public static function addPresets(Product $product): int
     {
+        // Layout s rovnakým názvom už mohol niekto upraviť – neprepisuje sa.
+        foreach (self::LAYOUTS[$product->key] ?? [] as $name => $file) {
+            MailingLayout::firstOrCreate(
+                ['product_id' => $product->id, 'name' => $name],
+                ['html' => (string) file_get_contents(resource_path('views/mailing/layouts/'.$file))],
+            );
+        }
+
+        foreach (self::MAILBOXES[$product->key] ?? [] as $mailbox) {
+            Mailbox::firstOrCreate(
+                ['product_id' => $product->id, 'from_address' => $mailbox['from_address']],
+                [...$mailbox, 'is_default' => false, 'is_active' => false],
+            );
+        }
+
         $layouts = MailingLayout::where('product_id', $product->id)->pluck('id', 'name');
+        $mailboxes = Mailbox::where('product_id', $product->id)->pluck('id', 'from_address');
         $added = 0;
 
         foreach (self::PRESETS[$product->key] ?? [] as $preset) {
             $template = MailingTemplate::firstOrCreate(
                 ['product_id' => $product->id, 'name' => $preset['name']],
-                ['layout_id' => $layouts[$preset['layout']] ?? null, ...array_diff_key($preset, ['name' => 0, 'layout' => 0])],
+                [
+                    'layout_id' => $layouts[$preset['layout']] ?? null,
+                    'mailbox_id' => isset($preset['mailbox']) ? ($mailboxes[$preset['mailbox']] ?? null) : null,
+                    ...array_diff_key($preset, ['name' => 0, 'layout' => 0, 'mailbox' => 0]),
+                ],
             );
             $added += (int) $template->wasRecentlyCreated;
         }

@@ -5,6 +5,7 @@ return [
     'errors' => [
         'suppressed' => 'Mail to :email is blocked in this project (undeliverable or unsubscribed).',
         'no_mailbox' => 'The project has no active mailbox configured.',
+        'mailbox_inactive' => 'The mailbox :address is disabled. Add its password and enable it under Mailboxes, or choose another sender.',
         'folder_missing' => 'The folder :folder does not exist in the mailbox.',
         'attachment_encoding' => 'Attachment #:index is not base64 encoded.',
     ],

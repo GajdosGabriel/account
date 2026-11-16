@@ -5,6 +5,7 @@ return [
     'errors' => [
         'suppressed' => 'An :email wird in diesem Projekt nicht gesendet (unzustellbar oder abgemeldet).',
         'no_mailbox' => 'Für das Projekt ist kein aktives E-Mail-Postfach eingerichtet.',
+        'mailbox_inactive' => 'Das Postfach :address ist deaktiviert. Ergänzen Sie das Passwort und aktivieren Sie es unter Postfächer oder wählen Sie einen anderen Absender.',
         'folder_missing' => 'Der Ordner :folder existiert im Postfach nicht.',
         'attachment_encoding' => 'Anhang Nr. :index ist nicht base64-kodiert.',
     ],

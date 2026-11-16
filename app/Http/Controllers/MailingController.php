@@ -128,6 +128,7 @@ class MailingController extends Controller
         return $this->editor(new MailingCampaign([
             'product_id' => $product?->id,
             'layout_id' => $template?->layout_id,
+            'mailbox_id' => $template?->mailbox_id,
             'name' => $template?->name ?? '',
             'subject' => $template?->subject,
             'heading' => $template?->heading,
@@ -231,6 +232,8 @@ class MailingController extends Controller
             $campaign->coupon_code && $campaign->couponExpired() => __('mailing.campaigns.coupon_expired'),
             $campaign->isAutomation() && ! empty($data['scheduled_at']) => __('mailing.campaigns.automation_no_schedule'),
             ! ($campaign->mailbox ?? Mailbox::defaultFor($campaign->product)) => __('messaging.errors.no_mailbox'),
+            // Vybraná schránka bez hesla by poslala do prázdna – nepadá sa na predvolenú.
+            $campaign->mailbox && ! $campaign->mailbox->is_active => __('messaging.errors.mailbox_inactive', ['address' => $campaign->mailbox->from_address]),
             ! $campaign->isAutomation() && ! MailingContact::audience($campaign)->exists() => __('mailing.campaigns.no_recipients'),
             default => null,
         };
@@ -356,14 +359,24 @@ class MailingController extends Controller
         $product = $request->filled('product') ? Product::where('key', $request->input('product'))->first() : null;
 
         return Inertia::render('Mailing/Templates', [
-            'templates' => MailingTemplate::query()->with(['product', 'layout'])
+            'templates' => MailingTemplate::query()->with(['product', 'layout', 'mailbox'])
                 ->when($product, fn ($q) => $q->where('product_id', $product->id))
                 ->orderBy('name')->get()
                 ->map(fn (MailingTemplate $t) => [
-                    ...$t->only(['id', 'name', 'subject', 'heading', 'body', 'button_label', 'button_url', 'layout_id']),
+                    ...$t->only(['id', 'name', 'subject', 'heading', 'body', 'button_label', 'button_url', 'layout_id', 'mailbox_id']),
                     'product_key' => $t->product?->key,
                     'product' => $t->product?->name,
                     'layout' => $t->layout?->name,
+                    'mailbox' => $t->mailbox?->from_address,
+                ]),
+            // Aj vypnuté – šablóna môže čakať na schránku, ktorej správca ešte nedoplnil heslo.
+            'mailboxes' => Mailbox::query()->with('product:id,key')
+                ->when($product, fn ($q) => $q->where('product_id', $product->id))
+                ->orderByDesc('is_default')->orderBy('id')->get()
+                ->map(fn (Mailbox $m) => [
+                    'id' => $m->id,
+                    'product_key' => $m->product?->key,
+                    'label' => ($m->from_name ? "{$m->from_name} <{$m->from_address}>" : $m->from_address).($m->is_active ? '' : ' – '.__('messaging.mailboxes.inactive_badge')),
                 ]),
             'layouts' => MailingLayout::query()->with('product')
                 ->when($product, fn ($q) => $q->where('product_id', $product->id))
@@ -405,7 +418,7 @@ class MailingController extends Controller
     /** Uloží kampaň ako šablónu na neskôr. */
     public function saveAsTemplate(MailingCampaign $campaign): RedirectResponse
     {
-        MailingTemplate::create($campaign->only(['product_id', 'layout_id', 'name', 'subject', 'heading', 'body', 'button_label', 'button_url']));
+        MailingTemplate::create($campaign->only(['product_id', 'layout_id', 'mailbox_id', 'name', 'subject', 'heading', 'body', 'button_label', 'button_url']));
 
         return back()->with('success', __('mailing.templates.saved'));
     }
@@ -895,6 +908,7 @@ class MailingController extends Controller
         $data = $request->validate([
             'product_key' => ['required', 'exists:products,key'],
             'layout_id' => ['nullable', 'integer', 'exists:mailing_layouts,id'],
+            'mailbox_id' => ['nullable', 'integer', 'exists:mailboxes,id'],
             'name' => ['required', 'string', 'max:255'],
             'subject' => ['nullable', 'string', 'max:200', 'not_regex:/[\r\n]/'],
             'heading' => ['nullable', 'string', 'max:200'],
@@ -905,6 +919,7 @@ class MailingController extends Controller
 
         $product = Product::where('key', $data['product_key'])->firstOrFail();
         abort_if(isset($data['layout_id']) && ! MailingLayout::whereKey($data['layout_id'])->where('product_id', $product->id)->exists(), 422);
+        abort_if(isset($data['mailbox_id']) && ! Mailbox::whereKey($data['mailbox_id'])->where('product_id', $product->id)->exists(), 422);
         unset($data['product_key']);
 
         return [...$data, 'product_id' => $product->id];

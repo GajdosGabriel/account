@@ -7,6 +7,7 @@ return [
     'errors' => [
         'suppressed' => 'Na adresu :email sa v tomto projekte neposiela (nedoručiteľná alebo odhlásená).',
         'no_mailbox' => 'Projekt nemá nastavenú žiadnu aktívnu e-mailovú schránku.',
+        'mailbox_inactive' => 'Schránka :address je vypnutá. Doplňte jej heslo a zapnite ju v Schránkach, alebo vyberte iného odosielateľa.',
         'folder_missing' => 'Priečinok :folder v schránke neexistuje.',
         'attachment_encoding' => 'Príloha č. :index nie je v base64.',
     ],
