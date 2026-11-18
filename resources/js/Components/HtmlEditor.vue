@@ -14,6 +14,8 @@ const props = defineProps({
     placeholder: { type: String, default: '' },
     minHeight: { type: String, default: '12rem' },
     id: { type: String, default: null },
+    // Hotové odseky na vloženie: [{ label, title, html }].
+    snippets: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -95,6 +97,25 @@ const onLink = () => {
     exec('createLink', url);
 };
 
+// Vloží hotový odsek na miesto kurzora; ak kurzor v editore nie je, na koniec.
+const onSnippet = (snippet) => {
+    const el = editor.value;
+    if (!el) return;
+
+    el.focus();
+    const selection = window.getSelection();
+    if (!selection.rangeCount || !el.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+    }
+
+    document.execCommand('insertHTML', false, snippet.html);
+    onInput();
+};
+
 const onClearFormat = () => {
     exec('removeFormat');
     exec('unlink');
@@ -150,6 +171,14 @@ watch(() => props.modelValue, (value) => {
             <button type="button" class="rounded px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-200" @click="onClearFormat">
                 {{ t('mailing.editor.clear') }}
             </button>
+            <button
+                v-for="snippet in snippets"
+                :key="snippet.label"
+                type="button"
+                :title="snippet.title"
+                class="rounded px-2 py-1 text-xs text-slate-700 transition hover:bg-slate-200"
+                @click="onSnippet(snippet)"
+            >{{ snippet.label }}</button>
         </div>
 
         <div class="relative">

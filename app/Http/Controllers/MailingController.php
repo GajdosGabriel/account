@@ -366,7 +366,7 @@ class MailingController extends Controller
                     'key' => $p->key,
                     'name' => $p->name,
                     'url' => $p->url,
-                    'mailboxes' => $p->mailboxes->map(fn (Mailbox $m) => ['id' => $m->id, 'label' => $m->from_name ? "{$m->from_name} <{$m->from_address}>" : $m->from_address]),
+                    'mailboxes' => $p->mailboxes->map(fn (Mailbox $m) => ['id' => $m->id, 'label' => $m->from_name ? "{$m->from_name} <{$m->from_address}>" : $m->from_address, 'address' => $m->from_address]),
                     'triggers' => $p->mailingTriggers->map(fn (MailingTrigger $t) => [
                         'key' => $t->key, 'label' => $t->label, 'variables' => $t->variables ?? [], 'quotes' => filled($t->quote_kind),
                     ]),

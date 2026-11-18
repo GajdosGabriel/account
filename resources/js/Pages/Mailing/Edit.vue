@@ -164,6 +164,24 @@ onMounted(refreshCount);
 
 watch(() => form.product_key, () => { form.audience = { any: [], none: [] }; });
 
+// Odsek s kontaktom: adresa vybranej (alebo predvolenej) schránky a web projektu.
+const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+const snippets = computed(() => {
+    const mailboxes = product.value?.mailboxes ?? [];
+    const address = (mailboxes.find((m) => m.id === form.mailbox_id) ?? mailboxes[0])?.address;
+    const url = product.value?.url;
+    if (!address && !url) return [];
+
+    const email = address ? `<a href="mailto:${escapeHtml(address)}">${escapeHtml(address)}</a>` : null;
+    const link = url ? `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>` : null;
+    const text = [
+        email ? t('mailing.editor.contact_text', { email }) : null,
+        link ? t('mailing.editor.contact_more', { url: link }) : null,
+    ].filter(Boolean).join(' ');
+
+    return [{ label: t('mailing.editor.contact'), title: t('mailing.editor.contact_title'), html: `<p>${text}</p>` }];
+});
+
 const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []), ...(product.value?.contact_variables ?? [])])]);
 </script>
 
@@ -320,7 +338,7 @@ const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []
                 </div>
                 <div>
                     <label for="m_body">{{ t('mailing.fields.body') }}</label>
-                    <HtmlEditor id="m_body" v-model="form.body" :placeholder="isReply ? t('mailing.editor.placeholder_reply') : t('mailing.editor.placeholder')" min-height="14rem" />
+                    <HtmlEditor id="m_body" v-model="form.body" :placeholder="isReply ? t('mailing.editor.placeholder_reply') : t('mailing.editor.placeholder')" min-height="14rem" :snippets="snippets" />
                     <p class="mt-1 text-xs text-slate-500">{{ t('mailing.fields.body_hint') }}</p>
                     <p v-if="variables.length" class="mt-1 text-xs text-slate-500">
                         {{ t('mailing.fields.variables') }}
