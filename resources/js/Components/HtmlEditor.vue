@@ -176,7 +176,7 @@ watch(() => props.modelValue, (value) => {
                 :key="snippet.label"
                 type="button"
                 :title="snippet.title"
-                class="rounded px-2 py-1 text-xs text-slate-700 transition hover:bg-slate-200"
+                class="ml-auto rounded border border-brand-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50"
                 @click="onSnippet(snippet)"
             >{{ snippet.label }}</button>
         </div>

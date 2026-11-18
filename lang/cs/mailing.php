@@ -88,7 +88,7 @@ return [
         'clear' => 'vyčistit',
         'link_prompt' => 'Adresa odkazu (https://…)',
         'link_invalid' => 'Povolené jsou jen odkazy začínající https://, http://, mailto: nebo /.',
-        'contact' => '+ kontakt',
+        'contact' => '+ Vložit kontakt',
         'contact_title' => 'Vložit odstavec s kontaktem a odkazem na projekt',
         'contact_text' => 'Pokud máte zájem nebo dotaz, odpovězte na tento e-mail nebo napište na :email.',
         'contact_more' => 'Více o projektu najdete na :url.',

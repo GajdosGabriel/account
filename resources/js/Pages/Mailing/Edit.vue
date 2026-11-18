@@ -169,7 +169,8 @@ const escapeHtml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
 const snippets = computed(() => {
     const mailboxes = product.value?.mailboxes ?? [];
     const address = (mailboxes.find((m) => m.id === form.mailbox_id) ?? mailboxes[0])?.address;
-    const url = product.value?.url;
+    // Projekt nemusí mať vyplnenú URL – vtedy poslúži odkaz tlačidla mailingu.
+    const url = product.value?.url || form.button_url;
     if (!address && !url) return [];
 
     const email = address ? `<a href="mailto:${escapeHtml(address)}">${escapeHtml(address)}</a>` : null;

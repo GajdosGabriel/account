@@ -88,7 +88,7 @@ return [
         'clear' => 'bereinigen',
         'link_prompt' => 'Linkadresse (https://…)',
         'link_invalid' => 'Erlaubt sind nur Links, die mit https://, http://, mailto: oder / beginnen.',
-        'contact' => '+ Kontakt',
+        'contact' => '+ Kontakt einfügen',
         'contact_title' => 'Absatz mit Kontakt und Link zum Projekt einfügen',
         'contact_text' => 'Bei Interesse oder Fragen antworten Sie auf diese E-Mail oder schreiben Sie an :email.',
         'contact_more' => 'Mehr über das Projekt finden Sie unter :url.',

@@ -110,7 +110,7 @@ return [
         'clear' => 'clear',
         'link_prompt' => 'Link address (https://…)',
         'link_invalid' => 'Only links starting with https://, http://, mailto: or / are allowed.',
-        'contact' => '+ contact',
+        'contact' => '+ Insert contact',
         'contact_title' => 'Insert a paragraph with contact details and a link to the project',
         'contact_text' => 'If you are interested or have a question, reply to this email or write to :email.',
         'contact_more' => 'More about the project at :url.',
