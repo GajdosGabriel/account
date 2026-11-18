@@ -27,14 +27,22 @@ const navigation = computed(() => [
 
 const isCurrent = (href) => page.url.startsWith(href);
 
-const initials = computed(() =>
-    (auth.value?.user?.name ?? '?')
-        .split(' ')
-        .map((part) => part[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase(),
-);
+const nameParts = computed(() => (auth.value?.user?.name ?? '').trim().split(/\s+/).filter(Boolean));
+
+// Iniciály z mena a priezviska (pri jednom slove len prvé písmeno).
+const initials = computed(() => {
+    const parts = nameParts.value;
+    if (!parts.length) return '?';
+
+    return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();
+});
+
+// „Gabriel Gajdoš“ → „Gabriel G.“ – celé meno je v rozbaľovacom menu.
+const shortName = computed(() => {
+    const parts = nameParts.value;
+
+    return parts.length > 1 ? `${parts[0]} ${parts.at(-1)[0]}.` : (parts[0] ?? '');
+});
 
 const logout = () => router.post('/logout');
 
@@ -100,12 +108,14 @@ onUnmounted(() => document.removeEventListener('click', closeAll));
                     <div class="relative" data-dropdown>
                         <button
                             type="button"
-                            class="flex h-9 max-w-48 items-center gap-2 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 px-3 text-sm font-semibold text-white transition hover:opacity-90"
+                            class="flex h-9 max-w-48 items-center gap-2 rounded-xl bg-gradient-to-br from-slate-700 to-slate-900 pr-1.5 pl-1.5 text-sm font-semibold text-white transition hover:opacity-90 sm:pr-3"
+                            :title="`${auth.user.name} · ${auth.user.email}`"
+                            :aria-label="auth.user.name"
                             @click="menuOpen = !menuOpen"
                         >
-                            <!-- Na úzkej obrazovke ostávajú iniciálky, celé meno by tlačilo navigáciu -->
-                            <span class="hidden truncate sm:block">{{ auth.user.name }}</span>
-                            <span class="text-xs sm:hidden">{{ initials }}</span>
+                            <span class="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-white/15 text-[11px] leading-none">{{ initials }}</span>
+                            <!-- Na úzkej obrazovke ostávajú len iniciály, meno by tlačilo navigáciu -->
+                            <span class="hidden truncate sm:block">{{ shortName }}</span>
                         </button>
 
                         <transition
