@@ -36,7 +36,8 @@ class ServiceTokenAuthentication
             return response()->json(['message' => __('messages.token.ability', ['ability' => $ability])], 403);
         }
 
-        if (! $client->product->is_active) {
+        // Projekt v koši: belongsTo ho nevráti a token už nemá komu patriť.
+        if (! $client->product?->is_active) {
             return response()->json(['message' => __('messages.token.product_inactive')], 403);
         }
 

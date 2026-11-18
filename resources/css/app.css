@@ -29,6 +29,11 @@
     input[type="url"],
     input[type="tel"],
     input[type="number"],
+    input[type="search"],
+    input[type="date"],
+    input[type="datetime-local"],
+    input[type="month"],
+    input[type="time"],
     select,
     textarea {
         @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-900
@@ -38,8 +43,18 @@
                disabled:cursor-not-allowed disabled:bg-slate-100;
     }
 
+    /* Ikona kalendára v dátumových poliach – jemnejšia, nech nekričí. */
+    input::-webkit-calendar-picker-indicator {
+        @apply cursor-pointer opacity-50 transition hover:opacity-80;
+    }
+
+    input[type="checkbox"],
+    input[type="radio"] {
+        @apply h-4 w-4 shrink-0 border-slate-300 accent-brand-600 focus:ring-brand-500/30;
+    }
+
     input[type="checkbox"] {
-        @apply h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500/30;
+        @apply rounded;
     }
 
     label {

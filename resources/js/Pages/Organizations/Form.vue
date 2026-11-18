@@ -372,7 +372,7 @@ const submit = () => {
                 </div>
                 <div class="sm:col-span-1">
                     <label for="established_at">{{ t('organizations.form.fields.established_at') }}</label>
-                    <input id="established_at" v-model="form.established_at" type="date" class="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm" />
+                    <input id="established_at" v-model="form.established_at" type="date" />
                     <InputError :message="form.errors.established_at" />
                 </div>
             </div>

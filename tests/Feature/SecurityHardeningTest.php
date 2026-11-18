@@ -90,6 +90,15 @@ class SecurityHardeningTest extends TestCase
         $call()->assertStatus(429);
     }
 
+    public function test_token_projektu_v_kosi_dostane_403_a_nie_chybu_servera(): void
+    {
+        $product = Product::factory()->create();
+        [, $token] = ServiceClient::issue($product, 'test');
+        $product->delete();
+
+        $this->withToken($token)->getJson('/api/v1/organizations')->assertForbidden();
+    }
+
     /* ---------------- Operátori ---------------- */
 
     public function test_novy_operator_dostane_odkaz_na_heslo_a_nie_heslo_od_kolegu(): void

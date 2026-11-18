@@ -11,7 +11,7 @@ use App\Console\Commands\SendMailingBatch;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command(ProcessSubscriptionLifecycle::class)->dailyAt('03:00');
-Schedule::command(RetryWebhookDeliveries::class)->everyFiveMinutes();
+Schedule::command(RetryWebhookDeliveries::class)->everyFiveMinutes()->withoutOverlapping(15);
 
 /*
 |--------------------------------------------------------------------------
@@ -24,7 +24,7 @@ Schedule::command(RetryWebhookDeliveries::class)->everyFiveMinutes();
 */
 
 Schedule::command(FetchMailboxes::class)->everyTwoMinutes()->withoutOverlapping(10);
-Schedule::command(RetryConversationMessages::class)->everyFiveMinutes();
+Schedule::command(RetryConversationMessages::class)->everyFiveMinutes()->withoutOverlapping(15);
 Schedule::command(PurgeSpamConversations::class)->dailyAt('03:30');
 
 // Kampane po malých dávkach – hodinový limit projektu stráži MailingSender.

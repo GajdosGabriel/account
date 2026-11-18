@@ -744,7 +744,7 @@ const featuresOf = (key) => props.products.find((p) => p.key === key)?.features 
                 </div>
                 <div>
                     <label for="o_expires">Platí do</label>
-                    <input id="o_expires" v-model="overrideForm.expires_at" type="date" class="w-full rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm" />
+                    <input id="o_expires" v-model="overrideForm.expires_at" type="date" />
                     <InputError :message="overrideForm.errors.expires_at" />
                 </div>
                 <div class="sm:col-span-2">

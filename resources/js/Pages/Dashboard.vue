@@ -24,7 +24,9 @@ const peak = computed(
     () => Math.max(1, ...props.months.flatMap((m) => [m.invoiced_cents, m.paid_cents])),
 );
 
-const height = (cents) => `${Math.max((Math.max(cents, 0) / peak.value) * 100, 1.5)}%`;
+// Nula je nula – malý pahýľ by vyzeral ako drobná suma. Nenulová hodnota
+// má aspoň 3 px, aby nezanikla vedľa veľkého mesiaca.
+const height = (cents) => (cents > 0 ? `max(${(cents / peak.value) * 100}%, 3px)` : '0');
 
 const money = (cents) => `${new Intl.NumberFormat('sk-SK', {
     minimumFractionDigits: 0,

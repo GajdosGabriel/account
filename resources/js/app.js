@@ -7,13 +7,17 @@ const appName = import.meta.env.VITE_APP_NAME || 'Account';
 createInertiaApp({
     title: (title) => (title ? `${title} · ${appName}` : appName),
 
-    resolve: (name) => {
-        const pages = import.meta.glob('./Pages/**/*.vue', { eager: true });
-        const page = pages[`./Pages/${name}.vue`];
+    // Každá stránka je vlastný chunk – prehliadač stiahne len to, čo práve
+    // zobrazuje, nie celý back-office naraz.
+    resolve: async (name) => {
+        const pages = import.meta.glob('./Pages/**/*.vue');
+        const load = pages[`./Pages/${name}.vue`];
 
-        if (!page) {
+        if (!load) {
             throw new Error(`Stránka ./Pages/${name}.vue neexistuje.`);
         }
+
+        const page = await load();
 
         // Prihlasovacie stránky si layout riešia samy. `Public/` sú stránky
         // pre zákazníka (napr. potvrdenie e-mailu) – ten prihlásený nie je
@@ -31,5 +35,6 @@ createInertiaApp({
             .mount(el);
     },
 
-    progress: { color: '#0f172a' },
+    // Značková farba (brand-500), nech je načítavanie vidieť aj na tmavom tlačidle.
+    progress: { color: '#6366f1' },
 });
