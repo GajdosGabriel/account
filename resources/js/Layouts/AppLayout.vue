@@ -37,12 +37,8 @@ const initials = computed(() => {
     return (parts[0][0] + (parts.length > 1 ? parts.at(-1)[0] : '')).toUpperCase();
 });
 
-// „Gabriel Gajdoš“ → „Gabriel G.“ – celé meno je v rozbaľovacom menu.
-const shortName = computed(() => {
-    const parts = nameParts.value;
-
-    return parts.length > 1 ? `${parts[0]} ${parts.at(-1)[0]}.` : (parts[0] ?? '');
-});
+// „Gabriel Gajdoš“ → „Gabriel“ – celé meno je v rozbaľovacom menu.
+const shortName = computed(() => nameParts.value[0] ?? '');
 
 const logout = () => router.post('/logout');
 
