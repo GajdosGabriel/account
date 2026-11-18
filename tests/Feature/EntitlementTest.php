@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\SubscriptionStatus;
 use App\Models\Organization;
 use App\Models\Plan;
 use App\Models\Product;

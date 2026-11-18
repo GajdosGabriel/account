@@ -8,6 +8,7 @@ use App\Enums\SubscriptionStatus;
 use App\Models\Invoice;
 use App\Models\Subscription;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Čísla o fakturácii pre prehľad prevádzkovateľa.
@@ -214,7 +215,7 @@ class InvoiceStatistics
         return (int) round($days->avg());
     }
 
-    /** @param \Illuminate\Support\Collection<int, Invoice> $invoices */
+    /** @param Collection<int, Invoice> $invoices */
     protected function remaining($invoices): int
     {
         return (int) $invoices->sum(fn (Invoice $invoice) => $invoice->total_cents - $invoice->paid_cents);

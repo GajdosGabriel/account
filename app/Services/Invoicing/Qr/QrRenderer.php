@@ -22,7 +22,7 @@ class QrRenderer
     }
 
     /**
-     * @return string|null  data:image/png;base64,… alebo null, ak sa nedá vykresliť
+     * @return string|null data:image/png;base64,… alebo null, ak sa nedá vykresliť
      */
     public function dataUri(string $text, int $size = 320, int $margin = 4): ?string
     {

@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Models\Subscription;
 use App\Models\SubscriptionEvent;
 use App\Services\Entitlements\EntitlementService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -192,7 +193,7 @@ class SubscriptionManager
         return $counts;
     }
 
-    protected function periodEnd(?Plan $plan): ?\Illuminate\Support\Carbon
+    protected function periodEnd(?Plan $plan): ?Carbon
     {
         if (! $plan) {
             return null;

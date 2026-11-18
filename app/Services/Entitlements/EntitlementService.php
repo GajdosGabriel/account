@@ -7,6 +7,7 @@ use App\Models\Organization;
 use App\Models\Product;
 use App\Models\ProductFeature;
 use App\Models\UsageReport;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -107,7 +108,7 @@ class EntitlementService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, ProductFeature>  $catalog
+     * @param  Collection<int, ProductFeature>  $catalog
      * @param  array<string, mixed>  $planFeatures
      * @return array<string, mixed>
      */
@@ -136,7 +137,7 @@ class EntitlementService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, ProductFeature>  $catalog
+     * @param  Collection<int, ProductFeature>  $catalog
      * @param  array<string, mixed>  $features
      * @return array<string, mixed>
      */
@@ -169,7 +170,7 @@ class EntitlementService
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, ProductFeature>  $catalog
+     * @param  Collection<int, ProductFeature>  $catalog
      * @param  array<string, mixed>  $features
      * @param  array<string, int>  $usage
      * @return array<string, array{limit: int|null, used: int}>

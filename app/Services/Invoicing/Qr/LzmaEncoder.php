@@ -19,7 +19,9 @@ namespace App\Services\Invoicing\Qr;
 class LzmaEncoder
 {
     private const BIT_MODEL_TOTAL = 1 << 11;
+
     private const MOVE_BITS = 5;
+
     private const TOP_VALUE = 1 << 24;
 
     /** Literal context bits – koľko horných bitov predošlého bajtu tvorí kontext. */

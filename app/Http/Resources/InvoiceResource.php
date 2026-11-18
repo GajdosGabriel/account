@@ -10,7 +10,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * @mixin \App\Models\Invoice
+ * @mixin Invoice
  */
 class InvoiceResource extends JsonResource
 {

@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use Database\Factories\PlanFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Plan extends Model
 {
-    /** @use HasFactory<\Database\Factories\PlanFactory> */
+    /** @use HasFactory<PlanFactory> */
     use HasFactory, SoftDeletes;
 
     protected $fillable = [

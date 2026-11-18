@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\InvoiceStatus;
 use App\Enums\InvoiceType;
 use App\Models\Invoice;
 use App\Models\InvoiceNumberSeries;
@@ -74,7 +75,7 @@ class InvoiceSeeder extends Seeder
             $invoice = $service->issue($draft, $date);
 
             $invoice->forceFill([
-                'status' => \App\Enums\InvoiceStatus::Sent,
+                'status' => InvoiceStatus::Sent,
                 'sent_at' => $date->copy()->addHours(2),
                 'sent_to' => $ukazka->billing_email,
                 'sent_count' => 1,
@@ -106,7 +107,7 @@ class InvoiceSeeder extends Seeder
         $overdue = $service->issue($overdue, Carbon::today()->subDays(38));
 
         $overdue->forceFill([
-            'status' => \App\Enums\InvoiceStatus::Overdue,
+            'status' => InvoiceStatus::Overdue,
             'due_at' => Carbon::today()->subDays(24),
             'sent_at' => Carbon::today()->subDays(38),
             'sent_to' => $ukazka->billing_email,
@@ -212,7 +213,7 @@ class InvoiceSeeder extends Seeder
             $eu = $service->issue($eu, Carbon::today()->subDays(6));
 
             $eu->forceFill([
-                'status' => \App\Enums\InvoiceStatus::Sent,
+                'status' => InvoiceStatus::Sent,
                 'sent_at' => now()->subDays(6),
                 'sent_to' => $zahranicna->billing_email,
                 'sent_count' => 1,

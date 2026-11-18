@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 
@@ -14,7 +15,7 @@ class OrganizationPolicy extends BasePolicy
      * desaťročná archivačná povinnosť, nie naša preferencia. V koši
      * firma zostať môže, zmiznúť z databázy nesmie.
      *
-     * @param  \App\Models\Organization  $model
+     * @param  Organization  $model
      */
     public function forceDelete(User $user, Model $model): bool
     {

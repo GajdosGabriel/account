@@ -3,6 +3,7 @@
 namespace App\Services\Invoicing;
 
 use App\Models\Invoice;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\View;
 use RuntimeException;
@@ -29,7 +30,7 @@ class InvoiceRenderer
     {
         $this->assertPdfAvailable();
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('invoices.document', $this->data($invoice, pdf: true));
+        $pdf = Pdf::loadView('invoices.document', $this->data($invoice, pdf: true));
 
         $pdf->setPaper('a4');
         $pdf->setOptions([
@@ -81,7 +82,7 @@ class InvoiceRenderer
 
     public function pdfAvailable(): bool
     {
-        return class_exists(\Barryvdh\DomPDF\Facade\Pdf::class);
+        return class_exists(Pdf::class);
     }
 
     /**
