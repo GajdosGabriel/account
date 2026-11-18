@@ -86,7 +86,7 @@ class InvoiceService
         $plan = $subscription->plan;
 
         if (! $plan) {
-            throw new DomainException('Predplatné nemá priradený plán, faktúru sa nedá vystaviť.');
+            throw new DomainException(__('flash.invoice_errors.no_plan'));
         }
 
         $periodStart ??= $subscription->current_period_start?->copy() ?? Carbon::today();
@@ -183,17 +183,17 @@ class InvoiceService
     public function issue(Invoice $invoice, ?Carbon $issuedAt = null): Invoice
     {
         if (! $invoice->isDraft()) {
-            throw new DomainException('Doklad je už vystavený.');
+            throw new DomainException(__('flash.invoice_errors.already_issued'));
         }
 
         $invoice->loadMissing(['organization', 'items']);
 
         if ($invoice->items->isEmpty()) {
-            throw new DomainException('Doklad nemá žiadne položky.');
+            throw new DomainException(__('flash.invoice_errors.no_items'));
         }
 
         if ($missing = $invoice->organization->missingBillingFields()) {
-            throw new DomainException('Firme chýbajú fakturačné údaje: '.implode(', ', $missing).'.');
+            throw new DomainException(__('flash.invoice_errors.missing_fields', ['fields' => implode(', ', $missing)]));
         }
 
         return DB::transaction(function () use ($invoice, $issuedAt) {
@@ -237,11 +237,11 @@ class InvoiceService
     public function recordPayment(Invoice $invoice, ?int $amountCents = null, ?Carbon $paidAt = null, ?string $note = null): Invoice
     {
         if ($invoice->isDraft()) {
-            throw new DomainException('Koncept sa nedá označiť ako uhradený – najprv ho vystav.');
+            throw new DomainException(__('flash.invoice_errors.draft_not_payable'));
         }
 
         if ($invoice->isCancelled()) {
-            throw new DomainException('Stornovaný doklad sa nedá uhradiť.');
+            throw new DomainException(__('flash.invoice_errors.cancelled_not_payable'));
         }
 
         $amountCents ??= $invoice->outstandingCents();
@@ -281,7 +281,7 @@ class InvoiceService
     public function cancel(Invoice $invoice, ?string $reason = null): Invoice
     {
         if ($invoice->isDraft()) {
-            throw new DomainException('Koncept netreba stornovať – jednoducho ho zmaž.');
+            throw new DomainException(__('flash.invoice_errors.draft_no_cancel'));
         }
 
         if ($invoice->isCancelled()) {
@@ -289,7 +289,7 @@ class InvoiceService
         }
 
         if ($invoice->paid_cents > 0) {
-            throw new DomainException('Doklad má evidovanú úhradu. Vystav dobropis.');
+            throw new DomainException(__('flash.invoice_errors.paid_use_credit'));
         }
 
         $invoice->forceFill([
@@ -311,11 +311,11 @@ class InvoiceService
     public function creditNote(Invoice $invoice, ?array $itemIds = null, ?string $reason = null): Invoice
     {
         if ($invoice->type !== InvoiceType::Invoice) {
-            throw new DomainException('Dobropis sa vystavuje len k riadnej faktúre.');
+            throw new DomainException(__('flash.invoice_errors.credit_only_invoice'));
         }
 
         if ($invoice->isDraft()) {
-            throw new DomainException('K nevystavenej faktúre nemá dobropis zmysel.');
+            throw new DomainException(__('flash.invoice_errors.credit_not_issued'));
         }
 
         $invoice->loadMissing(['organization', 'items']);
@@ -339,7 +339,7 @@ class InvoiceService
                 : $invoice->items;
 
             if ($items->isEmpty()) {
-                throw new DomainException('Nie sú vybrané žiadne položky na dobropisovanie.');
+                throw new DomainException(__('flash.invoice_errors.credit_no_items'));
             }
 
             foreach ($items as $item) {
@@ -375,7 +375,7 @@ class InvoiceService
     public function invoiceFromProforma(Invoice $proforma): Invoice
     {
         if ($proforma->type !== InvoiceType::Proforma) {
-            throw new DomainException('Zdrojový doklad nie je zálohová faktúra.');
+            throw new DomainException(__('flash.invoice_errors.not_proforma'));
         }
 
         $proforma->loadMissing(['organization', 'items']);
@@ -440,7 +440,7 @@ class InvoiceService
     protected function assertEditable(Invoice $invoice): void
     {
         if (! $invoice->isDraft()) {
-            throw new DomainException('Vystavený doklad sa už nedá meniť. Vystav dobropis.');
+            throw new DomainException(__('flash.invoice_errors.issued_locked'));
         }
     }
 }

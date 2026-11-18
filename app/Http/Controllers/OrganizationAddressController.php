@@ -25,7 +25,7 @@ class OrganizationAddressController extends Controller
 
         AuditLog::record('address.added', $organization, ['type' => $data['type']], $organization->id);
 
-        return back()->with('success', 'Adresa bola pridaná.');
+        return back()->with('success', __('flash.organization.address_added'));
     }
 
     public function update(Request $request, Organization $organization, OrganizationAddress $address): RedirectResponse
@@ -35,7 +35,7 @@ class OrganizationAddressController extends Controller
 
         $address->update($this->validateAddress($request));
 
-        return back()->with('success', 'Adresa bola upravená.');
+        return back()->with('success', __('flash.organization.address_updated'));
     }
 
     public function destroy(Organization $organization, OrganizationAddress $address): RedirectResponse
@@ -82,7 +82,7 @@ class OrganizationAddressController extends Controller
 
         $organization->contacts()->create($data);
 
-        return back()->with('success', 'Kontaktná osoba bola pridaná.');
+        return back()->with('success', __('flash.organization.contact_added'));
     }
 
     public function updateContact(Request $request, Organization $organization, OrganizationContact $contact): RedirectResponse
@@ -100,7 +100,7 @@ class OrganizationAddressController extends Controller
             'is_primary' => ['boolean'],
         ]));
 
-        return back()->with('success', 'Kontakt bol upravený.');
+        return back()->with('success', __('flash.organization.contact_updated'));
     }
 
     public function destroyContact(Organization $organization, OrganizationContact $contact): RedirectResponse

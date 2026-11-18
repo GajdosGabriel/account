@@ -45,10 +45,10 @@ class NewPasswordController extends Controller
 
         if ($status !== Password::PasswordReset) {
             throw ValidationException::withMessages([
-                'email' => 'Odkaz na obnovu hesla je neplatný alebo mu vypršala platnosť.',
+                'email' => __('flash.auth.reset_invalid'),
             ]);
         }
 
-        return redirect()->route('login')->with('success', 'Heslo bolo zmenené, môžete sa prihlásiť.');
+        return redirect()->route('login')->with('success', __('flash.auth.reset_done'));
     }
 }

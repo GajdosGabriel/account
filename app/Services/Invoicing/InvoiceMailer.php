@@ -27,7 +27,7 @@ class InvoiceMailer
     public function send(Invoice $invoice, ?string $to = null, ?string $message = null): Invoice
     {
         if ($invoice->isDraft()) {
-            throw new DomainException('Koncept sa neposiela. Najprv doklad vystav.');
+            throw new DomainException(__('flash.invoice_errors.draft_not_sent'));
         }
 
         $this->ensureDeliverable($invoice);
@@ -39,7 +39,7 @@ class InvoiceMailer
         }
 
         if (blank($recipient)) {
-            throw new DomainException('Firma nemá vyplnený e-mail na faktúry.');
+            throw new DomainException(__('flash.organization.no_billing_email'));
         }
 
         $verified = $this->recipientIsVerified($invoice, $recipient);
@@ -111,7 +111,7 @@ class InvoiceMailer
     public function remind(Invoice $invoice, string $tone = 'friendly'): Invoice
     {
         if (! $invoice->isOverdue()) {
-            throw new DomainException('Doklad nie je po splatnosti.');
+            throw new DomainException(__('flash.invoice_errors.not_overdue'));
         }
 
         $this->ensureDeliverable($invoice);
@@ -125,7 +125,7 @@ class InvoiceMailer
         }
 
         if (blank($recipient)) {
-            throw new DomainException('Firma nemá vyplnený e-mail na faktúry.');
+            throw new DomainException(__('flash.organization.no_billing_email'));
         }
 
         $mailer = Mail::to($recipient);
@@ -176,10 +176,10 @@ class InvoiceMailer
     public function blockedReason(Invoice $invoice): ?string
     {
         return match (true) {
-            $this->mode() === 'off' => 'Odosielanie dokladov je vypnuté (Faktúry → Nastavenia).',
-            $this->testing() && blank(config('invoicing.sending.redirect_to')) => 'Testovací režim nemá nastavenú adresu, kam doklady posielať (Faktúry → Nastavenia).',
+            $this->mode() === 'off' => __('flash.invoice.sending_off'),
+            $this->testing() && blank(config('invoicing.sending.redirect_to')) => __('flash.invoice.sending_no_redirect'),
             // V testovacom režime ide všetko nám, takže aj testovaciu firmu sa dá vyskúšať.
-            ! $this->testing() && ! $invoice->organization?->receivesInvoices() => 'Firma má nastavené „Doklady neposielať“ – zákazníkovi sa nič neodošle.',
+            ! $this->testing() && ! $invoice->organization?->receivesInvoices() => __('flash.invoice_errors.do_not_send'),
             default => null,
         };
     }

@@ -42,10 +42,10 @@ class InvoiceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'due_at.after_or_equal' => 'Splatnosť nemôže byť skôr než dátum vystavenia.',
-            'variable_symbol.regex' => 'Variabilný symbol môže obsahovať len číslice.',
-            'constant_symbol.regex' => 'Konštantný symbol môže obsahovať len číslice.',
-            'specific_symbol.regex' => 'Špecifický symbol môže obsahovať len číslice.',
+            'due_at.after_or_equal' => __('flash.validation.due_at'),
+            'variable_symbol.regex' => __('flash.validation.symbol_digits', ['attribute' => __('flash.validation.attributes.variable_symbol')]),
+            'constant_symbol.regex' => __('flash.validation.symbol_digits', ['attribute' => __('flash.validation.attributes.constant_symbol')]),
+            'specific_symbol.regex' => __('flash.validation.symbol_digits', ['attribute' => __('flash.validation.attributes.specific_symbol')]),
         ];
     }
 
@@ -55,10 +55,10 @@ class InvoiceRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'organization_id' => 'organizácia',
-            'issued_at' => 'dátum vystavenia',
-            'delivered_at' => 'dátum dodania',
-            'due_at' => 'dátum splatnosti',
+            'organization_id' => __('flash.validation.attributes.organization_id'),
+            'issued_at' => __('flash.validation.attributes.issued_at'),
+            'delivered_at' => __('flash.validation.attributes.delivered_at'),
+            'due_at' => __('flash.validation.attributes.due_at'),
         ];
     }
 }

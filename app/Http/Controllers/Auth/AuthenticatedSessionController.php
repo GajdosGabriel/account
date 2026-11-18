@@ -30,7 +30,7 @@ class AuthenticatedSessionController extends Controller
             $request->boolean('remember')
         )) {
             throw ValidationException::withMessages([
-                'email' => 'Tieto prihlasovacie údaje sa nezhodujú so žiadnym účtom.',
+                'email' => __('flash.auth.failed'),
             ]);
         }
 

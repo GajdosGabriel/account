@@ -116,7 +116,7 @@ class ProductController extends Controller
 
         AuditLog::record('product.created', $product, [], null, $product->id);
 
-        return redirect()->route('products.show', $product)->with('success', 'Projekt bol vytvorený.');
+        return redirect()->route('products.show', $product)->with('success', __('flash.product.created'));
     }
 
     public function update(Request $request, Product $product): RedirectResponse
@@ -145,14 +145,14 @@ class ProductController extends Controller
                 ->with('success', "Kľúč projektu zmenený na „{$product->key}\u{201c}. Uprav ho aj v konfigurácii projektu.");
         }
 
-        return back()->with('success', 'Projekt bol upravený.');
+        return back()->with('success', __('flash.product.updated'));
     }
 
     public function destroy(Product $product): RedirectResponse
     {
         // Zmazanie by vzalo aj plány, katalóg, tokeny a webhooky.
         if ($product->organizations()->exists()) {
-            return back()->with('error', 'Projekt používajú organizácie – najprv ich odviaž.');
+            return back()->with('error', __('flash.product.in_use'));
         }
 
         $this->authorize('delete', $product);
@@ -199,7 +199,7 @@ class ProductController extends Controller
 
         $this->flushProduct($product);
 
-        return back()->with('success', 'Funkcia bola pridaná do katalógu.');
+        return back()->with('success', __('flash.product.feature_added'));
     }
 
     public function updateFeature(Request $request, Product $product, ProductFeature $feature): RedirectResponse
@@ -212,7 +212,7 @@ class ProductController extends Controller
 
         $this->flushProduct($product);
 
-        return back()->with('success', 'Funkcia bola upravená.');
+        return back()->with('success', __('flash.product.feature_updated'));
     }
 
     public function destroyFeature(Product $product, ProductFeature $feature): RedirectResponse
@@ -260,7 +260,7 @@ class ProductController extends Controller
 
         $this->flushProduct($product);
 
-        return back()->with('success', 'Plán bol vytvorený.');
+        return back()->with('success', __('flash.product.plan_created'));
     }
 
     public function updatePlan(Request $request, Product $product, Plan $plan): RedirectResponse
@@ -273,13 +273,13 @@ class ProductController extends Controller
 
         $this->flushProduct($product);
 
-        return back()->with('success', 'Plán bol upravený.');
+        return back()->with('success', __('flash.product.plan_updated'));
     }
 
     public function destroyPlan(Product $product, Plan $plan): RedirectResponse
     {
         if ($plan->subscriptions()->exists()) {
-            return back()->with('error', 'Plán sa používa, najprv presuň zákazníkov inam.');
+            return back()->with('error', __('flash.product.plan_in_use'));
         }
 
         $this->authorize('delete', $plan);

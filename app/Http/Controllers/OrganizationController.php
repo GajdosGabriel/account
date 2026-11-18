@@ -90,8 +90,8 @@ class OrganizationController extends Controller
 
         return redirect()->route('organizations.show', $organization)
             ->with('success', $sent
-                ? 'Organizácia bola vytvorená. Na e-mail pre faktúry sme poslali žiadosť o potvrdenie.'
-                : 'Organizácia bola vytvorená.');
+                ? __('flash.organization.created_verify')
+                : __('flash.organization.created'));
     }
 
     public function show(Organization $organization, EntitlementService $entitlements): Response
@@ -190,10 +190,10 @@ class OrganizationController extends Controller
 
             'address_types' => AddressType::options(),
             'contact_types' => [
-                ['value' => 'general', 'label' => 'Všeobecný'],
-                ['value' => 'billing', 'label' => 'Fakturácia'],
-                ['value' => 'technical', 'label' => 'Technický'],
-                ['value' => 'statutory', 'label' => 'Štatutár'],
+                ['value' => 'general', 'label' => __('flash.contact_types.general')],
+                ['value' => 'billing', 'label' => __('flash.contact_types.billing')],
+                ['value' => 'technical', 'label' => __('flash.contact_types.technical')],
+                ['value' => 'statutory', 'label' => __('flash.contact_types.statutory')],
             ],
 
             // Každý projekt zvlášť: naviazanie, plán, stav a spotreba
@@ -310,8 +310,8 @@ class OrganizationController extends Controller
 
         return redirect()->route('organizations.show', $organization)
             ->with('success', $sent
-                ? 'Údaje boli uložené. Na nový e-mail pre faktúry sme poslali žiadosť o potvrdenie.'
-                : 'Údaje boli uložené.');
+                ? __('flash.organization.saved_verify')
+                : __('flash.saved'));
     }
 
     public function destroy(Organization $organization): RedirectResponse
@@ -325,7 +325,7 @@ class OrganizationController extends Controller
         // Zmazaná firma je vo filtri „Kôš“ – tam aj skončíme, aby bolo
         // vidieť, kam sa podela a odkiaľ sa dá vrátiť.
         return redirect()->route('organizations.index', ['status' => 'trashed'])
-            ->with('success', 'Organizácia bola presunutá do koša.');
+            ->with('success', __('flash.organization.trashed'));
     }
 
     /**
@@ -364,7 +364,7 @@ class OrganizationController extends Controller
         AuditLog::record('organization.restored', $organization, [], $organization->id);
 
         return redirect()->route('organizations.show', $organization)
-            ->with('success', 'Organizácia bola obnovená.');
+            ->with('success', __('flash.organization.restored'));
     }
 
     /* ---------------------------------------------------------------
@@ -394,16 +394,16 @@ class OrganizationController extends Controller
     public function resendBillingEmailVerification(Organization $organization, BillingEmailVerifier $verifier): RedirectResponse
     {
         if (blank($organization->billingEmail())) {
-            return back()->with('error', 'Firma nemá vyplnený e-mail na faktúry.');
+            return back()->with('error', __('flash.organization.no_billing_email'));
         }
 
         if ($organization->hasVerifiedBillingEmail()) {
-            return back()->with('success', 'E-mail na faktúry je už overený.');
+            return back()->with('success', __('flash.organization.billing_email_verified'));
         }
 
         return $verifier->sendIfNeeded($organization, force: true)
-            ? back()->with('success', 'Overovací e-mail bol odoslaný.')
-            : back()->with('error', 'Overovací e-mail sa nepodarilo odoslať. Skús to o chvíľu znova.');
+            ? back()->with('success', __('flash.organization.verification_sent'))
+            : back()->with('error', __('flash.organization.verification_failed'));
     }
 
     /** `f****a@firma.sk` – dosť na rozpoznanie, málo na zneužitie. */
@@ -461,7 +461,7 @@ class OrganizationController extends Controller
 
         $manager->cancel($subscription, 'cancelled_by_operator');
 
-        return back()->with('success', 'Predplatné bolo zrušené.');
+        return back()->with('success', __('flash.organization.subscription_cancelled'));
     }
 
     public function activateSubscription(Organization $organization, Product $product, SubscriptionManager $manager): RedirectResponse
@@ -472,7 +472,7 @@ class OrganizationController extends Controller
 
         $manager->activate($subscription, 'activated_by_operator');
 
-        return back()->with('success', 'Predplatné je aktívne.');
+        return back()->with('success', __('flash.organization.subscription_active'));
     }
 
     /** Ručná výnimka nad rámec plánu. */
@@ -505,7 +505,7 @@ class OrganizationController extends Controller
 
         app(EntitlementService::class)->flush($organization, $product);
 
-        return back()->with('success', 'Výnimka bola uložená.');
+        return back()->with('success', __('flash.organization.override_saved'));
     }
 
     public function destroyOverride(Organization $organization, EntitlementOverride $override): RedirectResponse

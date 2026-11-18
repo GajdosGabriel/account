@@ -28,6 +28,6 @@ class PasswordController extends Controller
 
         AuditLog::record('password.changed', $request->user());
 
-        return back()->with('success', 'Heslo bolo zmenené. Ostatné zariadenia sme odhlásili.');
+        return back()->with('success', __('flash.auth.password_changed'));
     }
 }

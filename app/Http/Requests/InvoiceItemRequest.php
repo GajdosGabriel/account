@@ -34,8 +34,8 @@ class InvoiceItemRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'quantity.not_in' => 'Množstvo nemôže byť nula.',
-            'period_end.after_or_equal' => 'Koniec obdobia nemôže byť skôr než jeho začiatok.',
+            'quantity.not_in' => __('flash.validation.quantity_zero'),
+            'period_end.after_or_equal' => __('flash.validation.period_end'),
         ];
     }
 
@@ -46,8 +46,8 @@ class InvoiceItemRequest extends FormRequest
     {
         return [
             'description' => 'popis',
-            'quantity' => 'množstvo',
-            'unit_price' => 'jednotková cena',
+            'quantity' => __('flash.validation.attributes.quantity'),
+            'unit_price' => __('flash.validation.attributes.unit_price'),
             'vat_rate' => 'sadzba DPH',
         ];
     }

@@ -47,7 +47,7 @@ class ProfileController extends Controller
 
         AuditLog::record('profile.updated', $user);
 
-        return back()->with('success', 'Údaje boli uložené.');
+        return back()->with('success', __('flash.saved'));
     }
 
     /**
@@ -86,11 +86,11 @@ class ProfileController extends Controller
     public function destroyOperator(Request $request, User $operator): RedirectResponse
     {
         if ($operator->is($request->user())) {
-            return back()->with('error', 'Sám sebe prístup odobrať nemôžeš.');
+            return back()->with('error', __('flash.auth.cannot_remove_self'));
         }
 
         if (User::count() <= 1) {
-            return back()->with('error', 'Posledného operátora nemožno odobrať.');
+            return back()->with('error', __('flash.auth.cannot_remove_last'));
         }
 
         // Odhlásiť ho všade: „zapamätať si ma“ aj otvorené relácie.

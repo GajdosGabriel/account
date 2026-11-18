@@ -249,7 +249,7 @@ class DeveloperController extends Controller
             'is_active' => $data['is_active'] ?? $endpoint->is_active,
         ]);
 
-        return back()->with('success', 'Webhook bol upravený.');
+        return back()->with('success', __('flash.webhook_updated'));
     }
 
     public function destroyWebhook(WebhookEndpoint $endpoint): RedirectResponse

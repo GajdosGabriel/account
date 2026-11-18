@@ -26,6 +26,6 @@ class PasswordResetLinkController extends Controller
         // aby sa nedalo zisťovať, kto má u nás účet.
         Password::sendResetLink($request->only('email'));
 
-        return back()->with('success', 'Ak účet s týmto e-mailom existuje, poslali sme naň odkaz na obnovu hesla.');
+        return back()->with('success', __('flash.auth.reset_link_sent'));
     }
 }

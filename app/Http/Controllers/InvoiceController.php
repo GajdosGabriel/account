@@ -159,14 +159,14 @@ class InvoiceController extends Controller
     protected function sendingNotice(?Invoice $invoice = null): ?array
     {
         if ($this->mailer->testing() && filled($to = config('invoicing.sending.redirect_to'))) {
-            return ['tone' => 'sky', 'text' => "Testovací režim – doklady a upomienky idú na {$to}, nie zákazníkom."];
+            return ['tone' => 'sky', 'text' => __('flash.invoice.sending_test', ['email' => $to])];
         }
 
         $reason = $invoice
             ? $this->mailer->blockedReason($invoice)
             : match ($this->mailer->mode()) {
-                'off' => 'Odosielanie dokladov je vypnuté (Faktúry → Nastavenia).',
-                'redirect' => 'Testovací režim nemá nastavenú adresu, kam doklady posielať (Faktúry → Nastavenia).',
+                'off' => __('flash.invoice.sending_off'),
+                'redirect' => __('flash.invoice.sending_no_redirect'),
                 default => null,
             };
 
@@ -218,7 +218,7 @@ class InvoiceController extends Controller
         ]));
 
         return redirect()->route('invoices.show', $invoice)
-            ->with('success', 'Koncept dokladu bol vytvorený. Doplň položky a vystav ho.');
+            ->with('success', __('flash.invoice.draft_created'));
     }
 
     /** Úprava hlavičky konceptu. */
@@ -235,7 +235,7 @@ class InvoiceController extends Controller
         $invoice->save();
         $this->invoices->refreshTotals($invoice);
 
-        return back()->with('success', 'Zmeny boli uložené.');
+        return back()->with('success', __('flash.saved'));
     }
 
     public function destroy(Invoice $invoice): RedirectResponse
@@ -245,7 +245,7 @@ class InvoiceController extends Controller
         $invoice->delete();
 
         return redirect()->route('invoices.index')
-            ->with('success', 'Koncept bol presunutý do koša. Nájdeš ho vo filtri „Zmazané“.');
+            ->with('success', __('flash.invoice.trashed'));
     }
 
     /** Vrátenie z koša. */
@@ -254,10 +254,10 @@ class InvoiceController extends Controller
         $this->authorize('restore', $invoice);
 
         $invoice->restore();
-        $invoice->recordEvent('created', 'Koncept bol obnovený z koša.');
+        $invoice->recordEvent('created', __('flash.invoice.restored_event'));
 
         return redirect()->route('invoices.show', $invoice)
-            ->with('success', 'Koncept bol obnovený.');
+            ->with('success', __('flash.invoice.restored'));
     }
 
     /** Nenávratné zmazanie – len konceptov bez čísla. */
@@ -268,7 +268,7 @@ class InvoiceController extends Controller
         $invoice->forceDelete();
 
         return redirect()->route('invoices.index')
-            ->with('success', 'Koncept bol natrvalo zmazaný.');
+            ->with('success', __('flash.invoice.force_deleted'));
     }
 
     /* ===============================================================
@@ -282,7 +282,7 @@ class InvoiceController extends Controller
         return $this->guard(function () use ($request, $invoice) {
             $this->invoices->addItem($invoice, $this->itemPayload($request));
 
-            return back()->with('success', 'Položka bola pridaná.');
+            return back()->with('success', __('flash.invoice.item_added'));
         });
     }
 
@@ -294,7 +294,7 @@ class InvoiceController extends Controller
         return $this->guard(function () use ($request, $item) {
             $this->invoices->updateItem($item, $this->itemPayload($request));
 
-            return back()->with('success', 'Položka bola upravená.');
+            return back()->with('success', __('flash.invoice.item_updated'));
         });
     }
 
@@ -306,7 +306,7 @@ class InvoiceController extends Controller
         return $this->guard(function () use ($item) {
             $this->invoices->removeItem($item);
 
-            return back()->with('success', 'Položka bola odstránená.');
+            return back()->with('success', __('flash.invoice.item_removed'));
         });
     }
 
@@ -367,7 +367,7 @@ class InvoiceController extends Controller
 
             $this->mailer->remind($invoice, $tone);
 
-            return back()->with('success', 'Upomienka bola odoslaná.');
+            return back()->with('success', __('flash.invoice.reminder_sent'));
         });
     }
 
@@ -389,7 +389,7 @@ class InvoiceController extends Controller
                 $data['note'] ?? null,
             );
 
-            return back()->with('success', 'Úhrada bola zaznamenaná.');
+            return back()->with('success', __('flash.invoice.payment_recorded'));
         });
     }
 
@@ -402,7 +402,7 @@ class InvoiceController extends Controller
         return $this->guard(function () use ($invoice, $data) {
             $this->invoices->cancel($invoice, $data['reason'] ?? null);
 
-            return back()->with('success', 'Doklad bol stornovaný.');
+            return back()->with('success', __('flash.invoice.cancelled'));
         });
     }
 
@@ -432,7 +432,7 @@ class InvoiceController extends Controller
             $created = $this->invoices->invoiceFromProforma($invoice);
 
             return redirect()->route('invoices.show', $created)
-                ->with('success', 'Koncept riadnej faktúry bol pripravený.');
+                ->with('success', __('flash.invoice.converted'));
         });
     }
 
@@ -466,7 +466,7 @@ class InvoiceController extends Controller
         }
 
         return redirect()->route('invoices.show', $copy)
-            ->with('success', 'Kópia bola vytvorená ako nový koncept.');
+            ->with('success', __('flash.invoice.duplicated'));
     }
 
     /* ===============================================================
