@@ -26,7 +26,7 @@ class ContactImportParserTest extends TestCase
 
     public function test_duplicitna_adresa_sa_zapocita_raz(): void
     {
-        [$rows] = ContactImportParser::parse("a@b.sk, A@B.sk; a@b.sk");
+        [$rows] = ContactImportParser::parse('a@b.sk, A@B.sk; a@b.sk');
 
         $this->assertCount(1, $rows);
     }
