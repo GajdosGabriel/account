@@ -8,10 +8,12 @@ use App\Models\ConversationAttachment;
 use App\Models\ConversationMessage;
 use App\Models\MailingCampaign;
 use App\Models\Product;
+use App\Models\ReplyTemplate;
 use App\Services\Messaging\ConversationService;
 use App\Services\Messaging\MessagingException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -80,7 +82,7 @@ class InboxController extends Controller
         ]);
     }
 
-    public function show(Conversation $conversation): Response
+    public function show(Request $request, Conversation $conversation): Response
     {
         $conversation->load(['product', 'organization', 'mailbox', 'messages.attachments', 'messages.sender']);
         $this->conversations->markRead($conversation);
@@ -148,6 +150,8 @@ class InboxController extends Controller
             'related' => $related,
             'targets' => $targets,
             'statuses' => $this->statusOptions(),
+            'templates' => $this->templates($request, $conversation),
+            'templateContext' => $this->templateContext($request, $conversation),
         ]);
     }
 
@@ -156,6 +160,8 @@ class InboxController extends Controller
         $data = $request->validate([
             'text' => ['required', 'string', 'max:20000'],
             'subject' => ['nullable', 'string', 'max:255'],
+            'template_ids' => ['nullable', 'array', 'max:10'],
+            'template_ids.*' => ['integer'],
         ]);
 
         try {
@@ -163,6 +169,12 @@ class InboxController extends Controller
         } catch (MessagingException $e) {
             return back()->with('error', $e->getMessage());
         }
+
+        // Štatistika použitia – najpoužívanejšie šablóny sú vo výbere navrchu.
+        ReplyTemplate::query()
+            ->visibleTo($request->user())
+            ->whereIn('id', array_unique($data['template_ids'] ?? []))
+            ->each(fn (ReplyTemplate $t) => $t->markUsed());
 
         return back()->with('success', __('messaging.inbox.reply_queued'));
     }
@@ -283,6 +295,48 @@ class InboxController extends Controller
             'status_tone' => $c->status->color(),
             'unread' => $c->unread_count,
             'last_message_at' => $c->last_message_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Šablóny pre výber v odpovedi: projektové pred spoločnými,
+     * potom najpoužívanejšie.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function templates(Request $request, Conversation $conversation)
+    {
+        return ReplyTemplate::query()
+            ->with('product')
+            ->visibleTo($request->user())
+            ->forProduct($conversation->product_id)
+            ->orderByRaw('case when product_id is null then 1 else 0 end')
+            ->orderByDesc('uses_count')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (ReplyTemplate $t) => ReplyTemplateController::row($t));
+    }
+
+    /**
+     * Hodnoty premenných šablón pre túto konverzáciu.
+     *
+     * @return array<string, string>
+     */
+    private function templateContext(Request $request, Conversation $conversation): array
+    {
+        $name = trim((string) $conversation->contact_name);
+        $agent = trim((string) $request->user()->name);
+
+        return [
+            'first_name' => $name !== '' ? (string) strtok($name, ' ') : '',
+            'name' => $name,
+            'email' => (string) $conversation->contact_email,
+            'organization' => (string) $conversation->organization?->name,
+            'product' => (string) $conversation->product?->name,
+            'subject' => (string) $conversation->subject,
+            'ref' => (string) $conversation->ref_label,
+            'agent' => $agent,
+            'agent_first_name' => $agent !== '' ? (string) strtok($agent, ' ') : '',
         ];
     }
 

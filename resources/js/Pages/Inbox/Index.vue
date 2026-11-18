@@ -100,6 +100,10 @@ const showSubject = (c) => c.subject && (!c.assigned || !normalize(c.ref_label).
 
     <PageHeader :title="t('messaging.inbox.title')" :subtitle="t('messaging.inbox.subtitle')">
         <template #action>
+            <Link href="/inbox/templates" class="btn-secondary">
+                <Icon name="bolt" :size="16" />
+                {{ t('messaging.templates.nav') }}
+            </Link>
             <Link href="/inbox/mailboxes" class="btn-secondary">
                 <Icon name="mail" :size="16" />
                 {{ t('messaging.inbox.mailboxes') }}

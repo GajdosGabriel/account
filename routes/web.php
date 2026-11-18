@@ -18,6 +18,7 @@ use App\Http\Controllers\OrganizationAddressController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\OrganizationLookupController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ReplyTemplateController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use Illuminate\Support\Facades\Route;
@@ -223,6 +224,12 @@ Route::middleware('auth')->group(function () {
     Route::patch('inbox/mailboxes/{mailbox}', [MailboxController::class, 'update'])->name('mailboxes.update');
     Route::delete('inbox/mailboxes/{mailbox}', [MailboxController::class, 'destroy'])->name('mailboxes.destroy');
     Route::post('inbox/mailboxes/{mailbox}/test', [MailboxController::class, 'test'])->name('mailboxes.test');
+
+    // Šablóny odpovedí – tiež pred {conversation}.
+    Route::get('inbox/templates', [ReplyTemplateController::class, 'index'])->name('reply-templates.index');
+    Route::post('inbox/templates', [ReplyTemplateController::class, 'store'])->name('reply-templates.store');
+    Route::patch('inbox/templates/{template}', [ReplyTemplateController::class, 'update'])->name('reply-templates.update');
+    Route::delete('inbox/templates/{template}', [ReplyTemplateController::class, 'destroy'])->name('reply-templates.destroy');
 
     // Hromadné akcie so spamom tiež pred {conversation}.
     Route::post('inbox/spam', [InboxController::class, 'spamMany'])->name('inbox.spam-many');

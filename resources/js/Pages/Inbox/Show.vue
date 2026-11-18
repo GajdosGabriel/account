@@ -1,22 +1,148 @@
 <script setup>
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import CardSection from '../../Components/CardSection.vue';
 import StatusBadge from '../../Components/StatusBadge.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
 import EmailHtmlFrame from '../../Components/EmailHtmlFrame.vue';
+import ReplyTemplatePicker from '../../Components/ReplyTemplatePicker.vue';
 import { locale, t } from '../../Composables/useLang';
+import { excerpt, renderTemplate, searchTemplates } from '../../Composables/useReplyTemplates';
 
 const props = defineProps({
     conversation: { type: Object, required: true },
     related: { type: Array, default: () => [] },
     targets: { type: Array, default: () => [] },
     statuses: { type: Array, default: () => [] },
+    templates: { type: Array, default: () => [] },
+    templateContext: { type: Object, default: () => ({}) },
 });
 
-const replyForm = useForm({ text: '', subject: '' });
+const replyForm = useForm({ text: '', subject: '', template_ids: [] });
 const mergeForm = useForm({ target: '' });
+
+/* ---------- Šablóny odpovedí ---------- */
+
+const replyEl = ref(null);
+const caret = ref(0);
+const suggestActive = ref(0);
+// Pozícia „/“, pri ktorej operátor návrhy zavrel Esc-om – kým ju nezmaže, neotravujeme.
+const dismissedAt = ref(null);
+
+const trackCaret = () => {
+    caret.value = replyEl.value?.selectionStart ?? replyForm.text.length;
+};
+
+// „/skratka“ tesne pred kurzorom, na začiatku alebo po medzere.
+const slash = computed(() => {
+    const before = replyForm.text.slice(0, caret.value);
+    const match = before.match(/(^|\s)\/([\p{L}\p{N}_-]*)$/u);
+    if (!match) return null;
+
+    const start = before.length - match[2].length - 1;
+
+    return start === dismissedAt.value ? null : { start, query: match[2] };
+});
+
+const replyFocused = ref(false);
+
+const suggestions = computed(() => (replyFocused.value && slash.value && props.templates.length
+    ? searchTemplates(props.templates, slash.value.query).slice(0, 6)
+    : []));
+
+const onReplyInput = () => {
+    trackCaret();
+    suggestActive.value = 0;
+    if (dismissedAt.value !== null && replyForm.text[dismissedAt.value] !== '/') dismissedAt.value = null;
+};
+
+/**
+ * Vloží šablónu: nahradí „/skratku“, označený text, alebo celý prázdny
+ * koncept; inak vkladá na miesto kurzora. Predmet doplní, len ak je prázdny.
+ */
+const applyTemplate = async (tpl, range = null) => {
+    const el = replyEl.value;
+    const rendered = renderTemplate(tpl.body, props.templateContext);
+    let start = range?.start ?? el?.selectionStart ?? replyForm.text.length;
+    let end = range?.end ?? el?.selectionEnd ?? start;
+
+    if (!replyForm.text.trim()) {
+        start = 0;
+        end = replyForm.text.length;
+    }
+
+    replyForm.text = replyForm.text.slice(0, start) + rendered.text + replyForm.text.slice(end);
+
+    if (tpl.subject && !replyForm.subject.trim()) {
+        replyForm.subject = renderTemplate(tpl.subject, props.templateContext).text;
+    }
+    if (!replyForm.template_ids.includes(tpl.id)) replyForm.template_ids.push(tpl.id);
+
+    dismissedAt.value = null;
+    await nextTick();
+    const position = start + (rendered.cursor ?? rendered.text.length);
+    el?.focus();
+    el?.setSelectionRange(position, position);
+    trackCaret();
+};
+
+const pickSuggestion = (tpl) => applyTemplate(tpl, { start: slash.value.start, end: caret.value });
+
+const onReplyKeydown = (event) => {
+    if (suggestions.value.length && !event.ctrlKey && !event.metaKey) {
+        const count = suggestions.value.length;
+        if (event.key === 'ArrowDown') { event.preventDefault(); suggestActive.value = (suggestActive.value + 1) % count; return; }
+        if (event.key === 'ArrowUp') { event.preventDefault(); suggestActive.value = (suggestActive.value - 1 + count) % count; return; }
+        if (event.key === 'Tab' || event.key === 'Enter') {
+            event.preventDefault();
+            pickSuggestion(suggestions.value[suggestActive.value]);
+            return;
+        }
+        if (event.key === 'Escape') { event.preventDefault(); dismissedAt.value = slash.value.start; return; }
+    }
+
+    if (event.key === 'Enter') sendShortcut(event);
+};
+
+// Uloženie aktuálnej odpovede ako šablóny. Konkrétne mená sa nahradia
+// premennými, aby šablóna sedela aj pre ďalšieho klienta – operátor to vidí a môže upraviť.
+const saveOpen = ref(false);
+const saveForm = useForm({ name: '', shortcut: '', product_key: '', subject: '', body: '', private: false });
+
+const toVariables = (text) => {
+    const ctx = props.templateContext;
+    const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    let out = text ?? '';
+
+    for (const key of ['name', 'email', 'agent', 'first_name', 'agent_first_name']) {
+        const value = (ctx[key] ?? '').trim();
+        if (value.length < 2) continue;
+        out = out.replace(new RegExp(`(?<![\\p{L}\\p{N}])${escape(value)}(?![\\p{L}\\p{N}])`, 'gu'), `{${key}}`);
+    }
+
+    return out;
+};
+
+const openSave = () => {
+    saveForm.clearErrors();
+    Object.assign(saveForm, {
+        name: '',
+        shortcut: '',
+        product_key: props.conversation.product_key ?? '',
+        subject: replyForm.subject.trim(),
+        body: toVariables(replyForm.text),
+        private: false,
+    });
+    saveOpen.value = true;
+};
+
+const saveTemplate = () => saveForm.post('/inbox/templates', {
+    preserveScroll: true,
+    onSuccess: () => {
+        saveOpen.value = false;
+    },
+});
 
 // Citácia je pri prijatých správach predvolene skrytá – stačí, čo klient napísal.
 const expanded = ref({});
@@ -31,9 +157,12 @@ const toggleText = (id) => {
 };
 const showHtml = (message) => message.html && !asText.value[message.id];
 
-const sendReply =() => replyForm.post(`/inbox/${props.conversation.id}/reply`, {
+const sendReply = () => replyForm.post(`/inbox/${props.conversation.id}/reply`, {
     preserveScroll: true,
-    onSuccess: () => replyForm.reset(),
+    onSuccess: () => {
+        replyForm.reset();
+        replyForm.template_ids = [];
+    },
 });
 
 const merge = () => mergeForm.post(`/inbox/${props.conversation.id}/merge`);
@@ -240,22 +369,107 @@ const hasQuote = (message) => message.direction === 'in'
                         <InputError :message="replyForm.errors.subject" />
                     </div>
                     <div>
-                        <label for="reply_text">{{ t('messaging.inbox.reply_text') }}</label>
-                        <textarea
-                            id="reply_text"
-                            v-model="replyForm.text"
-                            rows="6"
-                            :placeholder="t('messaging.inbox.reply_placeholder')"
-                            required
-                            @keydown.enter="sendShortcut"
-                        ></textarea>
+                        <div class="mb-1.5 flex items-end justify-between gap-3">
+                            <label for="reply_text" class="mb-0">{{ t('messaging.inbox.reply_text') }}</label>
+                            <ReplyTemplatePicker :templates="templates" :context="templateContext" @pick="applyTemplate" @save="openSave" />
+                        </div>
+                        <div class="relative">
+                            <textarea
+                                id="reply_text"
+                                ref="replyEl"
+                                v-model="replyForm.text"
+                                rows="6"
+                                :placeholder="templates.length ? t('messaging.templates.reply_placeholder') : t('messaging.inbox.reply_placeholder')"
+                                required
+                                role="combobox"
+                                aria-autocomplete="list"
+                                :aria-expanded="suggestions.length > 0"
+                                aria-controls="reply_suggestions"
+                                @input="onReplyInput"
+                                @click="trackCaret"
+                                @keyup="trackCaret"
+                                @keydown="onReplyKeydown"
+                                @focus="replyFocused = true"
+                                @blur="replyFocused = false"
+                            ></textarea>
+
+                            <!-- Návrhy pri písaní „/skratka“ -->
+                            <ul
+                                v-if="suggestions.length"
+                                id="reply_suggestions"
+                                role="listbox"
+                                class="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+                            >
+                                <li
+                                    v-for="(tpl, index) in suggestions"
+                                    :key="tpl.id"
+                                    role="option"
+                                    :aria-selected="index === suggestActive"
+                                    class="flex cursor-pointer items-baseline gap-2 px-3 py-1.5 text-sm"
+                                    :class="index === suggestActive ? 'bg-brand-50' : 'hover:bg-slate-50'"
+                                    @mouseenter="suggestActive = index"
+                                    @mousedown.prevent="pickSuggestion(tpl)"
+                                >
+                                    <code v-if="tpl.shortcut" class="shrink-0 text-xs text-slate-500">/{{ tpl.shortcut }}</code>
+                                    <span class="shrink-0 font-medium text-slate-900">{{ tpl.name }}</span>
+                                    <span class="truncate text-xs text-slate-400">{{ excerpt(tpl.body, templateContext, 80) }}</span>
+                                </li>
+                                <li class="border-t border-slate-100 px-3 pt-1.5 pb-1 text-[11px] text-slate-400">{{ t('messaging.templates.suggest_hint') }}</li>
+                            </ul>
+                        </div>
                         <InputError :message="replyForm.errors.text" />
                     </div>
+
                     <div class="flex items-center justify-end gap-3">
                         <span class="hidden text-xs text-slate-500 sm:inline">{{ t('messaging.inbox.reply_shortcut') }}</span>
                         <button type="submit" class="btn-primary" :disabled="replyForm.processing || !replyForm.text.trim()">
                             <Icon name="send" :size="16" />
                             {{ replyForm.processing ? t('messaging.inbox.reply_sending') : t('messaging.inbox.reply_send') }}
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Uložiť odpoveď ako šablónu – vlastný formulár, Enter tu nesmie odoslať odpoveď -->
+                <form v-if="saveOpen" class="mt-4 space-y-3 rounded-xl border border-brand-100 bg-brand-50/40 p-4" @submit.prevent="saveTemplate" @keydown.esc.stop="saveOpen = false">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="text-sm font-medium text-slate-900">{{ t('messaging.templates.save_title') }}</p>
+                            <p class="mt-0.5 text-xs text-slate-500">{{ t('messaging.templates.save_hint') }}</p>
+                        </div>
+                        <button type="button" class="text-slate-400 hover:text-slate-700" :aria-label="t('messaging.templates.cancel')" @click="saveOpen = false">
+                            <Icon name="close" :size="16" />
+                        </button>
+                    </div>
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <div class="sm:col-span-2">
+                            <label for="save_name">{{ t('messaging.templates.name') }}</label>
+                            <input id="save_name" v-model="saveForm.name" type="text" maxlength="120" :placeholder="t('messaging.templates.name_placeholder')" />
+                            <InputError :message="saveForm.errors.name" />
+                        </div>
+                        <div>
+                            <label for="save_shortcut">{{ t('messaging.templates.shortcut') }}</label>
+                            <div class="relative">
+                                <span class="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">/</span>
+                                <input id="save_shortcut" v-model="saveForm.shortcut" type="text" maxlength="40" class="pl-6" autocomplete="off" />
+                            </div>
+                            <InputError :message="saveForm.errors.shortcut" />
+                        </div>
+                    </div>
+                    <div>
+                        <label for="save_body">{{ t('messaging.templates.body') }}</label>
+                        <textarea id="save_body" v-model="saveForm.body" rows="5"></textarea>
+                        <InputError :message="saveForm.errors.body" />
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-3">
+                        <div class="flex flex-wrap items-center gap-4 text-sm">
+                            <select v-model="saveForm.product_key" class="w-auto py-1.5" :aria-label="t('messaging.templates.product')">
+                                <option :value="conversation.product_key">{{ t('messaging.templates.only_product', { product: conversation.product }) }}</option>
+                                <option value="">{{ t('messaging.templates.all_products') }}</option>
+                            </select>
+                            <label class="mb-0 flex items-center gap-2 font-normal"><input v-model="saveForm.private" type="checkbox" /> {{ t('messaging.templates.private') }}</label>
+                        </div>
+                        <button type="submit" class="btn-primary btn-sm" :disabled="saveForm.processing || !saveForm.name.trim() || !saveForm.body.trim()">
+                            {{ t('messaging.templates.save') }}
                         </button>
                     </div>
                 </form>
