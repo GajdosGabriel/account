@@ -6,6 +6,7 @@ use App\Models\Conversation;
 use App\Support\Locales;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Lang;
+use Inertia\Inertia;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -38,7 +39,10 @@ class HandleInertiaRequests extends Middleware
             // vidí server aj Vue a preklad je na jednom mieste.
             'locale' => app()->getLocale(),
             'locales' => Locales::options(),
-            'translations' => fn () => [
+            // Desiatky kB textov idú len pri prvom načítaní. Klient si ich
+            // pamätá pod kľúčom s jazykom a verziou lang súborov – po prepnutí
+            // jazyka alebo nasadení nových textov ich server pošle znova.
+            'translations' => Inertia::once(fn () => [
                 'actions' => Lang::get('actions'),
                 'tokens' => Lang::get('tokens'),
                 'common' => Lang::get('common'),
@@ -48,9 +52,20 @@ class HandleInertiaRequests extends Middleware
                 'invoices' => Lang::get('invoices'),
                 'messaging' => Lang::get('messaging'),
                 'mailing' => Lang::get('mailing'),
-            ],
+            ])->as('translations:'.app()->getLocale().':'.$this->translationsVersion()),
             // Odznak pri položke Inbox v navigácii
             'inbox_unread' => fn () => $user ? Conversation::notSpam()->where('unread_count', '>', 0)->count() : 0,
         ]);
+    }
+
+    /** Mení sa s každou úpravou lang súborov aktuálneho jazyka (aj záložného). */
+    private function translationsVersion(): string
+    {
+        $files = [
+            ...glob(lang_path(app()->getLocale().'/*.php')) ?: [],
+            ...glob(lang_path(config('app.fallback_locale').'/*.php')) ?: [],
+        ];
+
+        return substr(md5(implode('|', array_map(fn ($file) => $file.filemtime($file), $files))), 0, 8);
     }
 }
