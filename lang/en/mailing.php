@@ -232,7 +232,7 @@ return [
 
     'contacts' => [
         'title' => 'Contacts',
-        'subtitle' => 'Project address book: contacts added manually and contacts sent by the project. Offers go only to contacts with consent, service announcements to everyone. Unsubscribing applies only to offers of that project.',
+        'subtitle' => 'Offers go only to contacts with consent, service notices to everyone.',
         'add' => 'Add contacts',
         'report_bounce' => 'Report undeliverable',
         'permission_note' => 'Origin of consent',

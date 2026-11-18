@@ -143,7 +143,7 @@ const exportTo = (format) => {
             v-for="card in cards"
             :key="card.label"
             type="button"
-            class="card flex items-center gap-3.5 p-4 text-left transition hover:border-slate-300 hover:shadow-md"
+            class="card flex items-center gap-3.5 p-4 text-left transition hover:border-slate-300 hover:shadow-card-hover"
             :class="[
                 form.status === card.filter ? 'ring-2 ring-brand-500/30' : '',
                 card.alert ? 'border-rose-200' : '',

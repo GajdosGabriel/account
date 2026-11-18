@@ -79,7 +79,7 @@ const submit = () => form.post('/products', {
         <div
             v-for="product in products.data"
             :key="product.key"
-            class="card group p-5 transition hover:-translate-y-0.5 hover:shadow-md"
+            class="card group p-5 transition hover:-translate-y-0.5 hover:shadow-card-hover"
             :class="product.deleted_at ? 'opacity-60' : ''"
         >
             <div class="flex items-start justify-between gap-3">

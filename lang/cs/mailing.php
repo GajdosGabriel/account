@@ -210,7 +210,7 @@ return [
 
     'contacts' => [
         'title' => 'Kontakty',
-        'subtitle' => 'Adresář projektu: kontakty přidané ručně a kontakty, které posílá projekt. Nabídku dostanou jen kontakty se souhlasem, oznámení o službě všichni. Odhlášení platí jen pro nabídky daného projektu.',
+        'subtitle' => 'Nabídky jdou jen kontaktům se souhlasem, oznámení o službě všem.',
         'add' => 'Přidat kontakty',
         'report_bounce' => 'Nahlásit nedoručitelné',
         'permission_note' => 'Původ souhlasu',

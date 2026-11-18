@@ -101,7 +101,7 @@ const hasHistory = computed(() => props.months.some((m) => m.invoiced_cents || m
                     </p>
                 </div>
 
-                <Link href="/invoices" class="card p-4 transition hover:border-slate-300 hover:shadow-md">
+                <Link href="/invoices" class="card p-4 transition hover:border-slate-300 hover:shadow-card-hover">
                     <p class="text-xs text-slate-500">{{ t('dashboard.invoicing.outstanding') }}</p>
                     <p class="mt-1 text-2xl font-semibold tracking-tight text-slate-900">
                         {{ invoicing.outstanding?.formatted }}
@@ -113,7 +113,7 @@ const hasHistory = computed(() => props.months.some((m) => m.invoiced_cents || m
 
                 <Link
                     href="/invoices?status=overdue"
-                    class="card p-4 transition hover:shadow-md"
+                    class="card p-4 transition hover:shadow-card-hover"
                     :class="invoicing.overdue?.count ? 'border-rose-200 hover:border-rose-300' : 'hover:border-slate-300'"
                 >
                     <p class="text-xs text-slate-500">{{ t('dashboard.invoicing.overdue') }}</p>
@@ -245,7 +245,7 @@ const hasHistory = computed(() => props.months.some((m) => m.invoiced_cents || m
                     v-for="product in products"
                     :key="product.key"
                     :href="`/products/${product.key}`"
-                    class="card group p-5 transition hover:-translate-y-0.5 hover:shadow-md"
+                    class="card group p-5 transition hover:-translate-y-0.5 hover:shadow-card-hover"
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">

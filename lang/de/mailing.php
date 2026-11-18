@@ -210,7 +210,7 @@ return [
 
     'contacts' => [
         'title' => 'Kontakte',
-        'subtitle' => 'Adressbuch des Projekts: manuell hinzugefügte Kontakte und Kontakte, die das Projekt sendet. Angebote erhalten nur Kontakte mit Einwilligung, Servicehinweise alle. Die Abmeldung gilt nur für Angebote des jeweiligen Projekts.',
+        'subtitle' => 'Angebote gehen nur an Kontakte mit Einwilligung, Servicehinweise an alle.',
         'add' => 'Kontakte hinzufügen',
         'report_bounce' => 'Unzustellbare melden',
         'permission_note' => 'Herkunft der Einwilligung',
