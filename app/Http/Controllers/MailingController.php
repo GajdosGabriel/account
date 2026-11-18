@@ -30,6 +30,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Emailing v back-office: kampane, automatizácie, šablóny, layouty a kontakty
@@ -511,7 +512,8 @@ class MailingController extends Controller
     /**
      * Pridanie a import kontaktov. Riadok „meno <adresa>“, len adresa alebo
      * riadok z CSV („adresa;meno“, „meno,adresa“ …); riadky bez adresy
-     * (napr. hlavička CSV) sa preskočia.
+     * (napr. hlavička CSV) sa preskočia. CSV s hlavičkou (aj export
+     * kontaktov) sa číta podľa stĺpcov vrátane stĺpca so štítkami.
      *
      * Kontakt pridaný v Accounte má predvolene súhlas s ponukami. Existujúci
      * kontakt dostane zvolené štítky a – ak súhlas chýbal – aj súhlas;
@@ -538,10 +540,16 @@ class MailingController extends Controller
         $updated = 0;
         $unchanged = 0;
 
-        DB::transaction(function () use ($rows, $product, $consent, $note, $labels, $request, &$added, &$updated, &$unchanged) {
-            foreach ($rows as $email => $name) {
+        // Štítky zo stĺpca CSV (napr. z exportu iného projektu) – rovnaké názvy len raz.
+        $rowLabels = [];
+        $labelsOf = function (array $names) use ($product, &$rowLabels) {
+            return $names ? ($rowLabels[implode("\n", $names)] ??= MailingLabel::resolve($product->id, $names)) : [];
+        };
+
+        DB::transaction(function () use ($rows, $product, $consent, $note, $labels, $labelsOf, $request, &$added, &$updated, &$unchanged) {
+            foreach ($rows as $email => ['name' => $name, 'labels' => $names]) {
                 $contact = MailingContact::withTrashed()->firstOrNew(['product_id' => $product->id, 'email' => $email]);
-                $tags = self::mergeLabels($contact->manual_tags ?? [], $labels);
+                $tags = self::mergeLabels($contact->manual_tags ?? [], self::mergeLabels($labels, $labelsOf($names)));
 
                 if ($contact->exists && ! $contact->trashed()) {
                     $contact->manual_tags = $tags ?: null;
@@ -579,6 +587,66 @@ class MailingController extends Controller
         ]));
     }
 
+    /**
+     * Export kontaktov do CSV – vybrané alebo všetky podľa filtra. Súbor
+     * sa dá naspäť načítať importom (aj do iného projektu) vrátane štítkov.
+     */
+    public function exportContacts(Request $request): StreamedResponse
+    {
+        $data = $request->validate([
+            ...$this->contactFilterRules(),
+            'ids' => ['nullable', 'array', 'max:1000'],
+            'ids.*' => ['integer'],
+        ]);
+
+        $query = ! empty($data['ids'])
+            ? MailingContact::query()->whereIn('id', $data['ids'])
+            : $this->contactsQuery($data);
+        $labels = MailingLabel::query()->get()->keyBy(fn (MailingLabel $l) => $l->product_id.':'.$l->key);
+        $filename = 'kontakty-'.($data['product'] ?? 'vsetky').($data['tag'] ?? null ? '-'.Str::slug($data['tag']) : '').'-'.now()->format('Y-m-d').'.csv';
+
+        return response()->streamDownload(function () use ($query, $labels) {
+            $out = fopen('php://output', 'w');
+
+            // BOM, aby Excel na Windows nerozbil diakritiku.
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['email', 'meno', 'stitky', 'stitky_projektu', 'projekt', 'suhlas', 'suhlas_od', 'stav'], ';', '"', '');
+
+            $query->with('product:id,key,name')->chunkById(500, function ($contacts) use ($out, $labels) {
+                $suppressed = MailSuppression::query()->whereIn('email', $contacts->pluck('email'))->get(['product_id', 'email'])
+                    ->mapWithKeys(fn (MailSuppression $s) => [$s->product_id.':'.$s->email => true]);
+
+                foreach ($contacts as $c) {
+                    $state = match (true) {
+                        (bool) $c->unsubscribed_at => 'odhlaseny',
+                        $c->bounced_at || isset($suppressed[$c->product_id.':'.$c->email]) => 'nedorucitelny',
+                        ! $c->hasConsent() => 'len_oznamenia',
+                        default => 'aktivny',
+                    };
+
+                    fputcsv($out, array_map(self::csvSafe(...), [
+                        $c->email,
+                        $c->name,
+                        collect($c->manual_tags ?? [])->map(fn ($key) => $labels[$c->product_id.':'.$key]->name ?? $key)->sort(SORT_NATURAL | SORT_FLAG_CASE)->implode(', '),
+                        implode(', ', $c->tags ?? []),
+                        $c->product?->key,
+                        $c->permission_note,
+                        $c->permission_at?->toDateString(),
+                        $state,
+                    ]), ';', '"', '');
+                }
+            }, 'mailing_contacts.id', 'id');
+
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** Bunka nezačne vzorcom – Excel by ju inak vykonal. Import apostrof odreže. */
+    private static function csvSafe(?string $value): ?string
+    {
+        return $value !== null && preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
+    }
+
     /** Ručné štítky kontaktu; štítky z projektu sa tu nemenia. */
     public function updateContactTags(Request $request, MailingContact $contact): RedirectResponse
     {
@@ -601,18 +669,25 @@ class MailingController extends Controller
     public function bulkContacts(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'action' => ['required', Rule::in(['add_labels', 'remove_labels', 'consent', 'unsubscribe', 'delete'])],
+            'action' => ['required', Rule::in(['add_labels', 'remove_labels', 'consent', 'unsubscribe', 'delete', 'copy'])],
             'all' => ['boolean'],
             'ids' => ['required_unless:all,true', 'array', 'max:1000'],
             'ids.*' => ['integer'],
             'filters' => ['nullable', 'array'],
             'labels' => ['required_if:action,add_labels,remove_labels', 'array', 'max:'.MailingLabel::MAX_PER_CONTACT],
             'labels.*' => ['string', 'max:60'],
+            'product_key' => ['required_if:action,copy', 'nullable', 'exists:products,key'],
+            'with_labels' => ['boolean'],
+            'consent' => ['boolean'],
         ]);
 
         $query = ($data['all'] ?? false)
             ? $this->contactsQuery(validator($data['filters'] ?? [], $this->contactFilterRules())->validate())
             : MailingContact::query()->whereIn('id', $data['ids'] ?? []);
+
+        if ($data['action'] === 'copy') {
+            return $this->copyContacts($request, $query, $data);
+        }
 
         $note = __('mailing.contacts.permission_default', ['user' => $request->user()->name]);
         $keys = [];
@@ -638,6 +713,73 @@ class MailingController extends Controller
         });
 
         return back()->with('success', __('mailing.contacts.bulk_done.'.$data['action'], ['count' => $count]));
+    }
+
+    /**
+     * Kópia kontaktov do iného projektu. Odhlásené a nedoručiteľné adresy
+     * sa nekopírujú. Súhlas prejde len kontaktom, ktoré ho majú v pôvodnom
+     * projekte; v cieľovom projekte sa poznačí, odkiaľ kontakt prišiel.
+     * Existujúci kontakt v cieli dostane štítky, odhlásenie sa nemení.
+     *
+     * @param  Builder<MailingContact>  $query
+     * @param  array<string, mixed>  $data
+     */
+    private function copyContacts(Request $request, Builder $query, array $data): RedirectResponse
+    {
+        $target = Product::where('key', $data['product_key'])->firstOrFail();
+        $total = (clone $query)->count();
+        $query->where('mailing_contacts.product_id', '!=', $target->id)->whereNull('unsubscribed_at')->notBlocked();
+
+        $consent = (bool) ($data['consent'] ?? true);
+        $withLabels = (bool) ($data['with_labels'] ?? true);
+        $extra = MailingLabel::resolve($target->id, $data['labels'] ?? []);
+        $names = MailingLabel::query()->get()->keyBy(fn (MailingLabel $l) => $l->product_id.':'.$l->key);
+        $products = Product::query()->pluck('name', 'id');
+        $resolved = [];
+        $copied = 0;
+        $existing = 0;
+
+        // Ručné štítky sa v cieli nájdu (alebo vytvoria) podľa názvu.
+        $labelsFor = function (MailingContact $c) use ($withLabels, $extra, $names, $target, &$resolved): array {
+            if (! $withLabels || ! $c->manual_tags) {
+                return $extra;
+            }
+
+            $source = collect($c->manual_tags)->map(fn ($key) => $names[$c->product_id.':'.$key]->name ?? $key)->all();
+
+            return self::mergeLabels($extra, $resolved[$c->product_id.':'.implode(',', $c->manual_tags)] ??= MailingLabel::resolve($target->id, $source));
+        };
+
+        DB::transaction(function () use ($query, $target, $consent, $labelsFor, $products, $request, &$copied, &$existing) {
+            $query->chunkById(500, function ($contacts) use ($target, $consent, $labelsFor, $products, $request, &$copied, &$existing) {
+                foreach ($contacts as $source) {
+                    $contact = MailingContact::withTrashed()->firstOrNew(['product_id' => $target->id, 'email' => $source->email]);
+                    $existing += (int) ($contact->exists && ! $contact->trashed());
+
+                    $contact->deleted_at = null;
+                    $contact->name ??= $source->name;
+                    $contact->created_by ??= $request->user()->id;
+                    $contact->manual_tags = self::mergeLabels($contact->manual_tags ?? [], $labelsFor($source)) ?: null;
+
+                    if ($consent && $source->hasConsent() && ! $contact->hasConsent()) {
+                        $contact->fill([
+                            'permission_note' => Str::limit(__('mailing.contacts.permission_copied', [
+                                'product' => $products[$source->product_id] ?? '?',
+                                'note' => $source->permission_note ?? $source->permission_at?->toDateString(),
+                            ]), 255, ''),
+                            'permission_at' => now(),
+                        ]);
+                    }
+
+                    $contact->save();
+                    $copied++;
+                }
+            }, 'mailing_contacts.id', 'id');
+        });
+
+        return back()->with('success', __('mailing.contacts.bulk_done.copy', [
+            'product' => $target->name, 'count' => $copied, 'existing' => $existing, 'skipped' => $total - $copied,
+        ]));
     }
 
     public function unsubscribeContact(MailingContact $contact): RedirectResponse
@@ -983,21 +1125,39 @@ class MailingController extends Controller
     }
 
     /**
-     * Adresy z vloženého textu alebo CSV: [adresa => meno|null] bez duplicít
-     * a počet neplatných adries.
+     * Adresy z vloženého textu alebo CSV: [adresa => [meno|null, názvy štítkov]]
+     * bez duplicít a počet neplatných adries.
      *
-     * @return array{0: array<string, ?string>, 1: int}
+     * @return array{0: array<string, array{name: ?string, labels: list<string>}>, 1: int}
      */
     private static function parseContacts(string $text): array
     {
         $rows = [];
         $skipped = 0;
+        $columns = null;
 
         foreach (preg_split('/\R/u', $text) as $line) {
-            $line = trim($line);
+            $line = trim(preg_replace('/^\x{FEFF}/u', '', $line));
 
             // Riadok bez zavináča (hlavička CSV, prázdny riadok) nie je kontakt.
             if (! str_contains($line, '@')) {
+                $columns ??= self::csvHeader($line);
+
+                continue;
+            }
+
+            if ($columns && ($row = self::csvRow($line, $columns))) {
+                [$email, $name, $labels] = $row;
+                $email = strtolower(trim($email, " \t\"'<>"));
+
+                if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
+                    $skipped++;
+
+                    continue;
+                }
+
+                $rows[$email] ??= ['name' => $name ? Str::limit($name, 255, '') : null, 'labels' => $labels];
+
                 continue;
             }
 
@@ -1032,11 +1192,70 @@ class MailingController extends Controller
                     continue;
                 }
 
-                $rows[$email] ??= $name ? Str::limit($name, 255, '') : null;
+                $rows[$email] ??= ['name' => $name ? Str::limit($name, 255, '') : null, 'labels' => []];
             }
         }
 
         return [$rows, $skipped];
+    }
+
+    /**
+     * Hlavička CSV so stĺpcom adresy: oddeľovač a poradie stĺpcov adresa,
+     * meno a štítky. Bez stĺpca adresy null – riadky sa čítajú voľne.
+     *
+     * @return array{delimiter: string, email: int, name: ?int, labels: ?int}|null
+     */
+    private static function csvHeader(string $line): ?array
+    {
+        if ($line === '') {
+            return null;
+        }
+
+        $delimiter = collect([';', "\t", ','])->sortByDesc(fn ($d) => substr_count($line, $d))->first();
+        $keys = array_map(fn ($field) => Str::slug((string) $field), str_getcsv($line, $delimiter, '"', ''));
+        $find = function (array $names) use ($keys): ?int {
+            $index = array_search(true, array_map(fn ($key) => in_array($key, $names, true), $keys), true);
+
+            return $index === false ? null : $index;
+        };
+        $email = $find(['email', 'e-mail', 'mail', 'adresa', 'emailova-adresa']);
+
+        if ($email === null) {
+            return null;
+        }
+
+        return [
+            'delimiter' => $delimiter,
+            'email' => $email,
+            'name' => $find(['meno', 'name', 'meno-a-priezvisko', 'nazov', 'kontakt']),
+            'labels' => $find(['stitky', 'stitok', 'labels', 'label', 'tags']),
+        ];
+    }
+
+    /**
+     * Riadok CSV podľa hlavičky: [adresa, meno, názvy štítkov]. Null, keď
+     * v stĺpci adresy nie je platná adresa – riadok sa potom číta voľne.
+     *
+     * @param  array{delimiter: string, email: int, name: ?int, labels: ?int}  $columns
+     * @return array{0: string, 1: ?string, 2: list<string>}|null
+     */
+    private static function csvRow(string $line, array $columns): ?array
+    {
+        $fields = array_map(fn ($field) => trim((string) $field, " \t\"'"), str_getcsv($line, $columns['delimiter'], '"', ''));
+        $email = $fields[$columns['email']] ?? '';
+
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return null;
+        }
+
+        $name = $columns['name'] !== null ? ($fields[$columns['name']] ?? '') : '';
+        $labels = $columns['labels'] !== null ? preg_split('/[,;|]+/', $fields[$columns['labels']] ?? '') : [];
+
+        return [
+            $email,
+            $name !== '' ? $name : null,
+            array_values(array_filter(array_map('trim', $labels), fn ($label) => $label !== '')),
+        ];
     }
 
     /**

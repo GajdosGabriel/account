@@ -255,6 +255,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('mailing/contacts', [MailingController::class, 'contacts'])->name('mailing.contacts');
     Route::post('mailing/contacts', [MailingController::class, 'storeContacts'])->name('mailing.contacts.store');
+    Route::get('mailing/contacts/export', [MailingController::class, 'exportContacts'])->name('mailing.contacts.export');
     Route::post('mailing/contacts/bounce', [MailingController::class, 'bounce'])->name('mailing.contacts.bounce');
     Route::post('mailing/contacts/bulk', [MailingController::class, 'bulkContacts'])->name('mailing.contacts.bulk');
     Route::post('mailing/labels', [MailingController::class, 'storeLabel'])->name('mailing.labels.store');

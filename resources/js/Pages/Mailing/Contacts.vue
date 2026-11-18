@@ -129,13 +129,30 @@ const clearSelection = () => { selected.value = new Set(); allMatching.value = f
 // Iný filter = iný výber.
 watch(() => props.filters, clearSelection, { deep: true });
 
-const bulk = useForm({ action: 'add_labels', labels: [] });
+const bulk = useForm({ action: 'add_labels', labels: [], product_key: null, with_labels: true, consent: true });
 const bulkNeedsLabels = computed(() => ['add_labels', 'remove_labels'].includes(bulk.action));
+const copyTargets = computed(() => props.products.filter((p) => p.key !== filter.value.product));
+const productName = (key) => props.products.find((p) => p.key === key)?.name ?? key;
+
+watch(() => bulk.action, (action) => {
+    bulk.labels = [];
+    if (action === 'copy' && !copyTargets.value.some((p) => p.key === bulk.product_key)) bulk.product_key = copyTargets.value[0]?.key ?? null;
+});
+
+// Export: vybrané kontakty, alebo všetky podľa filtra.
+const exportUrl = (ids = []) => {
+    const params = new URLSearchParams(query());
+    ids.forEach((id) => params.append('ids[]', id));
+    const qs = params.toString();
+
+    return `/mailing/contacts/export${qs ? `?${qs}` : ''}`;
+};
+const exportSelectedUrl = computed(() => exportUrl(allMatching.value ? [] : [...selected.value]));
 
 const runBulk = () => {
     const count = selectedCount.value;
-    const ask = { delete: 'confirm_delete', unsubscribe: 'confirm_unsubscribe', consent: 'confirm_consent' }[bulk.action];
-    if (ask && !confirm(t(`mailing.contacts.bulk.${ask}`, { count }))) return;
+    const ask = { delete: 'confirm_delete', unsubscribe: 'confirm_unsubscribe', consent: 'confirm_consent', copy: 'confirm_copy' }[bulk.action];
+    if (ask && !confirm(t(`mailing.contacts.bulk.${ask}`, { count, product: productName(bulk.product_key) }))) return;
 
     bulk.transform((data) => ({
         ...data,
@@ -174,6 +191,7 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
 
     <PageHeader :title="t('mailing.contacts.title')" :subtitle="t('mailing.contacts.subtitle')">
         <template #action>
+            <a :href="exportUrl()" class="btn-secondary" :title="t('mailing.contacts.export_hint')">{{ t('mailing.contacts.export') }}</a>
             <button type="button" class="btn-secondary" @click="panel = panel === 'labels' ? null : 'labels'">{{ t('mailing.labels.manage') }}</button>
             <button type="button" class="btn-secondary" @click="panel = panel === 'bounce' ? null : 'bounce'">{{ t('mailing.contacts.report_bounce') }}</button>
             <button type="button" class="btn-primary" @click="panel = panel === 'add' ? null : 'add'"><Icon name="plus" :size="16" /> {{ t('mailing.contacts.add') }}</button>
@@ -351,17 +369,30 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
                 <option value="remove_labels">{{ t('mailing.contacts.bulk.remove_labels') }}</option>
                 <option value="consent">{{ t('mailing.contacts.bulk.consent') }}</option>
                 <option value="unsubscribe">{{ t('mailing.contacts.bulk.unsubscribe') }}</option>
+                <option value="copy">{{ t('mailing.contacts.bulk.copy') }}</option>
                 <option value="delete">{{ t('mailing.contacts.bulk.delete') }}</option>
             </select>
             <LabelPicker v-if="bulkNeedsLabels" v-model="bulk.labels" :options="labelsOf(filter.product)" :creatable="bulk.action === 'add_labels'" class="min-w-[16rem] flex-1" />
-            <button type="submit" class="btn-primary !py-1.5" :class="bulk.action === 'delete' ? '!bg-rose-600 hover:!bg-rose-700' : ''" :disabled="bulk.processing || (bulkNeedsLabels && !bulk.labels.length)">{{ t('mailing.contacts.bulk.apply') }}</button>
+            <template v-if="bulk.action === 'copy'">
+                <select v-model="bulk.product_key" class="!w-auto !py-1.5 text-sm" :aria-label="t('mailing.contacts.bulk.copy_target')" required>
+                    <option v-for="p in copyTargets" :key="p.key" :value="p.key">{{ p.name }}</option>
+                </select>
+                <LabelPicker v-model="bulk.labels" :options="labelsOf(bulk.product_key)" :placeholder="t('mailing.contacts.bulk.copy_labels')" class="min-w-[14rem] flex-1" />
+            </template>
+            <button type="submit" class="btn-primary !py-1.5" :class="bulk.action === 'delete' ? '!bg-rose-600 hover:!bg-rose-700' : ''" :disabled="bulk.processing || (bulkNeedsLabels && !bulk.labels.length) || (bulk.action === 'copy' && !bulk.product_key)">{{ t('mailing.contacts.bulk.apply') }}</button>
+            <a :href="exportSelectedUrl" class="link text-xs">{{ t('mailing.contacts.export_selected') }}</a>
             <button type="button" class="text-xs text-slate-500 hover:underline" @click="clearSelection">{{ t('mailing.contacts.clear_selection') }}</button>
         </form>
+        <div v-if="bulk.action === 'copy'" class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+            <label class="flex items-center gap-1.5"><input v-model="bulk.with_labels" type="checkbox" /> {{ t('mailing.contacts.bulk.copy_with_labels') }}</label>
+            <label class="flex items-center gap-1.5"><input v-model="bulk.consent" type="checkbox" /> {{ t('mailing.contacts.bulk.copy_consent') }}</label>
+            <span class="text-slate-500">{{ t('mailing.contacts.bulk.copy_hint') }}</span>
+        </div>
         <p v-if="allMatching" class="text-xs text-slate-600">{{ t('mailing.contacts.all_matching_selected', { count: contacts.total }) }}</p>
         <p v-else-if="pageSelected && contacts.total > pageIds.length" class="text-xs">
             <button type="button" class="link" @click="allMatching = true">{{ t('mailing.contacts.select_all_matching', { count: contacts.total }) }}</button>
         </p>
-        <InputError :message="bulk.errors.labels || bulk.errors.ids || bulk.errors.action" />
+        <InputError :message="bulk.errors.labels || bulk.errors.ids || bulk.errors.action || bulk.errors.product_key" />
     </div>
 
     <div class="card overflow-hidden">
