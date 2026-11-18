@@ -8,7 +8,7 @@ import DropdownMenu from '../../Components/DropdownMenu.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
 import { invoiceMenu, isoDate, money, shortDate } from '../../Composables/useInvoiceActions';
-import { t, tc } from '../../Composables/useLang';
+import { locale, t, tc } from '../../Composables/useLang';
 
 const props = defineProps({
     invoice: { type: Object, required: true },
@@ -134,14 +134,14 @@ const saveItem = () => {
 };
 
 const removeItem = (item) => {
-    if (!confirm(`Odstrániť položku „${item.description}“?`)) return;
+    if (!confirm(t('ui.invoice.remove_item_confirm', { name: item.description }))) return;
     router.delete(`${base.value}/items/${item.id}`, { preserveScroll: true });
 };
 
 const itemMenu = (item) => [
-    { label: 'Upraviť položku', icon: 'pencil', can: 'update', onSelect: () => startEdit(item) },
+    { label: t('ui.invoice.edit_item'), icon: 'pencil', can: 'update', onSelect: () => startEdit(item) },
     {
-        label: 'Duplikovať položku',
+        label: t('ui.invoice.duplicate_item'),
         icon: 'copy',
         can: 'update',
         onSelect: () =>
@@ -160,26 +160,26 @@ const itemMenu = (item) => [
             ),
     },
     { separator: true },
-    { label: 'Odstrániť položku', icon: 'trash', can: 'update', danger: true, onSelect: () => removeItem(item) },
+    { label: t('ui.invoice.remove_item'), icon: 'trash', can: 'update', danger: true, onSelect: () => removeItem(item) },
 ];
 
 const num = (value, decimals = 2) =>
-    new Intl.NumberFormat('sk-SK', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(value ?? 0);
+    new Intl.NumberFormat(locale(), { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(value ?? 0);
 
 const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
 </script>
 
 <template>
-    <Head :title="`${invoice.type_label} ${invoice.number ?? '(koncept)'}`" />
+    <Head :title="`${invoice.type_label} ${invoice.number ?? `(${t('ui.invoice.draft')})`}`" />
 
     <PageHeader
-        :title="`${invoice.type_label} ${invoice.number ?? '(koncept)'}`"
+        :title="`${invoice.type_label} ${invoice.number ?? `(${t('ui.invoice.draft')})`}`"
         :subtitle="invoice.organization.name"
     >
         <template #action>
             <a v-if="preview_url" :href="preview_url" target="_blank" class="btn-secondary">
                 <Icon name="eye" :size="16" />
-                Náhľad
+                {{ t('ui.invoice.preview') }}
             </a>
             <a v-if="pdf_available" :href="`${base}/pdf`" target="_blank" class="btn-secondary">
                 <Icon name="download" :size="16" />
@@ -187,11 +187,11 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
             </a>
             <button v-if="invoice.can.issue" type="button" class="btn-primary" @click="issue">
                 <Icon name="check" :size="16" />
-                Vystaviť
+                {{ t('ui.invoice.issue') }}
             </button>
             <button v-else-if="invoice.can.send" type="button" class="btn-primary" @click="openSend">
                 <Icon name="send" :size="16" />
-                Poslať e-mailom
+                {{ t('actions.invoice.send') }}
             </button>
             <DropdownMenu :abilities="invoice.can" :items="menu" show-disabled />
         </template>
@@ -210,7 +210,7 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
     <!-- Stavový pás -->
     <div class="card mb-6 flex flex-wrap items-center gap-x-8 gap-y-4 px-5 py-4">
         <div>
-            <p class="text-xs text-slate-500">Stav</p>
+            <p class="text-xs text-slate-500">{{ t('invoices.table.status') }}</p>
             <StatusBadge
                 class="mt-1"
                 :status="invoice.status"
@@ -219,31 +219,31 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
             />
         </div>
         <div>
-            <p class="text-xs text-slate-500">Celkom</p>
+            <p class="text-xs text-slate-500">{{ t('ui.invoice.total') }}</p>
             <p class="mt-0.5 text-lg font-semibold tracking-tight text-slate-900">{{ invoice.total }}</p>
         </div>
         <div v-if="invoice.outstanding_cents > 0 && !invoice.can.issue">
-            <p class="text-xs text-slate-500">Zostáva uhradiť</p>
+            <p class="text-xs text-slate-500">{{ t('ui.invoice.outstanding') }}</p>
             <p class="mt-0.5 text-lg font-semibold tracking-tight" :class="invoice.is_overdue ? 'text-rose-600' : 'text-brand-700'">
                 {{ invoice.outstanding }}
             </p>
         </div>
         <div v-if="invoice.due_at">
-            <p class="text-xs text-slate-500">Splatnosť</p>
+            <p class="text-xs text-slate-500">{{ t('invoices.table.due') }}</p>
             <p class="mt-0.5 font-medium" :class="invoice.is_overdue ? 'text-rose-600' : 'text-slate-900'">
                 {{ shortDate(invoice.due_at) }}
                 <span v-if="invoice.is_overdue" class="text-xs font-normal">· {{ tc('invoices.table.days_overdue', invoice.days_overdue ?? 0) }}</span>
             </p>
         </div>
         <div v-if="invoice.sent_at">
-            <p class="text-xs text-slate-500">Odoslané</p>
+            <p class="text-xs text-slate-500">{{ t('ui.invoice.sent') }}</p>
             <p class="mt-0.5 text-sm font-medium text-slate-900">
                 {{ invoice.sent_to }}
                 <span class="text-slate-400">· {{ invoice.sent_count }}×</span>
             </p>
         </div>
         <div v-if="invoice.parent" class="ml-auto">
-            <p class="text-xs text-slate-500">Väzba</p>
+            <p class="text-xs text-slate-500">{{ t('ui.invoice.parent') }}</p>
             <Link :href="`/invoices/${invoice.parent.id}`" class="link text-sm">
                 {{ invoice.parent.type_label }} {{ invoice.parent.number }}
             </Link>
@@ -255,13 +255,13 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
         <div class="space-y-6 lg:col-span-2">
             <CardSection
                 icon="invoice"
-                title="Položky dokladu"
-                :description="editable ? 'Koncept sa dá ľubovoľne meniť.' : 'Vystavený doklad je zamknutý – opravuje sa dobropisom.'"
+                :title="t('ui.invoice.items')"
+                :description="editable ? t('ui.invoice.items_editable') : t('ui.invoice.items_locked')"
             >
                 <template v-if="editable" #action>
                     <button type="button" class="btn-secondary btn-sm" @click="startAdd">
                         <Icon name="plus" :size="15" />
-                        Pridať položku
+                        {{ t('ui.invoice.add_item') }}
                     </button>
                 </template>
 
@@ -269,11 +269,11 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                     <table class="w-full text-sm">
                         <thead>
                             <tr class="border-b border-slate-100 bg-slate-50/70 text-left text-xs uppercase tracking-wide text-slate-500">
-                                <th class="px-5 py-2.5 font-semibold">Popis</th>
-                                <th class="px-3 py-2.5 text-right font-semibold">Množstvo</th>
-                                <th class="px-3 py-2.5 text-right font-semibold">Cena / MJ</th>
-                                <th class="px-3 py-2.5 text-right font-semibold">DPH</th>
-                                <th class="px-3 py-2.5 text-right font-semibold">Spolu</th>
+                                <th class="px-5 py-2.5 font-semibold">{{ t('ui.invoice.description') }}</th>
+                                <th class="px-3 py-2.5 text-right font-semibold">{{ t('ui.invoice.quantity') }}</th>
+                                <th class="px-3 py-2.5 text-right font-semibold">{{ t('ui.invoice.unit_price_short') }}</th>
+                                <th class="px-3 py-2.5 text-right font-semibold">{{ t('ui.invoice.vat') }}</th>
+                                <th class="px-3 py-2.5 text-right font-semibold">{{ t('ui.invoice.line_total') }}</th>
                                 <th class="w-10 px-2 py-2.5"></th>
                             </tr>
                         </thead>
@@ -282,9 +282,9 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                                 <td class="px-5 py-3">
                                     <p class="font-medium text-slate-900">{{ item.description }}</p>
                                     <p v-if="item.detail" class="text-xs text-slate-500">{{ item.detail }}</p>
-                                    <p v-if="item.period" class="text-xs text-slate-400">Obdobie: {{ item.period }}</p>
+                                    <p v-if="item.period" class="text-xs text-slate-400">{{ t('ui.invoice.period') }}: {{ item.period }}</p>
                                     <p v-if="item.discount_percent > 0" class="text-xs text-emerald-600">
-                                        Zľava {{ trimmed(item.discount_percent) }} %
+                                        {{ t('ui.invoice.discount') }} {{ trimmed(item.discount_percent) }} %
                                     </p>
                                 </td>
                                 <td class="px-3 py-3 text-right whitespace-nowrap text-slate-600">
@@ -302,8 +302,8 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
 
                             <tr v-if="!invoice.items.length">
                                 <td colspan="6" class="px-5 py-10 text-center text-sm text-slate-400">
-                                    Doklad zatiaľ nemá položky.
-                                    <button v-if="editable" type="button" class="link ml-1" @click="startAdd">Pridať prvú</button>
+                                    {{ t('ui.invoice.no_items') }}
+                                    <button v-if="editable" type="button" class="link ml-1" @click="startAdd">{{ t('ui.invoice.add_first') }}</button>
                                 </td>
                             </tr>
                         </tbody>
@@ -315,25 +315,25 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                         <table class="text-sm">
                             <tbody>
                                 <tr>
-                                    <td class="py-1 pr-8 text-slate-500">Základ dane</td>
+                                    <td class="py-1 pr-8 text-slate-500">{{ t('ui.invoice.tax_base') }}</td>
                                     <td class="py-1 text-right font-medium whitespace-nowrap text-slate-900">
                                         {{ money(invoice.subtotal_cents, invoice.currency) }}
                                     </td>
                                 </tr>
                                 <tr v-for="row in invoice.vat_summary.filter((r) => r.rate > 0)" :key="row.rate">
-                                    <td class="py-1 pr-8 text-slate-500">DPH {{ trimmed(row.rate) }} %</td>
+                                    <td class="py-1 pr-8 text-slate-500">{{ t('ui.invoice.vat') }} {{ trimmed(row.rate) }} %</td>
                                     <td class="py-1 text-right font-medium whitespace-nowrap text-slate-900">
                                         {{ money(row.vat_cents, invoice.currency) }}
                                     </td>
                                 </tr>
                                 <tr class="border-t-2 border-brand-600">
-                                    <td class="pt-2 pr-8 font-semibold text-brand-700">Celkom</td>
+                                    <td class="pt-2 pr-8 font-semibold text-brand-700">{{ t('ui.invoice.total') }}</td>
                                     <td class="pt-2 text-right text-lg font-bold whitespace-nowrap text-brand-700">
                                         {{ invoice.total }}
                                     </td>
                                 </tr>
                                 <tr v-if="invoice.paid_cents > 0">
-                                    <td class="pt-1 pr-8 text-xs text-slate-500">Už uhradené</td>
+                                    <td class="pt-1 pr-8 text-xs text-slate-500">{{ t('ui.invoice.already_paid') }}</td>
                                     <td class="pt-1 text-right text-xs whitespace-nowrap text-emerald-600">
                                         −{{ money(invoice.paid_cents, invoice.currency) }}
                                     </td>
@@ -345,47 +345,47 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
             </CardSection>
 
             <!-- Formulár položky -->
-            <CardSection v-if="itemOpen" icon="pencil" :title="editingId ? 'Upraviť položku' : 'Nová položka'" tone="slate">
+            <CardSection v-if="itemOpen" icon="pencil" :title="editingId ? t('ui.invoice.edit_item') : t('ui.invoice.new_item')" tone="slate">
                 <div class="grid gap-4 sm:grid-cols-6">
                     <div class="sm:col-span-6">
-                        <label>Popis</label>
-                        <input v-model="itemForm.description" type="text" placeholder="Predplatné Projekt 1 – Standard" />
+                        <label>{{ t('ui.invoice.description') }}</label>
+                        <input v-model="itemForm.description" type="text" :placeholder="t('ui.invoice.description_placeholder')" />
                         <InputError :message="itemForm.errors.description" />
                     </div>
                     <div class="sm:col-span-6">
-                        <label>Doplňujúci text <span class="font-normal text-slate-400">(nepovinné)</span></label>
-                        <input v-model="itemForm.detail" type="text" placeholder="Mesačné predplatné" />
+                        <label>{{ t('ui.invoice.detail') }} <span class="font-normal text-slate-400">({{ t('ui.invoice.optional') }})</span></label>
+                        <input v-model="itemForm.detail" type="text" :placeholder="t('ui.invoice.detail_placeholder')" />
                     </div>
                     <div class="sm:col-span-2">
-                        <label>Množstvo</label>
+                        <label>{{ t('ui.invoice.quantity') }}</label>
                         <input v-model="itemForm.quantity" type="number" step="0.001" />
                         <InputError :message="itemForm.errors.quantity" />
                     </div>
                     <div class="sm:col-span-2">
-                        <label>Merná jednotka</label>
-                        <input v-model="itemForm.unit" type="text" placeholder="mesiac" />
+                        <label>{{ t('ui.invoice.unit') }}</label>
+                        <input v-model="itemForm.unit" type="text" :placeholder="t('ui.invoice.unit_placeholder')" />
                     </div>
                     <div class="sm:col-span-2">
-                        <label>Cena za MJ bez DPH</label>
+                        <label>{{ t('ui.invoice.unit_price') }}</label>
                         <input v-model="itemForm.unit_price" type="number" step="0.0001" placeholder="29.00" />
                         <InputError :message="itemForm.errors.unit_price" />
                     </div>
                     <div class="sm:col-span-2">
-                        <label>Zľava (%)</label>
+                        <label>{{ t('ui.invoice.discount') }} (%)</label>
                         <input v-model="itemForm.discount_percent" type="number" step="0.01" min="0" max="100" />
                     </div>
                     <div class="sm:col-span-2">
-                        <label>Sadzba DPH (%)</label>
+                        <label>{{ t('ui.invoice.vat_rate') }} (%)</label>
                         <input v-model="itemForm.vat_rate" type="number" step="0.01" min="0" max="100" />
                         <InputError :message="itemForm.errors.vat_rate" />
                     </div>
                     <div class="sm:col-span-2"></div>
                     <div class="sm:col-span-3">
-                        <label>Obdobie od <span class="font-normal text-slate-400">(nepovinné)</span></label>
+                        <label>{{ t('ui.invoice.period_from') }} <span class="font-normal text-slate-400">({{ t('ui.invoice.optional') }})</span></label>
                         <input v-model="itemForm.period_start" type="date" />
                     </div>
                     <div class="sm:col-span-3">
-                        <label>Obdobie do</label>
+                        <label>{{ t('ui.invoice.period_to') }}</label>
                         <input v-model="itemForm.period_end" type="date" />
                         <InputError :message="itemForm.errors.period_end" />
                     </div>
@@ -393,16 +393,16 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
 
                 <template #footer>
                     <div class="flex justify-end gap-2">
-                        <button type="button" class="btn-secondary" @click="itemOpen = false">Zrušiť</button>
+                        <button type="button" class="btn-secondary" @click="itemOpen = false">{{ t('common.form.cancel') }}</button>
                         <button type="button" class="btn-primary" :disabled="itemForm.processing" @click="saveItem">
-                            {{ editingId ? 'Uložiť zmeny' : 'Pridať položku' }}
+                            {{ editingId ? t('ui.settings.save') : t('ui.invoice.add_item') }}
                         </button>
                     </div>
                 </template>
             </CardSection>
 
             <!-- História -->
-            <CardSection icon="clock" title="História dokladu" description="Kto čo urobil a kedy.">
+            <CardSection icon="clock" :title="t('ui.invoice.history')" :description="t('ui.invoice.history_hint')">
                 <ol class="space-y-3">
                     <li v-for="event in invoice.events" :key="event.id" class="flex gap-3">
                         <span class="chip mt-0.5 h-7 w-7 shrink-0 bg-slate-100 text-slate-500">
@@ -412,63 +412,63 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                             <p class="text-sm font-medium text-slate-900">{{ event.label }}</p>
                             <p v-if="event.description" class="text-sm text-slate-500">{{ event.description }}</p>
                             <p class="mt-0.5 text-xs text-slate-400">
-                                {{ new Date(event.at).toLocaleString('sk-SK') }}
+                                {{ new Date(event.at).toLocaleString(locale()) }}
                                 <span v-if="event.user"> · {{ event.user }}</span>
                             </p>
                         </div>
                     </li>
-                    <li v-if="!invoice.events.length" class="text-sm text-slate-400">Zatiaľ žiadne záznamy.</li>
+                    <li v-if="!invoice.events.length" class="text-sm text-slate-400">{{ t('ui.invoice.no_history') }}</li>
                 </ol>
             </CardSection>
         </div>
 
         <!-- ============ BOČNÝ PANEL ============ -->
         <div class="space-y-6">
-            <CardSection icon="card" title="Doklad" :description="editable ? null : 'Zamknuté – doklad je vystavený.'">
+            <CardSection icon="card" :title="t('invoices.table.document')" :description="editable ? null : t('ui.invoice.locked')">
                 <div class="space-y-4">
                     <div class="grid gap-3 sm:grid-cols-2">
                         <div>
-                            <label>Vystavené</label>
+                            <label>{{ t('invoices.table.issued') }}</label>
                             <input v-model="headerForm.issued_at" type="date" :disabled="!editable" />
                         </div>
                         <div>
-                            <label>Dodané</label>
+                            <label>{{ t('ui.invoice.delivered') }}</label>
                             <input v-model="headerForm.delivered_at" type="date" :disabled="!editable" />
                         </div>
                         <div>
-                            <label>Splatnosť</label>
+                            <label>{{ t('invoices.table.due') }}</label>
                             <input v-model="headerForm.due_at" type="date" :disabled="!editable" />
                             <InputError :message="headerForm.errors.due_at" />
                         </div>
                         <div>
-                            <label>Variabilný symbol</label>
+                            <label>{{ t('ui.invoice.variable_symbol') }}</label>
                             <input v-model="headerForm.variable_symbol" type="text" :disabled="!editable" />
                             <InputError :message="headerForm.errors.variable_symbol" />
                         </div>
                         <div>
-                            <label>Konštantný symbol</label>
+                            <label>{{ t('ui.invoice_form.constant_symbol') }}</label>
                             <input v-model="headerForm.constant_symbol" type="text" :disabled="!editable" />
                         </div>
                         <div>
-                            <label>Špecifický symbol</label>
+                            <label>{{ t('ui.invoice_form.specific_symbol') }}</label>
                             <input v-model="headerForm.specific_symbol" type="text" :disabled="!editable" />
                         </div>
                     </div>
 
                     <div>
-                        <label>Poznámka na faktúre</label>
+                        <label>{{ t('ui.invoice_form.note') }}</label>
                         <textarea v-model="headerForm.note" rows="2" :disabled="!editable"></textarea>
                     </div>
 
                     <div>
-                        <label>Interná poznámka <span class="font-normal text-slate-400">(nevidí zákazník)</span></label>
+                        <label>{{ t('ui.invoice.internal_note') }} <span class="font-normal text-slate-400">({{ t('ui.invoice.internal_note_hint') }})</span></label>
                         <textarea v-model="headerForm.internal_note" rows="2" :disabled="!editable"></textarea>
                     </div>
                 </div>
 
                 <template v-if="editable" #footer>
                     <button type="button" class="btn-primary w-full" :disabled="headerForm.processing" @click="saveHeader">
-                        Uložiť
+                        {{ t('common.form.save') }}
                     </button>
                 </template>
             </CardSection>
@@ -481,7 +481,7 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                 <span>{{ invoice.vat_note }}</span>
             </div>
 
-            <CardSection v-if="credit_notes.length" icon="invoice" title="Súvisiace doklady" tone="slate">
+            <CardSection v-if="credit_notes.length" icon="invoice" :title="t('ui.invoice.related')" tone="slate">
                 <ul class="space-y-2">
                     <li v-for="doc in credit_notes" :key="doc.id" class="flex items-center justify-between text-sm">
                         <Link :href="`/invoices/${doc.id}`" class="link">{{ doc.type_label }} {{ doc.number }}</Link>
@@ -491,7 +491,7 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
             </CardSection>
 
             <div v-if="!pdf_available" class="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-                PDF nie je k dispozícii – chýba knižnica dompdf.
+                {{ t('ui.invoice.no_pdf') }}
                 <code class="mt-1 block text-xs">composer require barryvdh/laravel-dompdf</code>
             </div>
         </div>
@@ -512,64 +512,64 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
             <div class="card relative w-full max-w-md p-6">
                 <!-- Odoslanie -->
                 <template v-if="dialog === 'send'">
-                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">Poslať doklad e-mailom</h2>
+                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">{{ t('ui.invoice.send_title') }}</h2>
                     <p class="mt-1 mb-4 text-sm text-slate-500">
-                        PDF sa priloží automaticky. Prázdna adresa = fakturačný e-mail firmy.
+                        {{ t('ui.invoice.send_hint') }}
                     </p>
                     <div class="space-y-3">
                         <div>
-                            <label for="send-email">E-mail príjemcu</label>
-                            <input id="send-email" v-model="sendForm.email" type="email" autofocus placeholder="faktury@firma.sk" />
+                            <label for="send-email">{{ t('ui.invoice.recipient') }}</label>
+                            <input id="send-email" v-model="sendForm.email" type="email" autofocus :placeholder="t('ui.invoice.recipient_placeholder')" />
                             <InputError :message="sendForm.errors.email" />
                         </div>
                         <div>
-                            <label for="send-message">Sprievodný text <span class="font-normal text-slate-400">(nepovinné)</span></label>
-                            <textarea id="send-message" v-model="sendForm.message" rows="3" placeholder="Dobrý deň, v prílohe posielame…"></textarea>
+                            <label for="send-message">{{ t('ui.invoice.message') }} <span class="font-normal text-slate-400">({{ t('ui.invoice.optional') }})</span></label>
+                            <textarea id="send-message" v-model="sendForm.message" rows="3" :placeholder="t('ui.invoice.message_placeholder')"></textarea>
                         </div>
                     </div>
                     <div class="mt-5 flex justify-end gap-2">
-                        <button type="button" class="btn-secondary" @click="close">Zrušiť</button>
+                        <button type="button" class="btn-secondary" @click="close">{{ t('common.form.cancel') }}</button>
                         <button type="button" class="btn-primary" :disabled="sendForm.processing" @click="submitSend">
-                            Odoslať
+                            {{ t('ui.invoice.send') }}
                         </button>
                     </div>
                 </template>
 
                 <!-- Úhrada -->
                 <template v-else-if="dialog === 'pay'">
-                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">Zaznamenať úhradu</h2>
+                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">{{ t('actions.invoice.pay') }}</h2>
                     <p class="mt-1 mb-4 text-sm text-slate-500">
-                        Zostáva uhradiť {{ invoice.outstanding }}. Menšia suma sa zapíše ako čiastočná platba.
+                        {{ t('ui.invoice.pay_hint', { amount: invoice.outstanding }) }}
                     </p>
                     <div class="space-y-3">
                         <div>
-                            <label for="pay-amount">Suma ({{ invoice.currency }})</label>
+                            <label for="pay-amount">{{ t('ui.invoice.amount') }} ({{ invoice.currency }})</label>
                             <input id="pay-amount" v-model="payForm.amount" type="number" step="0.01" min="0.01" autofocus />
                             <InputError :message="payForm.errors.amount" />
                         </div>
                         <div>
-                            <label for="pay-date">Dátum úhrady</label>
+                            <label for="pay-date">{{ t('ui.invoice.paid_at') }}</label>
                             <input id="pay-date" v-model="payForm.paid_at" type="date" />
                             <InputError :message="payForm.errors.paid_at" />
                         </div>
                         <div>
-                            <label for="pay-note">Poznámka</label>
-                            <input id="pay-note" v-model="payForm.note" type="text" placeholder="Výpis č. 8/2026" />
+                            <label for="pay-note">{{ t('ui.invoice.pay_note') }}</label>
+                            <input id="pay-note" v-model="payForm.note" type="text" :placeholder="t('ui.invoice.pay_note_placeholder')" />
                         </div>
                     </div>
                     <div class="mt-5 flex justify-end gap-2">
-                        <button type="button" class="btn-secondary" @click="close">Zrušiť</button>
+                        <button type="button" class="btn-secondary" @click="close">{{ t('common.form.cancel') }}</button>
                         <button type="button" class="btn-primary" :disabled="payForm.processing" @click="submitPay">
-                            Zaznamenať
+                            {{ t('ui.invoice.record') }}
                         </button>
                     </div>
                 </template>
 
                 <!-- Dobropis -->
                 <template v-else-if="dialog === 'credit'">
-                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">Vystaviť dobropis</h2>
+                    <h2 id="invoice-dialog-title" class="text-lg font-semibold text-slate-900">{{ t('actions.invoice.credit') }}</h2>
                     <p class="mt-1 mb-4 text-sm text-slate-500">
-                        Vyber položky, ktoré sa majú dobropisovať. Dobropis vznikne rovno vystavený.
+                        {{ t('ui.invoice.credit_hint') }}
                     </p>
                     <div class="max-h-56 space-y-2 overflow-y-auto">
                         <label
@@ -585,18 +585,18 @@ const trimmed = (value) => num(value, 3).replace(/[,.]?0+$/, '');
                         </label>
                     </div>
                     <div class="mt-3">
-                        <label for="credit-reason">Dôvod</label>
-                        <input id="credit-reason" v-model="creditForm.reason" type="text" placeholder="Reklamácia, zrušená objednávka…" />
+                        <label for="credit-reason">{{ t('ui.invoice.reason') }}</label>
+                        <input id="credit-reason" v-model="creditForm.reason" type="text" :placeholder="t('ui.invoice.reason_placeholder')" />
                     </div>
                     <div class="mt-5 flex justify-end gap-2">
-                        <button type="button" class="btn-secondary" @click="close">Zrušiť</button>
+                        <button type="button" class="btn-secondary" @click="close">{{ t('common.form.cancel') }}</button>
                         <button
                             type="button"
                             class="btn-danger"
                             :disabled="creditForm.processing || !creditForm.items.length"
                             @click="submitCredit"
                         >
-                            Vystaviť dobropis
+                            {{ t('actions.invoice.credit') }}
                         </button>
                     </div>
                 </template>

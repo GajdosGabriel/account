@@ -126,8 +126,8 @@ const savePlan = () => {
 const closePlan = () => { planOpen.value = false; editingPlan.value = null; };
 
 const formatFeatureValue = (feature, value) => {
-    if (feature.type === 'flag') return value ? 'áno' : 'nie';
-    if (value === null || value === undefined || value === '') return 'neobmedzene';
+    if (feature.type === 'flag') return value ? t('ui.product.yes') : t('ui.product.no');
+    if (value === null || value === undefined || value === '') return t('ui.product.unlimited');
     return `${value}${feature.unit ? ' ' + feature.unit : ''}`;
 };
 </script>
@@ -139,11 +139,11 @@ const formatFeatureValue = (feature, value) => {
         <template #action>
             <Link :href="`/organizations?product=${product.key}`" class="btn-secondary">
                 <Icon name="building" :size="16" />
-                Firmy projektu
+                {{ t('ui.product.organizations') }}
             </Link>
             <button type="button" class="btn-secondary" @click="settingsOpen = !settingsOpen">
                 <Icon name="settings" :size="16" />
-                {{ settingsOpen ? 'Zavrieť' : 'Nastavenia' }}
+                {{ settingsOpen ? t('common.secret.close') : t('ui.product.settings') }}
             </button>
             <RowActions
                 :abilities="productAbilities"
@@ -157,7 +157,7 @@ const formatFeatureValue = (feature, value) => {
     </PageHeader>
 
     <p v-if="product.deleted_at" class="mb-5 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600">
-        Projekt je {{ t('actions.trashed') }} – dá sa obnoviť alebo odstrániť natrvalo cez menu akcií.
+        {{ t('ui.product.trashed_note', { state: t('actions.trashed') }) }}
     </p>
 
     <div class="space-y-6">
@@ -165,18 +165,18 @@ const formatFeatureValue = (feature, value) => {
         <CardSection
             v-if="settingsOpen"
             icon="code"
-            title="Nastavenia projektu"
-            description="Názov, adresa a kľúč. Kľúč sa používa v URL aj v odpovedi entitlements."
+            :title="t('ui.product.settings_title')"
+            :description="t('ui.product.settings_hint')"
         >
             <form class="grid gap-4 sm:grid-cols-6" @submit.prevent="saveProduct">
                 <div class="sm:col-span-4">
-                    <label for="p_name">Názov</label>
+                    <label for="p_name">{{ t('ui.product.name') }}</label>
                     <input id="p_name" v-model="productForm.name" type="text" required />
                     <InputError :message="productForm.errors.name" />
                 </div>
 
                 <div class="sm:col-span-2">
-                    <label for="p_key">Kľúč</label>
+                    <label for="p_key">{{ t('ui.product.key') }}</label>
                     <input id="p_key" v-model="productForm.key" type="text" required />
                     <InputError :message="productForm.errors.key" />
                 </div>
@@ -187,35 +187,33 @@ const formatFeatureValue = (feature, value) => {
                 >
                     <Icon name="warning" :size="18" class="mt-0.5 text-amber-600" />
                     <span>
-                        Kľúč sa objavuje v odpovedi <span class="font-mono">entitlements.product</span>.
-                        Ak si podľa neho projekt niečo rozhoduje alebo cachuje, uprav to aj tam.
-                        Service tokeny a webhooky zmena neovplyvní.
+                        {{ t('ui.product.key_warning') }}
                     </span>
                 </div>
 
                 <div class="sm:col-span-6">
-                    <label for="p_url">Adresa projektu</label>
+                    <label for="p_url">{{ t('ui.product.url') }}</label>
                     <input id="p_url" v-model="productForm.url" type="url" placeholder="https://projekt1.sk" />
                     <p class="mt-1.5 text-xs text-slate-500">
-                        Podľa domény sa kontrolujú návratové adresy a odkazy v e-mailoch.
+                        {{ t('ui.products.url_hint') }}
                     </p>
                     <InputError :message="productForm.errors.url" />
                 </div>
 
                 <div class="sm:col-span-6">
-                    <label for="p_description">Popis</label>
+                    <label for="p_description">{{ t('ui.product.description') }}</label>
                     <textarea id="p_description" v-model="productForm.description" rows="2"></textarea>
                     <InputError :message="productForm.errors.description" />
                 </div>
 
                 <div class="sm:col-span-6 flex flex-wrap items-center gap-4 border-t border-slate-100 pt-4">
                     <button type="submit" class="btn-primary" :disabled="productForm.processing">
-                        {{ productForm.processing ? 'Ukladám…' : 'Uložiť zmeny' }}
+                        {{ productForm.processing ? t('common.form.saving') : t('ui.settings.save') }}
                     </button>
 
                     <label class="flex items-center gap-2 text-sm font-normal text-slate-600">
                         <input v-model="productForm.is_active" type="checkbox" />
-                        aktívny — pri vypnutí prestane API prijímať volania
+                        {{ t('ui.product.active_hint') }}
                     </label>
                 </div>
             </form>
@@ -224,24 +222,24 @@ const formatFeatureValue = (feature, value) => {
         <!-- Katalóg funkcií -->
         <CardSection
             icon="shield"
-            title="Katalóg funkcií"
-            description="Určuje, aké kľúče môžu plány vôbec obsahovať. Bez neho by preklep prešiel ticho."
+            :title="t('ui.product.catalog')"
+            :description="t('ui.product.catalog_hint')"
         >
             <template #action>
                 <button type="button" class="btn-secondary btn-sm" @click="openFeature()">
                     <Icon name="plus" :size="15" />
-                    Pridať
+                    {{ t('ui.settings.add') }}
                 </button>
             </template>
 
             <table class="w-full text-left text-sm">
                 <thead class="text-xs uppercase tracking-wide text-slate-500">
                     <tr>
-                        <th class="pb-2 font-medium">Kľúč</th>
-                        <th class="pb-2 font-medium">Názov</th>
-                        <th class="pb-2 font-medium">Typ</th>
-                        <th class="pb-2 font-medium">Metrika spotreby</th>
-                        <th class="pb-2 font-medium">Predvolené</th>
+                        <th class="pb-2 font-medium">{{ t('ui.product.key') }}</th>
+                        <th class="pb-2 font-medium">{{ t('ui.product.name') }}</th>
+                        <th class="pb-2 font-medium">{{ t('ui.product.type') }}</th>
+                        <th class="pb-2 font-medium">{{ t('ui.product.metric') }}</th>
+                        <th class="pb-2 font-medium">{{ t('ui.product.default') }}</th>
                         <th class="pb-2"></th>
                     </tr>
                 </thead>
@@ -261,7 +259,7 @@ const formatFeatureValue = (feature, value) => {
                                     ? 'bg-violet-50 text-violet-700 ring-violet-600/20'
                                     : 'bg-sky-50 text-sky-700 ring-sky-600/20'"
                             >
-                                {{ feature.type === 'flag' ? 'prepínač' : 'limit' }}
+                                {{ feature.type === 'flag' ? t('ui.product.type_flag') : t('ui.product.type_limit') }}
                             </span>
                         </td>
                         <td class="py-2.5 font-mono text-xs text-slate-500">{{ feature.metric ?? '—' }}</td>
@@ -279,7 +277,7 @@ const formatFeatureValue = (feature, value) => {
                     </tr>
                     <tr v-if="features.length === 0">
                         <td colspan="6" class="py-8 text-center text-slate-500">
-                            Katalóg je prázdny. Začni napríklad funkciou <span class="font-mono">max_records</span>.
+                            {{ t('ui.product.catalog_empty') }} <span class="font-mono">max_records</span>.
                         </td>
                     </tr>
                 </tbody>
@@ -287,55 +285,55 @@ const formatFeatureValue = (feature, value) => {
 
             <form v-if="featureOpen" class="mt-5 grid gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2" @submit.prevent="saveFeature">
                 <div>
-                    <label for="f_key">Kľúč</label>
+                    <label for="f_key">{{ t('ui.product.key') }}</label>
                     <input id="f_key" v-model="featureForm.key" type="text" placeholder="max_records" required />
                     <InputError :message="featureForm.errors.key" />
                 </div>
                 <div>
-                    <label for="f_name">Názov</label>
-                    <input id="f_name" v-model="featureForm.name" type="text" placeholder="Počet záznamov" required />
+                    <label for="f_name">{{ t('ui.product.name') }}</label>
+                    <input id="f_name" v-model="featureForm.name" type="text" :placeholder="t('ui.product.name_placeholder')" required />
                     <InputError :message="featureForm.errors.name" />
                 </div>
                 <div>
-                    <label for="f_type">Typ</label>
+                    <label for="f_type">{{ t('ui.product.type') }}</label>
                     <select id="f_type" v-model="featureForm.type">
-                        <option value="limit">Limit — číslo, prázdne = neobmedzene</option>
-                        <option value="flag">Prepínač — áno/nie</option>
+                        <option value="limit">{{ t('ui.product.type_limit_option') }}</option>
+                        <option value="flag">{{ t('ui.product.type_flag_option') }}</option>
                     </select>
                 </div>
                 <div v-if="featureForm.type === 'limit'">
-                    <label for="f_unit">Jednotka</label>
-                    <input id="f_unit" v-model="featureForm.unit" type="text" placeholder="záznamov" />
+                    <label for="f_unit">{{ t('ui.product.unit') }}</label>
+                    <input id="f_unit" v-model="featureForm.unit" type="text" :placeholder="t('ui.product.unit_placeholder')" />
                 </div>
                 <div v-if="featureForm.type === 'limit'">
-                    <label for="f_metric">Metrika spotreby</label>
+                    <label for="f_metric">{{ t('ui.product.metric') }}</label>
                     <input id="f_metric" v-model="featureForm.metric" type="text" placeholder="records" />
-                    <p class="mt-1.5 text-xs text-slate-500">Kľúč, ktorý projekt posiela do <span class="font-mono">/usage</span>.</p>
+                    <p class="mt-1.5 text-xs text-slate-500">{{ t('ui.product.metric_hint') }} <span class="font-mono">/usage</span>.</p>
                     <InputError :message="featureForm.errors.metric" />
                 </div>
                 <div>
-                    <label for="f_default">Predvolená hodnota</label>
+                    <label for="f_default">{{ t('ui.product.default_value') }}</label>
                     <select v-if="featureForm.type === 'flag'" id="f_default" v-model="featureForm.default_value">
-                        <option :value="false">nie</option>
-                        <option :value="true">áno</option>
+                        <option :value="false">{{ t('ui.product.no') }}</option>
+                        <option :value="true">{{ t('ui.product.yes') }}</option>
                     </select>
-                    <input v-else id="f_default" v-model="featureForm.default_value" type="number" min="0" placeholder="prázdne = neobmedzene" />
+                    <input v-else id="f_default" v-model="featureForm.default_value" type="number" min="0" :placeholder="t('ui.product.empty_unlimited')" />
                 </div>
                 <div class="sm:col-span-2 flex gap-2">
                     <button type="submit" class="btn-primary" :disabled="featureForm.processing">
-                        {{ editingFeature ? 'Uložiť zmeny' : 'Pridať do katalógu' }}
+                        {{ editingFeature ? t('ui.settings.save') : t('ui.product.add_to_catalog') }}
                     </button>
-                    <button type="button" class="btn-secondary" @click="closeFeature">Zrušiť</button>
+                    <button type="button" class="btn-secondary" @click="closeFeature">{{ t('common.form.cancel') }}</button>
                 </div>
             </form>
         </CardSection>
 
         <!-- Cenník -->
-        <CardSection icon="card" tone="emerald" title="Cenník" description="Hodnoty sa berú z katalógu, takže sa nedá vymyslieť neexistujúci kľúč.">
+        <CardSection icon="card" tone="emerald" :title="t('ui.product.pricing')" :description="t('ui.product.pricing_hint')">
             <template #action>
                 <button type="button" class="btn-secondary btn-sm" :disabled="features.length === 0" @click="openPlan()">
                     <Icon name="plus" :size="15" />
-                    Nový plán
+                    {{ t('ui.product.new_plan') }}
                 </button>
             </template>
 
@@ -351,8 +349,8 @@ const formatFeatureValue = (feature, value) => {
                         <span class="text-sm font-semibold text-slate-900">{{ plan.price }}</span>
                     </div>
                     <p class="mt-0.5 text-xs text-slate-500">
-                        za {{ plan.interval === 'year' ? 'rok' : 'mesiac' }}
-                        <span v-if="plan.trial_days"> · {{ plan.trial_days }} dní zdarma</span>
+                        {{ plan.interval === 'year' ? t('ui.product.per_year') : t('ui.product.per_month') }}
+                        <span v-if="plan.trial_days"> · {{ t('ui.product.trial_days', { days: plan.trial_days }) }}</span>
                         <span v-if="plan.deleted_at"> · {{ t('actions.trashed') }}</span>
                     </p>
 
@@ -379,53 +377,53 @@ const formatFeatureValue = (feature, value) => {
                 </article>
 
                 <p v-if="plans.length === 0" class="text-sm text-slate-500">
-                    Zatiaľ žiadne plány.
-                    <span v-if="features.length === 0">Najprv doplň aspoň jednu funkciu do katalógu.</span>
+                    {{ t('ui.product.no_plans') }}
+                    <span v-if="features.length === 0">{{ t('ui.product.no_plans_hint') }}</span>
                 </p>
             </div>
 
             <form v-if="planOpen" class="mt-6 border-t border-slate-100 pt-5" @submit.prevent="savePlan">
                 <div class="grid gap-4 sm:grid-cols-3">
                     <div>
-                        <label for="p_key">Kľúč</label>
-                        <input id="p_key" v-model="planForm.key" type="text" placeholder="standard" required />
+                        <label for="pl_key">{{ t('ui.product.key') }}</label>
+                        <input id="pl_key" v-model="planForm.key" type="text" placeholder="standard" required />
                         <InputError :message="planForm.errors.key" />
                     </div>
                     <div>
-                        <label for="p_name">Názov</label>
-                        <input id="p_name" v-model="planForm.name" type="text" placeholder="Standard" required />
+                        <label for="pl_name">{{ t('ui.product.name') }}</label>
+                        <input id="pl_name" v-model="planForm.name" type="text" placeholder="Standard" required />
                         <InputError :message="planForm.errors.name" />
                     </div>
                     <div>
-                        <label for="p_price">Cena v centoch</label>
+                        <label for="p_price">{{ t('ui.product.price_cents') }}</label>
                         <input id="p_price" v-model.number="planForm.price_cents" type="number" min="0" required />
                         <p class="mt-1.5 text-xs text-slate-500">2900 = 29,00 €</p>
                     </div>
                     <div>
-                        <label for="p_interval">Obdobie</label>
+                        <label for="p_interval">{{ t('ui.product.interval') }}</label>
                         <select id="p_interval" v-model="planForm.interval">
-                            <option value="month">mesačne</option>
-                            <option value="year">ročne</option>
+                            <option value="month">{{ t('ui.product.monthly') }}</option>
+                            <option value="year">{{ t('ui.product.yearly') }}</option>
                         </select>
                     </div>
                     <div>
-                        <label for="p_trial">Skúšobné dni</label>
+                        <label for="p_trial">{{ t('ui.product.trial') }}</label>
                         <input id="p_trial" v-model.number="planForm.trial_days" type="number" min="0" max="365" />
                     </div>
                     <div>
-                        <label for="p_order">Poradie</label>
+                        <label for="p_order">{{ t('ui.product.order') }}</label>
                         <input id="p_order" v-model.number="planForm.sort_order" type="number" min="0" />
                     </div>
                 </div>
 
                 <div class="mt-5 rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200/70">
-                    <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Hodnoty funkcií</p>
+                    <p class="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">{{ t('ui.product.feature_values') }}</p>
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                         <div v-for="feature in features" :key="feature.key">
                             <label :for="`pf_${feature.key}`">{{ feature.name }}</label>
                             <label v-if="feature.type === 'flag'" class="flex items-center gap-2 text-sm font-normal text-slate-600">
                                 <input :id="`pf_${feature.key}`" v-model="planFeatures[feature.key]" type="checkbox" />
-                                povolené
+                                {{ t('ui.product.allowed') }}
                             </label>
                             <input
                                 v-else
@@ -433,7 +431,7 @@ const formatFeatureValue = (feature, value) => {
                                 v-model="planFeatures[feature.key]"
                                 type="number"
                                 min="0"
-                                placeholder="prázdne = neobmedzene"
+                                :placeholder="t('ui.product.empty_unlimited')"
                             />
                         </div>
                     </div>
@@ -441,12 +439,12 @@ const formatFeatureValue = (feature, value) => {
 
                 <div class="mt-5 flex items-center gap-3">
                     <button type="submit" class="btn-primary" :disabled="planForm.processing">
-                        {{ editingPlan ? 'Uložiť plán' : 'Vytvoriť plán' }}
+                        {{ editingPlan ? t('ui.product.save_plan') : t('ui.product.create_plan') }}
                     </button>
-                    <button type="button" class="btn-secondary" @click="closePlan">Zrušiť</button>
+                    <button type="button" class="btn-secondary" @click="closePlan">{{ t('common.form.cancel') }}</button>
                     <label class="ml-auto flex items-center gap-2 text-sm font-normal text-slate-600">
                         <input v-model="planForm.is_active" type="checkbox" />
-                        aktívny
+                        {{ t('ui.products.active') }}
                     </label>
                 </div>
             </form>

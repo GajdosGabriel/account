@@ -6,6 +6,7 @@ import CardSection from '../../Components/CardSection.vue';
 import InputError from '../../Components/InputError.vue';
 import Icon from '../../Components/Icon.vue';
 import { isoDate } from '../../Composables/useInvoiceActions';
+import { t } from '../../Composables/useLang';
 
 const props = defineProps({
     organizations: { type: Array, default: () => [] },
@@ -64,20 +65,20 @@ const submit = () => form.post('/invoices');
 </script>
 
 <template>
-    <Head title="Nový doklad" />
+    <Head :title="t('invoices.create')" />
 
-    <PageHeader title="Nový doklad" subtitle="Vznikne koncept – číslo sa pridelí až pri vystavení.">
+    <PageHeader :title="t('invoices.create')" :subtitle="t('ui.invoice_form.subtitle')">
         <template #action>
-            <Link href="/invoices" class="btn-secondary">Späť na zoznam</Link>
+            <Link href="/invoices" class="btn-secondary">{{ t('ui.invoice_form.back') }}</Link>
         </template>
     </PageHeader>
 
     <form class="grid gap-6 lg:grid-cols-3" @submit.prevent="submit">
         <div class="space-y-6 lg:col-span-2">
-            <CardSection icon="building" title="Odberateľ" description="Fakturačné údaje sa odfotia až pri vystavení.">
+            <CardSection icon="building" :title="t('invoices.table.customer')" :description="t('ui.invoice_form.customer_hint')">
                 <div v-if="!selected">
-                    <label for="org-search">Vyhľadať firmu</label>
-                    <input id="org-search" v-model="search" type="search" placeholder="Názov alebo IČO…" />
+                    <label for="org-search">{{ t('ui.invoice_form.find_company') }}</label>
+                    <input id="org-search" v-model="search" type="search" :placeholder="t('ui.invoice_form.find_placeholder')" />
 
                     <ul class="mt-3 max-h-72 divide-y divide-slate-100 overflow-y-auto rounded-xl border border-slate-200">
                         <li v-for="org in filtered" :key="org.id">
@@ -87,11 +88,11 @@ const submit = () => form.post('/invoices');
                                 @click="form.organization_id = org.id"
                             >
                                 <span class="font-medium text-slate-900">{{ org.name }}</span>
-                                <span class="text-xs text-slate-400">IČO {{ org.ico ?? '—' }}</span>
+                                <span class="text-xs text-slate-400">{{ t('ui.invoice_form.ico') }} {{ org.ico ?? '—' }}</span>
                             </button>
                         </li>
                         <li v-if="!filtered.length" class="px-4 py-6 text-center text-sm text-slate-400">
-                            Nič sa nenašlo.
+                            {{ t('ui.invoice_form.not_found') }}
                         </li>
                     </ul>
                     <InputError :message="form.errors.organization_id" />
@@ -100,15 +101,15 @@ const submit = () => form.post('/invoices');
                 <div v-else class="flex items-center justify-between rounded-xl bg-brand-50 px-4 py-3 ring-1 ring-brand-600/15">
                     <div>
                         <p class="font-semibold text-slate-900">{{ selected.name }}</p>
-                        <p class="text-xs text-slate-500">IČO {{ selected.ico ?? '—' }}</p>
+                        <p class="text-xs text-slate-500">{{ t('ui.invoice_form.ico') }} {{ selected.ico ?? '—' }}</p>
                     </div>
                     <button type="button" class="text-sm text-slate-500 hover:text-slate-900" @click="form.organization_id = ''">
-                        Zmeniť
+                        {{ t('ui.invoice_form.change') }}
                     </button>
                 </div>
             </CardSection>
 
-            <CardSection icon="card" title="Typ dokladu">
+            <CardSection icon="card" :title="t('invoices.filter.type')">
                 <div class="grid gap-3 sm:grid-cols-3">
                     <label
                         v-for="type in types"
@@ -125,60 +126,59 @@ const submit = () => form.post('/invoices');
 
                 <p class="mt-3 flex items-center gap-1.5 text-sm text-slate-500">
                     <Icon name="invoice" :size="15" />
-                    Ďalšie číslo v rade: <strong class="font-semibold text-slate-700">{{ nextNumber }}</strong>
+                    {{ t('ui.invoice_form.next_number') }} <strong class="font-semibold text-slate-700">{{ nextNumber }}</strong>
                 </p>
             </CardSection>
         </div>
 
         <div class="space-y-6">
-            <CardSection icon="clock" title="Dátumy a platba">
+            <CardSection icon="clock" :title="t('ui.invoice_form.dates')">
                 <div class="space-y-3">
                     <div>
-                        <label for="issued_at">Dátum vystavenia</label>
+                        <label for="issued_at">{{ t('ui.invoice_form.issued_at') }}</label>
                         <input id="issued_at" v-model="form.issued_at" type="date" />
                     </div>
                     <div>
-                        <label for="delivered_at">Dátum dodania</label>
+                        <label for="delivered_at">{{ t('ui.invoice_form.delivered_at') }}</label>
                         <input id="delivered_at" v-model="form.delivered_at" type="date" />
                     </div>
                     <div>
-                        <label for="due_at">Dátum splatnosti</label>
+                        <label for="due_at">{{ t('ui.invoice_form.due_at') }}</label>
                         <input id="due_at" v-model="form.due_at" type="date" @input="dueTouched = true" />
                         <InputError :message="form.errors.due_at" />
                     </div>
                     <div>
-                        <label for="payment_method">Spôsob úhrady</label>
+                        <label for="payment_method">{{ t('ui.invoice_form.payment_method') }}</label>
                         <select id="payment_method" v-model="form.payment_method">
                             <option v-for="m in payment_methods" :key="m.value" :value="m.value">{{ m.label }}</option>
                         </select>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <label for="constant_symbol">Konštantný symbol</label>
+                            <label for="constant_symbol">{{ t('ui.invoice_form.constant_symbol') }}</label>
                             <input id="constant_symbol" v-model="form.constant_symbol" type="text" />
                         </div>
                         <div>
-                            <label for="specific_symbol">Špecifický symbol</label>
+                            <label for="specific_symbol">{{ t('ui.invoice_form.specific_symbol') }}</label>
                             <input id="specific_symbol" v-model="form.specific_symbol" type="text" />
                         </div>
                     </div>
                     <div>
-                        <label for="note">Poznámka na faktúre</label>
+                        <label for="note">{{ t('ui.invoice_form.note') }}</label>
                         <textarea id="note" v-model="form.note" rows="2"></textarea>
                     </div>
                 </div>
 
                 <template #footer>
                     <button type="submit" class="btn-primary w-full" :disabled="form.processing || !form.organization_id">
-                        Vytvoriť koncept
+                        {{ t('ui.invoice_form.create_draft') }}
                     </button>
-                    <p v-if="!form.organization_id" class="mt-2 text-center text-xs text-slate-400">Najprv vyber odberateľa.</p>
+                    <p v-if="!form.organization_id" class="mt-2 text-center text-xs text-slate-400">{{ t('ui.invoice_form.pick_customer') }}</p>
                 </template>
             </CardSection>
 
             <p class="px-1 text-xs text-slate-400">
-                Variabilný symbol sa odvodí z čísla dokladu pri vystavení. Sadzbu DPH určí
-                systém podľa krajiny a IČ DPH odberateľa – vrátane prenesenia daňovej povinnosti.
+                {{ t('ui.invoice_form.vat_hint') }}
             </p>
         </div>
     </form>

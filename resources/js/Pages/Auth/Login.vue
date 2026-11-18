@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import AuthLayout from '../../Layouts/AuthLayout.vue';
 import InputError from '../../Components/InputError.vue';
 import PasswordInput from '../../Components/PasswordInput.vue';
+import { t } from '../../Composables/useLang';
 
 const form = useForm({ email: '', password: '', remember: false });
 
@@ -10,20 +11,21 @@ const submit = () => form.post('/login', { onFinish: () => form.reset('password'
 </script>
 
 <template>
-    <Head title="Prihlásenie" />
+    <Head :title="t('ui.auth.login_title')" />
 
-    <AuthLayout title="Vitajte späť" subtitle="Prihlásenie do back-office.">
+    <!-- Registrácia tu nie je: operátorov pozýva kolega v Nastaveniach. -->
+    <AuthLayout :title="t('ui.auth.login_heading')" :subtitle="t('ui.auth.login_subtitle')">
         <form class="space-y-5" @submit.prevent="submit">
             <div>
-                <label for="email">E-mail</label>
-                <input id="email" v-model="form.email" type="email" autocomplete="username" placeholder="vas@email.sk" required autofocus />
+                <label for="email">{{ t('ui.auth.email') }}</label>
+                <input id="email" v-model="form.email" type="email" autocomplete="username" :placeholder="t('ui.auth.email_placeholder')" required autofocus />
                 <InputError :message="form.errors.email" />
             </div>
 
             <div>
                 <div class="mb-1.5 flex items-baseline justify-between">
-                    <label for="password" class="mb-0">Heslo</label>
-                    <Link href="/forgot-password" class="text-sm text-brand-700 hover:underline">Zabudli ste?</Link>
+                    <label for="password" class="mb-0">{{ t('ui.auth.password') }}</label>
+                    <Link href="/forgot-password" class="text-sm text-brand-700 hover:underline">{{ t('ui.auth.forgot') }}</Link>
                 </div>
                 <PasswordInput id="password" v-model="form.password" autocomplete="current-password" required />
                 <InputError :message="form.errors.password" />
@@ -31,17 +33,12 @@ const submit = () => form.post('/login', { onFinish: () => form.reset('password'
 
             <label class="flex items-center gap-2.5 text-sm font-normal text-slate-600">
                 <input v-model="form.remember" type="checkbox" />
-                Zostať prihlásený
+                {{ t('ui.auth.remember') }}
             </label>
 
             <button type="submit" class="btn-primary w-full" :disabled="form.processing">
-                {{ form.processing ? 'Prihlasujem…' : 'Prihlásiť sa' }}
+                {{ form.processing ? t('ui.auth.signing_in') : t('ui.auth.sign_in') }}
             </button>
         </form>
-
-        <p class="mt-8 text-center text-sm text-slate-500">
-            Nemáte účet?
-            <Link href="/register" class="link">Zaregistrujte sa</Link>
-        </p>
     </AuthLayout>
 </template>

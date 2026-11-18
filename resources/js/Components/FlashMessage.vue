@@ -12,6 +12,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import Icon from './Icon.vue';
+import { t } from '../Composables/useLang';
 
 const props = defineProps({
     // Chyba zostáva dlhšie – býva dlhšia a treba ju naozaj prečítať.
@@ -128,7 +129,7 @@ onUnmounted(clearTimer);
                     <button
                         type="button"
                         class="-m-1 shrink-0 rounded-lg p-1 opacity-60 transition hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-current"
-                        aria-label="Zavrieť hlásenie"
+                        :aria-label="t('common.secret.close')"
                         @click="dismiss"
                     >
                         <Icon name="close" :size="16" />

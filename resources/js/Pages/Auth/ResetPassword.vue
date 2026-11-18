@@ -3,6 +3,7 @@ import { Head, useForm } from '@inertiajs/vue3';
 import AuthLayout from '../../Layouts/AuthLayout.vue';
 import InputError from '../../Components/InputError.vue';
 import PasswordInput from '../../Components/PasswordInput.vue';
+import { t } from '../../Composables/useLang';
 
 const props = defineProps({
     token: { type: String, required: true },
@@ -22,29 +23,29 @@ const submit = () => form.post('/reset-password', {
 </script>
 
 <template>
-    <Head title="Nové heslo" />
+    <Head :title="t('ui.auth.new_password')" />
 
-    <AuthLayout title="Nové heslo" subtitle="Zvoľte si heslo, ktoré inde nepoužívate.">
+    <AuthLayout :title="t('ui.auth.new_password')" :subtitle="t('ui.auth.reset_subtitle')">
         <form class="space-y-5" @submit.prevent="submit">
             <div>
-                <label for="email">E-mail</label>
+                <label for="email">{{ t('ui.auth.email') }}</label>
                 <input id="email" v-model="form.email" type="email" autocomplete="username" required />
                 <InputError :message="form.errors.email" />
             </div>
 
             <div>
-                <label for="password">Nové heslo</label>
+                <label for="password">{{ t('ui.auth.new_password') }}</label>
                 <PasswordInput id="password" v-model="form.password" autocomplete="new-password" required autofocus />
                 <InputError :message="form.errors.password" />
             </div>
 
             <div>
-                <label for="password_confirmation">Nové heslo znova</label>
+                <label for="password_confirmation">{{ t('ui.auth.new_password_again') }}</label>
                 <PasswordInput id="password_confirmation" v-model="form.password_confirmation" autocomplete="new-password" required />
             </div>
 
             <button type="submit" class="btn-primary w-full" :disabled="form.processing">
-                {{ form.processing ? 'Ukladám…' : 'Zmeniť heslo' }}
+                {{ form.processing ? t('common.form.saving') : t('ui.auth.change_password') }}
             </button>
         </form>
     </AuthLayout>

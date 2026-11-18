@@ -4,6 +4,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import Icon from '../Components/Icon.vue';
 import DropdownMenu from '../Components/DropdownMenu.vue';
 import FlashMessage from '../Components/FlashMessage.vue';
+import { t } from '../Composables/useLang';
 
 defineProps({
     title: { type: String, required: true },
@@ -40,21 +41,13 @@ const localeMenu = computed(() => locales.value.map((item) => ({
             </Link>
 
             <div class="relative">
-                <h2 class="text-3xl font-semibold leading-tight text-white">
-                    Jedno miesto pre firmy,<br />limity a fakturáciu.
+                <h2 class="max-w-md text-3xl font-semibold leading-tight text-balance text-white">
+                    {{ t('ui.auth.tagline') }}
                 </h2>
                 <ul class="mt-8 space-y-3.5 text-sm text-white/80">
-                    <li class="flex items-center gap-3">
+                    <li v-for="key in ['registry', 'limits', 'overview']" :key="key" class="flex items-center gap-3">
                         <span class="chip h-6 w-6 bg-white/15"><Icon name="check" :size="14" /></span>
-                        IČO a IČ DPH overené v registri, nie prepisované ručne
-                    </li>
-                    <li class="flex items-center gap-3">
-                        <span class="chip h-6 w-6 bg-white/15"><Icon name="check" :size="14" /></span>
-                        Limity a predplatné pre všetky projekty na jednom mieste
-                    </li>
-                    <li class="flex items-center gap-3">
-                        <span class="chip h-6 w-6 bg-white/15"><Icon name="check" :size="14" /></span>
-                        Prehľad, kto čo má zaplatené a kto je pri strope
+                        {{ t(`ui.auth.points.${key}`) }}
                     </li>
                 </ul>
             </div>
