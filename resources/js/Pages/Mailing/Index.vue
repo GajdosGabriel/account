@@ -117,7 +117,7 @@ const when = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
                     <td class="px-4 py-3 text-slate-600">
                         <template v-if="c.trigger_event">
                             {{ c.trigger_label }} · {{ delayLabel(c.delay_hours) }}
-                            <span v-if="c.reply_in_thread" class="chip ml-1">{{ t('mailing.fields.reply_short') }}</span>
+                            <span v-if="c.reply_in_thread" class="pill ml-1">{{ t('mailing.fields.reply_short') }}</span>
                         </template>
                         <template v-else>
                             {{ t('mailing.modes.broadcast') }}<span v-if="c.scheduled_at"> · {{ when(c.scheduled_at) }}</span>

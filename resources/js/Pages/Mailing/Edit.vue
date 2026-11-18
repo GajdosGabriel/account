@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import PageHeader from '../../Components/PageHeader.vue';
 import InputError from '../../Components/InputError.vue';
 import EmailHtmlFrame from '../../Components/EmailHtmlFrame.vue';
@@ -19,6 +19,8 @@ const props = defineProps({
 });
 
 const isNew = computed(() => !props.campaign.id);
+// Šablóna, z ktorej sa práve začína (zvýrazní sa v zozname).
+const templateId = computed(() => Number(new URLSearchParams(usePage().url.split('?')[1] ?? '').get('template')) || null);
 const isDraft = computed(() => props.campaign.status === 'draft');
 
 const form = useForm({
@@ -201,9 +203,18 @@ const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []
                     </div>
                 </div>
 
-                <div v-if="isNew && productTemplates.length" class="text-sm text-slate-600">
-                    {{ t('mailing.campaigns.from_template') }}
-                    <Link v-for="tpl in productTemplates" :key="tpl.id" :href="`/mailing/create?template=${tpl.id}`" class="chip ml-1">{{ tpl.name }}</Link>
+                <div v-if="isNew && productTemplates.length">
+                    <p class="mb-1.5 text-sm font-medium text-slate-700">{{ t('mailing.campaigns.from_template') }}</p>
+                    <div class="flex flex-wrap gap-1.5">
+                        <Link
+                            v-for="tpl in productTemplates"
+                            :key="tpl.id"
+                            :href="`/mailing/create?template=${tpl.id}`"
+                            class="pill-action"
+                            :class="templateId === tpl.id ? 'border-brand-600 bg-brand-600 text-white hover:border-brand-700 hover:bg-brand-700 hover:text-white' : ''"
+                            :aria-current="templateId === tpl.id ? 'true' : undefined"
+                        >{{ tpl.name }}</Link>
+                    </div>
                 </div>
 
                 <fieldset class="space-y-3">
@@ -232,7 +243,7 @@ const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []
                                 </select>
                             </div>
                             <div class="mt-2 flex flex-wrap gap-1">
-                                <button v-for="h in presets" :key="h" type="button" class="chip" @click="delayUnit = h % 24 === 0 ? 'd' : 'h'; form.delay_hours = h">{{ delayLabel(h) }}</button>
+                                <button v-for="h in presets" :key="h" type="button" class="pill-action" :class="form.delay_hours === h ? 'border-brand-600 bg-brand-600 text-white hover:border-brand-700 hover:bg-brand-700 hover:text-white' : ''" @click="delayUnit = h % 24 === 0 ? 'd' : 'h'; form.delay_hours = h">{{ delayLabel(h) }}</button>
                             </div>
                             <InputError :message="form.errors.delay_hours" />
                         </div>
@@ -262,8 +273,8 @@ const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []
                                     v-for="tag in tags"
                                     :key="tag.key"
                                     type="button"
-                                    class="chip"
-                                    :class="form.audience[part].includes(tag.key) ? (part === 'any' ? 'bg-brand-600 text-white' : 'bg-rose-600 text-white') : ''"
+                                    class="pill-action"
+                                    :class="form.audience[part].includes(tag.key) ? (part === 'any' ? 'border-brand-600 bg-brand-600 text-white hover:border-brand-700 hover:bg-brand-700 hover:text-white' : 'border-rose-600 bg-rose-600 text-white hover:border-rose-700 hover:bg-rose-700 hover:text-white') : ''"
                                     :aria-pressed="form.audience[part].includes(tag.key)"
                                     :title="tag.description || tag.key"
                                     @click="toggleTag(part, tag.key)"

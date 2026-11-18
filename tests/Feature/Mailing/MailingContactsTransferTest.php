@@ -139,6 +139,24 @@ class MailingContactsTransferTest extends TestCase
         $this->assertNull(MailingContact::where('email', 'peter@obec.test')->sole()->name);
     }
 
+    public function test_import_len_adries_bez_mien_a_stitkov_zo_suboru(): void
+    {
+        $csv = "email;meno;stitky\njana@obec.test;Jana Nová;VIP\nPeter <peter@obec.test>";
+
+        $this->actingAs($this->user)->post('/mailing/contacts', [
+            'product_key' => 'event',
+            'emails' => $csv,
+            'labels' => ['Samospráva'],
+            'with_names' => false,
+            'with_file_labels' => false,
+        ])->assertSessionHasNoErrors();
+
+        $jana = MailingContact::where('email', 'jana@obec.test')->sole();
+        $this->assertNull($jana->name);
+        $this->assertSame(['samosprava'], $jana->manual_tags);
+        $this->assertNull(MailingContact::where('email', 'peter@obec.test')->sole()->name);
+    }
+
     /** @param list<string> $labels */
     private function contact(Product $product, string $email, array $labels = [], bool $consent = true, ?string $name = null): MailingContact
     {

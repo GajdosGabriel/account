@@ -10,6 +10,7 @@ import DropdownMenu from '../../Components/DropdownMenu.vue';
 import RowActions from '../../Components/RowActions.vue';
 import { invoiceMenu } from '../../Composables/useInvoiceActions';
 import { t } from '../../Composables/useLang';
+import { csrfHeaders } from '../../Composables/useCsrf';
 
 const props = defineProps({
     organization: { type: Object, required: true },
@@ -175,7 +176,7 @@ const reverify = async () => {
             headers: {
                 Accept: 'application/json',
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                ...csrfHeaders(),
             },
             credentials: 'same-origin',
         });

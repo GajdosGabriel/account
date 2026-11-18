@@ -47,7 +47,7 @@ const defaultProduct = props.filters.product ?? props.products[0]?.key ?? null;
 
 /* ---------- Pridanie / import ---------- */
 
-const add = useForm({ product_key: defaultProduct, emails: '', consent: true, permission_note: '', labels: [] });
+const add = useForm({ product_key: defaultProduct, emails: '', consent: true, permission_note: '', labels: [], with_names: true, with_file_labels: true });
 const found = computed(() => add.emails.split(/\r?\n/).reduce((n, line) => n + (line.match(/[^\s<>"',;]+@[^\s<>"',;]+\.[^\s<>"',;]+/g)?.length ?? 0), 0));
 const fileInput = ref(null);
 
@@ -228,6 +228,13 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
                 <span v-if="add.emails" class="font-medium text-slate-700">{{ t('mailing.contacts.found', { count: found }) }}</span>
             </div>
             <InputError :message="add.errors.emails" />
+            <fieldset class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+                <legend class="sr-only">{{ t('mailing.contacts.import_what') }}</legend>
+                <span class="font-medium text-slate-700">{{ t('mailing.contacts.import_what') }}</span>
+                <label class="flex items-center gap-2 text-slate-500"><input type="checkbox" checked disabled /> {{ t('mailing.contacts.import_emails') }}</label>
+                <label class="flex items-center gap-2"><input v-model="add.with_names" type="checkbox" /> {{ t('mailing.contacts.import_names') }}</label>
+                <label class="flex items-center gap-2"><input v-model="add.with_file_labels" type="checkbox" /> {{ t('mailing.contacts.import_file_labels') }}</label>
+            </fieldset>
         </div>
         <div class="grid gap-4 rounded-md bg-slate-50 p-4 md:grid-cols-2">
             <div>

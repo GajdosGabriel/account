@@ -529,6 +529,8 @@ class MailingController extends Controller
             'labels' => ['nullable', 'array', 'max:'.MailingLabel::MAX_PER_CONTACT],
             'labels.*' => ['string', 'max:60'],
             'tags' => ['nullable', 'string', 'max:1000'],
+            'with_names' => ['boolean'],
+            'with_file_labels' => ['boolean'],
         ]);
 
         $product = Product::where('key', $data['product_key'])->firstOrFail();
@@ -536,6 +538,14 @@ class MailingController extends Controller
         $note = trim((string) ($data['permission_note'] ?? '')) ?: __('mailing.contacts.permission_default', ['user' => $request->user()->name]);
         $labels = MailingLabel::resolve($product->id, [...($data['labels'] ?? []), ...preg_split('/[,;]+/', (string) ($data['tags'] ?? ''))]);
         [$rows, $skipped] = self::parseContacts($data['emails']);
+
+        // Voliteľne len adresy – meno a štítky zo súboru sa vynechajú.
+        $withNames = $request->boolean('with_names', true);
+        $withFileLabels = $request->boolean('with_file_labels', true);
+        $rows = array_map(fn (array $row) => [
+            'name' => $withNames ? $row['name'] : null,
+            'labels' => $withFileLabels ? $row['labels'] : [],
+        ], $rows);
         $added = 0;
         $updated = 0;
         $unchanged = 0;

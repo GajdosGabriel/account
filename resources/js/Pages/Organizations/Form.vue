@@ -4,6 +4,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import InputError from '../../Components/InputError.vue';
 import CardSection from '../../Components/CardSection.vue';
 import { t } from '../../Composables/useLang';
+import { csrfHeaders } from '../../Composables/useCsrf';
 
 const props = defineProps({
     organization: { type: Object, default: null },
@@ -84,7 +85,7 @@ const post = async (url, body) => {
             'Content-Type': 'application/json',
             Accept: 'application/json',
             'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+            ...csrfHeaders(),
         },
         credentials: 'same-origin',
         body: JSON.stringify(body),

@@ -113,8 +113,8 @@ const remove = () => confirm(t('mailing.campaigns.confirm_delete', { name: props
                     <td class="px-4 py-2 text-xs text-slate-600">
                         <span v-if="d.sent_at">{{ when(d.sent_at) }}</span>
                         <span v-else-if="d.due_at">{{ t('mailing.campaigns.due', { date: when(d.due_at) }) }}</span>
-                        <span v-if="d.opened_at" class="chip ml-1">{{ t('mailing.stats.opened') }}</span>
-                        <span v-if="d.clicked_at" class="chip ml-1">{{ t('mailing.stats.clicked') }}</span>
+                        <span v-if="d.opened_at" class="pill ml-1">{{ t('mailing.stats.opened') }}</span>
+                        <span v-if="d.clicked_at" class="pill ml-1">{{ t('mailing.stats.clicked') }}</span>
                     </td>
                 </tr>
             </tbody>
