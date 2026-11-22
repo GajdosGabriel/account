@@ -3,7 +3,7 @@ import { computed, ref } from 'vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import PageHeader from '../../Components/PageHeader.vue';
 import InputError from '../../Components/InputError.vue';
-import EmailHtmlFrame from '../../Components/EmailHtmlFrame.vue';
+import CodePreviewEditor from '../../Components/CodePreviewEditor.vue';
 import HtmlEditor from '../../Components/HtmlEditor.vue';
 import Icon from '../../Components/Icon.vue';
 import { t } from '../../Composables/useLang';
@@ -185,7 +185,7 @@ const layoutPreview = computed(() => layout.html
             <button type="button" class="btn-secondary" @click="openLayout()"><Icon name="plus" :size="16" /> {{ t('mailing.layouts.add') }}</button>
         </div>
 
-        <form v-if="editingLayout !== undefined" class="card mb-4 grid gap-4 p-5 lg:grid-cols-2" @submit.prevent="saveLayout">
+        <form v-if="editingLayout !== undefined" class="card mb-4 p-5" @submit.prevent="saveLayout">
             <div class="space-y-4">
                 <div class="grid gap-4 md:grid-cols-2">
                     <div>
@@ -202,7 +202,7 @@ const layoutPreview = computed(() => layout.html
                 </div>
                 <div>
                     <label for="l_html">HTML</label>
-                    <textarea id="l_html" v-model="layout.html" rows="18" class="font-mono text-xs" required></textarea>
+                    <CodePreviewEditor id="l_html" v-model="layout.html" :preview="layoutPreview" :rows="22" storage-key="mailing-layout-view" required />
                     <p class="mt-1 text-xs text-slate-500">{{ t('mailing.layouts.tags') }}</p>
                     <InputError :message="layout.errors.html" />
                 </div>
@@ -211,7 +211,6 @@ const layoutPreview = computed(() => layout.html
                     <button type="button" class="btn-secondary" @click="editingLayout = undefined">{{ t('mailing.cancel') }}</button>
                 </div>
             </div>
-            <EmailHtmlFrame :html="layoutPreview" />
         </form>
 
         <div class="card divide-y divide-slate-100">

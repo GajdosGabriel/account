@@ -69,6 +69,26 @@ const presets = [0, 1, 24, 48, 72, 168, 336];
 
 /* ---------- náhľad ---------- */
 
+// Úprava / Náhľad / Vedľa seba – náhľad nemusí trvalo zaberať pravý stĺpec.
+// Posledný režim si pamätá prehliadač (len pohodlie).
+const VIEWS = ['edit', 'preview', 'split'];
+const VIEW_KEY = 'mailing-campaign-view';
+const view = ref((() => {
+    try {
+        const saved = window.localStorage.getItem(VIEW_KEY);
+        return VIEWS.includes(saved) ? saved : 'edit';
+    } catch {
+        return 'edit';
+    }
+})());
+watch(view, (value) => {
+    try {
+        window.localStorage.setItem(VIEW_KEY, value);
+    } catch {
+        // Bez úložiska si režim len nezapamätáme.
+    }
+});
+
 const html = ref('');
 const previewError = ref('');
 let timer = null;
@@ -204,8 +224,25 @@ const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []
         {{ t('mailing.campaigns.readonly') }}
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-2">
-        <form class="card space-y-5 p-5" @submit.prevent="save">
+    <div class="mb-4 inline-flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-sm" role="tablist">
+        <button
+            v-for="v in VIEWS"
+            :key="v"
+            type="button"
+            role="tab"
+            :aria-selected="view === v"
+            class="rounded-md px-3 py-1 font-medium transition"
+            :class="[
+                view === v ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-900',
+                v === 'split' ? 'hidden lg:inline-block' : '',
+            ]"
+            @click="view = v"
+        >{{ t(`mailing.editor.view_${v}`) }}</button>
+    </div>
+
+    <div class="grid gap-6" :class="view === 'split' ? 'lg:grid-cols-2' : ''">
+        <!-- Formulár pri náhľade len skryjeme, aby sa nestratili rozpísané hodnoty. -->
+        <form v-show="view !== 'preview'" class="card space-y-5 p-5" @submit.prevent="save">
             <fieldset :disabled="!isDraft" class="space-y-5">
                 <div class="grid gap-4 md:grid-cols-2">
                     <div>
@@ -394,7 +431,7 @@ const variables = computed(() => [...new Set([...(trigger.value?.variables ?? []
             </div>
         </form>
 
-        <div class="space-y-2">
+        <div v-if="view !== 'edit'" class="space-y-2" :class="view === 'preview' ? 'mx-auto w-full max-w-3xl' : ''">
             <div class="flex items-center justify-between">
                 <h2 class="font-semibold text-slate-900">{{ t('mailing.campaigns.preview') }}</h2>
                 <button type="button" class="text-sm text-slate-500 hover:text-slate-900" @click="refresh"><Icon name="refresh" :size="16" /></button>

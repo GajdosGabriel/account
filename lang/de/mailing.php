@@ -94,6 +94,11 @@ return [
         'contact_more' => 'Mehr über das Projekt finden Sie unter :url.',
         'placeholder' => 'Schreibe das Angebot in eigenen Worten…',
         'placeholder_reply' => 'Schreibe dem Kunden, was mit dem Vorgang passiert…',
+        'view_edit' => 'Bearbeiten',
+        'view_code' => 'HTML',
+        'view_preview' => 'Vorschau',
+        'view_split' => 'Nebeneinander',
+        'view_visual' => 'Editor',
     ],
 
     'modes' => [

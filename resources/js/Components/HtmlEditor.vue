@@ -65,6 +65,29 @@ const toHtml = (value) => (/<(p|br|h2|h3|ul|ol|li|strong|b|em|i|u|a)\b/i.test(va
 const editor = ref(null);
 const isEmpty = ref(true);
 
+// Prepínač Editor / HTML – v HTML režime sa píše priamo kód, pri návrate
+// prejde bielou listinou a vykreslí sa v editore.
+const sourceMode = ref(false);
+const sourceEl = ref(null);
+const source = ref('');
+
+const pretty = (html) => (html ?? '').replace(/(<\/(p|h2|h3|ul|ol|li)>|<(ul|ol)>)/gi, '$1\n').trim();
+const compact = (html) => (html ?? '').replace(/>\s*\n\s*</g, '><').trim();
+
+const emitSource = () => emit('update:modelValue', compact(source.value));
+
+const toggleSource = () => {
+    if (sourceMode.value) {
+        sourceMode.value = false;
+        render(compact(source.value));
+        onInput();
+        return;
+    }
+
+    source.value = pretty(sanitize(editor.value?.innerHTML ?? ''));
+    sourceMode.value = true;
+};
+
 // execCommand je síce označený za zastaraný, ale ako jediný funguje
 // vo všetkých prehliadačoch bez ďalšej závislosti.
 const exec = (command, value = null) => {
@@ -99,6 +122,14 @@ const onLink = () => {
 
 // Vloží hotový odsek na miesto kurzora; ak kurzor v editore nie je, na koniec.
 const onSnippet = (snippet) => {
+    if (sourceMode.value) {
+        const area = sourceEl.value;
+        const at = area?.selectionStart ?? source.value.length;
+        source.value = `${source.value.slice(0, at)}${snippet.html}\n${source.value.slice(area?.selectionEnd ?? at)}`;
+        emitSource();
+        return;
+    }
+
     const el = editor.value;
     if (!el) return;
 
@@ -147,6 +178,10 @@ onMounted(() => render(props.modelValue));
 // Pri písaní sa hodnota zhoduje, takže sa innerHTML neprepisuje a kurzor
 // neuteká na začiatok. Zvonka (iná šablóna) sa obsah prekreslí.
 watch(() => props.modelValue, (value) => {
+    if (sourceMode.value) {
+        if (value !== compact(source.value)) source.value = pretty(value);
+        return;
+    }
     if (document.activeElement === editor.value) return;
     render(value);
 });
@@ -155,6 +190,7 @@ watch(() => props.modelValue, (value) => {
 <template>
     <div class="overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
         <div class="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1.5">
+            <template v-if="!sourceMode">
             <button
                 v-for="tool in tools"
                 :key="tool.label"
@@ -171,6 +207,7 @@ watch(() => props.modelValue, (value) => {
             <button type="button" class="rounded px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-200" @click="onClearFormat">
                 {{ t('mailing.editor.clear') }}
             </button>
+            </template>
             <button
                 v-for="snippet in snippets"
                 :key="snippet.label"
@@ -179,9 +216,25 @@ watch(() => props.modelValue, (value) => {
                 class="ml-auto rounded border border-brand-200 bg-white px-2 py-1 text-xs font-medium text-brand-700 transition hover:bg-brand-50"
                 @click="onSnippet(snippet)"
             >{{ snippet.label }}</button>
+            <button
+                type="button"
+                class="rounded border px-2 py-1 text-xs font-medium transition"
+                :class="[sourceMode ? 'border-slate-700 bg-slate-800 text-white hover:bg-slate-700' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-200', snippets.length ? '' : 'ml-auto']"
+                :aria-pressed="sourceMode"
+                @click="toggleSource"
+            >{{ sourceMode ? t('mailing.editor.view_visual') : t('mailing.editor.view_code') }}</button>
         </div>
 
-        <div class="relative">
+        <textarea
+            v-if="sourceMode"
+            ref="sourceEl"
+            v-model="source"
+            :style="{ minHeight }"
+            spellcheck="false"
+            class="block w-full resize-y rounded-none border-0 px-3 py-2 font-mono text-xs leading-5 shadow-none focus:ring-0"
+            @input="emitSource"
+        ></textarea>
+        <div v-show="!sourceMode" class="relative">
             <p v-if="isEmpty && placeholder" class="pointer-events-none absolute left-3 top-2 text-sm text-slate-400">{{ placeholder }}</p>
             <div
                 :id="id"

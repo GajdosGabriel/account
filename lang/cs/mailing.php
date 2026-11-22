@@ -94,6 +94,11 @@ return [
         'contact_more' => 'Více o projektu najdete na :url.',
         'placeholder' => 'Napiš nabídku vlastními slovy…',
         'placeholder_reply' => 'Napiš zákazníkovi, co se s věcí děje…',
+        'view_edit' => 'Úprava',
+        'view_code' => 'HTML',
+        'view_preview' => 'Náhled',
+        'view_split' => 'Vedle sebe',
+        'view_visual' => 'Editor',
     ],
 
     'modes' => [

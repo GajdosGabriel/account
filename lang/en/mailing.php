@@ -116,6 +116,11 @@ return [
         'contact_more' => 'More about the project at :url.',
         'placeholder' => 'Write the offer in your own words…',
         'placeholder_reply' => 'Tell the customer what is happening with their item…',
+        'view_edit' => 'Edit',
+        'view_code' => 'HTML',
+        'view_preview' => 'Preview',
+        'view_split' => 'Side by side',
+        'view_visual' => 'Editor',
     ],
 
     'modes' => [
