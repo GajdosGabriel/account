@@ -202,7 +202,7 @@ const layoutPreview = computed(() => layout.html
                 </div>
                 <div>
                     <label for="l_html">HTML</label>
-                    <CodePreviewEditor id="l_html" v-model="layout.html" :preview="layoutPreview" :rows="22" storage-key="mailing-layout-view" required />
+                    <CodePreviewEditor id="l_html" v-model="layout.html" :preview="layoutPreview" :rows="22" storage-key="mailing-layout-view" visual required />
                     <p class="mt-1 text-xs text-slate-500">{{ t('mailing.layouts.tags') }}</p>
                     <InputError :message="layout.errors.html" />
                 </div>

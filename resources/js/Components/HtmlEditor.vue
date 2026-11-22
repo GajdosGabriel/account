@@ -1,5 +1,7 @@
 <script setup>
-import { onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import FormatToolbar from './FormatToolbar.vue';
+import { cleanStyle } from '../Composables/richText';
 import { t } from '../Composables/useLang';
 
 /**
@@ -20,7 +22,7 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
-const ALLOWED_TAGS = ['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'H2', 'H3', 'UL', 'OL', 'LI', 'A'];
+const ALLOWED_TAGS = ['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'H2', 'H3', 'UL', 'OL', 'LI', 'A', 'SPAN'];
 const ALLOWED_HREF = /^(https?:\/\/|mailto:|\/)/i;
 
 const sanitize = (html) => {
@@ -30,8 +32,18 @@ const sanitize = (html) => {
     template.innerHTML = String(html);
 
     const walk = (node) => {
-        [...node.children].forEach((child) => {
+        [...node.children].forEach((element) => {
+            let child = element;
             walk(child);
+
+            // Zarovnanie bez odseku obalí prehliadač do <div style="text-align…"> – urobíme z neho odsek.
+            if (child.tagName === 'DIV' && cleanStyle(child.getAttribute('style'))) {
+                const p = document.createElement('p');
+                p.setAttribute('style', child.getAttribute('style'));
+                p.append(...child.childNodes);
+                child.replaceWith(p);
+                child = p;
+            }
 
             if (!ALLOWED_TAGS.includes(child.tagName)) {
                 // Editor nový riadok niekedy obalí do <div>; bez zalomenia by sa zlial s predošlým.
@@ -44,8 +56,18 @@ const sanitize = (html) => {
 
             [...child.attributes].forEach((attribute) => {
                 if (child.tagName === 'A' && attribute.name.toLowerCase() === 'href' && ALLOWED_HREF.test(attribute.value)) return;
+                if (attribute.name.toLowerCase() === 'style') {
+                    const style = cleanStyle(attribute.value);
+                    if (style) {
+                        child.setAttribute('style', style);
+                        return;
+                    }
+                }
                 child.removeAttribute(attribute.name);
             });
+
+            // Prázdny <span> bez štýlu nič nenesie.
+            if (child.tagName === 'SPAN' && !child.attributes.length) child.replaceWith(...child.childNodes);
         });
     };
 
@@ -57,7 +79,7 @@ const sanitize = (html) => {
 const escape = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
 // Starší text bez značiek: odseky oddelené prázdnym riadkom.
-const toHtml = (value) => (/<(p|br|h2|h3|ul|ol|li|strong|b|em|i|u|a)\b/i.test(value ?? '')
+const toHtml = (value) => (/<(p|br|h2|h3|ul|ol|li|strong|b|em|i|u|a|span)\b/i.test(value ?? '')
     ? value
     : (value ?? '').split(/\r?\n\s*\r?\n/).filter((p) => p.trim())
         .map((p) => `<p>${escape(p.trim()).replace(/\r?\n/g, '<br>')}</p>`).join(''));
@@ -90,16 +112,31 @@ const toggleSource = () => {
 
 // execCommand je síce označený za zastaraný, ale ako jediný funguje
 // vo všetkých prehliadačoch bez ďalšej závislosti.
+// Výber si pamätáme – výber farby či veľkosti zoberie editoru fokus.
+let lastRange = null;
+const rememberSelection = () => {
+    const selection = window.getSelection();
+    if (selection?.rangeCount && editor.value?.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+        lastRange = selection.getRangeAt(0).cloneRange();
+    }
+};
+onMounted(() => document.addEventListener('selectionchange', rememberSelection));
+onBeforeUnmount(() => document.removeEventListener('selectionchange', rememberSelection));
+
 const exec = (command, value = null) => {
     editor.value?.focus();
+    if (lastRange) {
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(lastRange);
+    }
+    // Farby a veľkosť ako <span style>, nie zastarané <font>.
+    document.execCommand('styleWithCSS', false, true);
     document.execCommand(command, false, value);
     onInput();
 };
 
 const tools = [
-    { label: 'B', title: 'bold', command: 'bold', class: 'font-bold' },
-    { label: 'I', title: 'italic', command: 'italic', class: 'italic' },
-    { label: 'U', title: 'underline', command: 'underline', class: 'underline' },
     { label: 'H2', title: 'heading', command: 'formatBlock', value: '<h2>' },
     { label: 'H3', title: 'subheading', command: 'formatBlock', value: '<h3>' },
     { label: '¶', title: 'paragraph', command: 'formatBlock', value: '<p>' },
@@ -188,26 +225,27 @@ watch(() => props.modelValue, (value) => {
 </script>
 
 <template>
-    <div class="overflow-hidden rounded-lg border border-slate-300 bg-white focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
-        <div class="flex flex-wrap items-center gap-1 border-b border-slate-200 bg-slate-50 px-2 py-1.5">
-            <template v-if="!sourceMode">
-            <button
-                v-for="tool in tools"
-                :key="tool.label"
-                type="button"
-                :title="t(`mailing.editor.${tool.title}`)"
-                :aria-label="t(`mailing.editor.${tool.title}`)"
-                class="rounded px-2 py-1 text-xs text-slate-700 transition hover:bg-slate-200"
-                :class="tool.class"
-                @click="exec(tool.command, tool.value ?? null)"
-            >{{ tool.label }}</button>
-            <button type="button" class="rounded px-2 py-1 text-xs text-slate-700 transition hover:bg-slate-200" @click="onLink">
-                🔗 {{ t('mailing.editor.link') }}
-            </button>
-            <button type="button" class="rounded px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-200" @click="onClearFormat">
-                {{ t('mailing.editor.clear') }}
-            </button>
-            </template>
+    <!-- Bez overflow-hidden – paleta farieb musí presahovať okraj editora. -->
+    <div class="rounded-lg border border-slate-300 bg-white focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
+        <div class="flex flex-wrap items-center gap-1 rounded-t-lg border-b border-slate-200 bg-slate-50 px-2 py-1.5">
+            <FormatToolbar v-if="!sourceMode" :run="exec">
+                <span class="mx-1 h-4 w-px bg-slate-300"></span>
+                <button
+                    v-for="tool in tools"
+                    :key="tool.label"
+                    type="button"
+                    :title="t(`mailing.editor.${tool.title}`)"
+                    :aria-label="t(`mailing.editor.${tool.title}`)"
+                    class="rounded px-2 py-1 text-xs text-slate-700 transition hover:bg-slate-200"
+                    @click="exec(tool.command, tool.value ?? null)"
+                >{{ tool.label }}</button>
+                <button type="button" class="rounded px-2 py-1 text-xs text-slate-700 transition hover:bg-slate-200" @click="onLink">
+                    🔗 {{ t('mailing.editor.link') }}
+                </button>
+                <button type="button" class="rounded px-2 py-1 text-xs text-slate-500 transition hover:bg-slate-200" @click="onClearFormat">
+                    {{ t('mailing.editor.clear') }}
+                </button>
+            </FormatToolbar>
             <button
                 v-for="snippet in snippets"
                 :key="snippet.label"

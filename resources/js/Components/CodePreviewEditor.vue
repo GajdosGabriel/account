@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import EmailHtmlFrame from './EmailHtmlFrame.vue';
+import LayoutVisualEditor from './LayoutVisualEditor.vue';
 import { t } from '../Composables/useLang';
 
 /**
@@ -16,18 +17,20 @@ const props = defineProps({
     rows: { type: Number, default: 18 },
     required: { type: Boolean, default: false },
     storageKey: { type: String, default: 'code-preview-mode' },
+    visual: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue']);
 
-const MODES = ['code', 'preview', 'split'];
+// Editor = vizuálna úprava priamo v e-maile (len keď to rodič povolí cez `visual`).
+const MODES = computed(() => (props.visual ? ['visual', 'code', 'preview', 'split'] : ['code', 'preview', 'split']));
 
 const load = () => {
     try {
         const saved = window.localStorage.getItem(props.storageKey);
-        return MODES.includes(saved) ? saved : 'code';
+        return MODES.value.includes(saved) ? saved : MODES.value[0];
     } catch {
-        return 'code';
+        return MODES.value[0];
     }
 };
 
@@ -42,8 +45,8 @@ watch(mode, (value) => {
 });
 
 const previewHtml = computed(() => props.preview ?? props.modelValue);
-const showCode = computed(() => mode.value !== 'preview');
-const showPreview = computed(() => mode.value !== 'code');
+const showCode = computed(() => mode.value === 'code' || mode.value === 'split');
+const showPreview = computed(() => mode.value === 'preview' || mode.value === 'split');
 </script>
 
 <template>
@@ -77,6 +80,7 @@ const showPreview = computed(() => mode.value !== 'code');
                 @input="emit('update:modelValue', $event.target.value)"
             ></textarea>
             <EmailHtmlFrame v-if="showPreview" :html="previewHtml" />
+            <LayoutVisualEditor v-if="mode === 'visual'" :model-value="modelValue" @update:model-value="emit('update:modelValue', $event)" />
         </div>
     </div>
 </template>

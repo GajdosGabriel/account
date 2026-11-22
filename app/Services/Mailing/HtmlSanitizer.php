@@ -13,9 +13,31 @@ use DOMNode;
  */
 class HtmlSanitizer
 {
-    private const ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'h2', 'h3', 'ul', 'ol', 'li', 'a'];
+    private const ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'h2', 'h3', 'ul', 'ol', 'li', 'a', 'span'];
 
     private const ALLOWED_HREF = '/^(https?:\/\/|mailto:|\/)/i';
+
+    /** Štýly z editora (farba, pozadie, zarovnanie, veľkosť) – nič, čo by načítalo cudzí obsah. */
+    private const ALLOWED_STYLES = ['color', 'background-color', 'text-align', 'font-size', 'font-weight', 'font-style', 'text-decoration'];
+
+    private const ALLOWED_STYLE_VALUE = '/^(#[0-9a-f]{3,8}|rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+\s*)?\)|[a-z-]+|\d+(\.\d+)?(px|em|rem|%))$/i';
+
+    /** Ponechá len povolené vlastnosti s bezpečnými hodnotami; prázdny výsledok = žiadny style. */
+    public static function cleanStyle(string $style): string
+    {
+        $kept = [];
+
+        foreach (explode(';', $style) as $declaration) {
+            [$property, $value] = array_pad(array_map('trim', explode(':', $declaration, 2)), 2, '');
+            $property = strtolower($property);
+
+            if (in_array($property, self::ALLOWED_STYLES, true) && preg_match(self::ALLOWED_STYLE_VALUE, $value) === 1) {
+                $kept[] = "{$property}: {$value}";
+            }
+        }
+
+        return implode('; ', $kept);
+    }
 
     public static function sanitize(?string $html): string
     {
@@ -103,6 +125,12 @@ class HtmlSanitizer
         $isLink = strtolower($element->tagName) === 'a';
 
         foreach (iterator_to_array($element->attributes) as $attribute) {
+            if (strtolower($attribute->name) === 'style' && ($style = self::cleanStyle($attribute->value)) !== '') {
+                $element->setAttribute('style', $style);
+
+                continue;
+            }
+
             $keep = $isLink
                 && strtolower($attribute->name) === 'href'
                 && preg_match(self::ALLOWED_HREF, $attribute->value) === 1;

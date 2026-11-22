@@ -103,13 +103,18 @@ class MailingRenderer
     public static function bodyHtml(?string $body, string $paragraphStyle): string
     {
         $body = trim((string) $body);
-        $html = preg_match('/<(p|br|h2|h3|ul|ol|li|strong|b|em|i|u|a)\b/i', $body)
+        $html = preg_match('/<(p|br|h2|h3|ul|ol|li|strong|b|em|i|u|a|span)\b/i', $body)
             ? HtmlSanitizer::sanitize($body)
             : collect(preg_split("/\r?\n\s*\r?\n/", $body))->filter(fn ($p) => trim($p) !== '')
                 ->map(fn ($p) => '<p>'.nl2br(e(trim($p))).'</p>')->implode("\n");
 
-        // E-mailoví klienti potrebujú štýl priamo v značke.
-        return str_replace('<p>', '<p style="'.$paragraphStyle.'">', $html);
+        // E-mailoví klienti potrebujú štýl priamo v značke; štýl z editora
+        // (napr. zarovnanie) ide za ten základný, aby ho mohol prepísať.
+        return preg_replace_callback(
+            '/<p(?:\s+style="([^"]*)")?>/i',
+            fn ($m) => '<p style="'.$paragraphStyle.(filled($m[1] ?? '') ? ';'.$m[1] : '').'">',
+            $html
+        ) ?? $html;
     }
 
     /**
