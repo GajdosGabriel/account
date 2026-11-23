@@ -70,15 +70,16 @@ const presets = [0, 1, 24, 48, 72, 168, 336];
 /* ---------- náhľad ---------- */
 
 // Úprava / Náhľad / Vedľa seba – náhľad nemusí trvalo zaberať pravý stĺpec.
-// Posledný režim si pamätá prehliadač (len pohodlie).
+// Predvolene Vedľa seba, posledný režim si pamätá prehliadač (len pohodlie).
+// Nový kľúč zahodí staré zapamätané „edit“ z čias, keď bol predvolený.
 const VIEWS = ['edit', 'preview', 'split'];
-const VIEW_KEY = 'mailing-campaign-view';
+const VIEW_KEY = 'mailing-campaign-view-v2';
 const view = ref((() => {
     try {
         const saved = window.localStorage.getItem(VIEW_KEY);
-        return VIEWS.includes(saved) ? saved : 'edit';
+        return VIEWS.includes(saved) ? saved : 'split';
     } catch {
-        return 'edit';
+        return 'split';
     }
 })());
 watch(view, (value) => {
