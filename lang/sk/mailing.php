@@ -164,6 +164,8 @@ return [
         'save' => 'Uložiť',
         'test' => 'Poslať test sebe',
         'duplicate' => 'Duplikovať',
+        'top_up' => 'Doposlať novým (:count)',
+        'confirm_top_up' => 'Poslať kampaň :count novým kontaktom, ktoré pribudli po spustení?',
         'delete' => 'Zmazať',
         'edit' => 'Upraviť',
         'view_content' => 'Obsah',
@@ -188,6 +190,8 @@ return [
 
         'saved' => 'Kampaň bola uložená.',
         'duplicated' => 'Kampaň bola skopírovaná ako koncept.',
+        'top_up_unavailable' => 'Doposlať sa dá iba spustená alebo dokončená hromadná kampaň.',
+        'no_new_recipients' => 'V segmente nepribudli žiadne nové kontakty.',
         'only_draft' => 'Upravovať sa dá iba koncept.',
         'test_dry_run' => 'Testovací režim: e-mail sa reálne neodoslal.',
         'test_sent' => 'Test bol odoslaný na :email.',

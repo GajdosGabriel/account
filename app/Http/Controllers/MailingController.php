@@ -14,6 +14,7 @@ use App\Models\MailingTrigger;
 use App\Models\Product;
 use App\Services\Mailing\MailingSender;
 use App\Services\Messaging\MessagingException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -273,6 +274,79 @@ class MailingController extends Controller
             : trans_choice('mailing.campaigns.queued', $total, ['count' => $total]));
     }
 
+    /**
+     * Doposlanie hromadnej kampane kontaktom, ktoré do segmentu pribudli
+     * po spustení. Kto už v kampani doručenie má (aj neúspešné), druhý e-mail nedostane.
+     */
+    public function topUp(MailingCampaign $campaign): RedirectResponse
+    {
+        $error = match (true) {
+            ! $this->sender->enabled() => __('mailing.campaigns.disabled'),
+            ! self::canTopUp($campaign) => __('mailing.campaigns.top_up_unavailable'),
+            $campaign->coupon_code && $campaign->couponExpired() => __('mailing.campaigns.coupon_expired'),
+            ! ($campaign->mailbox ?? Mailbox::defaultFor($campaign->product)) => __('messaging.errors.no_mailbox'),
+            $campaign->mailbox && ! $campaign->mailbox->is_active => __('messaging.errors.mailbox_inactive', ['address' => $campaign->mailbox->from_address]),
+            default => null,
+        };
+
+        if ($error) {
+            return back()->with('error', $error);
+        }
+
+        $total = DB::transaction(function () use ($campaign) {
+            $campaign = MailingCampaign::query()->whereKey($campaign->id)->lockForUpdate()->firstOrFail();
+            abort_unless(self::canTopUp($campaign), 409, __('mailing.campaigns.top_up_unavailable'));
+
+            $total = 0;
+
+            self::newRecipients($campaign)
+                ->chunkById(500, function ($contacts) use ($campaign, &$total) {
+                    $rows = $contacts->map(fn (MailingContact $c) => [
+                        'campaign_id' => $campaign->id,
+                        'contact_id' => $c->id,
+                        'email' => $c->email,
+                        'status' => MailingDelivery::PENDING,
+                        'dedupe_key' => '',
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ])->all();
+                    $total += DB::table('mailing_deliveries')->insertOrIgnore($rows);
+                }, 'mailing_contacts.id', 'id');
+
+            // Dokončená kampaň sa znova otvorí; odosielač ju po dávke opäť uzavrie.
+            if ($total > 0 && $campaign->status === MailingCampaign::COMPLETED) {
+                $campaign->forceFill(['status' => MailingCampaign::QUEUED])->save();
+            }
+
+            return $total;
+        });
+
+        return $total
+            ? back()->with('success', trans_choice('mailing.campaigns.queued', $total, ['count' => $total]))
+            : back()->with('error', __('mailing.campaigns.no_new_recipients'));
+    }
+
+    private static function canTopUp(MailingCampaign $campaign): bool
+    {
+        return ! $campaign->isAutomation()
+            && in_array($campaign->status, [MailingCampaign::QUEUED, MailingCampaign::COMPLETED], true);
+    }
+
+    /**
+     * Kontakty segmentu, ktoré v kampani ešte nemajú doručenie.
+     *
+     * @return Builder<MailingContact>
+     */
+    private static function newRecipients(MailingCampaign $campaign): Builder
+    {
+        return MailingContact::audience($campaign)
+            ->select('mailing_contacts.*')
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('mailing_deliveries as d')
+                ->where('d.campaign_id', $campaign->id)
+                ->where('d.dedupe_key', '')
+                ->whereColumn('d.email', 'mailing_contacts.email'));
+    }
+
     public function cancel(MailingCampaign $campaign): RedirectResponse
     {
         DB::transaction(function () use ($campaign) {
@@ -308,6 +382,8 @@ class MailingController extends Controller
                 ...$this->campaignPayload($campaign),
                 'product' => $campaign->product?->name,
             ],
+            // Kontakty, ktoré do segmentu pribudli po spustení hromadnej kampane.
+            'new_recipients' => self::canTopUp($campaign) ? self::newRecipients($campaign)->count() : 0,
             'counts' => $campaign->deliveries()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status'),
             'engagement' => [
                 'opened' => $campaign->deliveries()->whereNotNull('opened_at')->count(),

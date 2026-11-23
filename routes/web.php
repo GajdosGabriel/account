@@ -280,6 +280,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('mailing/{campaign}', [MailingController::class, 'update'])->name('mailing.update');
     Route::delete('mailing/{campaign}', [MailingController::class, 'destroy'])->name('mailing.destroy');
     Route::post('mailing/{campaign}/queue', [MailingController::class, 'queue'])->name('mailing.queue');
+    Route::post('mailing/{campaign}/top-up', [MailingController::class, 'topUp'])->name('mailing.top-up');
     Route::post('mailing/{campaign}/cancel', [MailingController::class, 'cancel'])->name('mailing.cancel');
     Route::post('mailing/{campaign}/duplicate', [MailingController::class, 'duplicate'])->name('mailing.duplicate');
     Route::post('mailing/{campaign}/template', [MailingController::class, 'saveAsTemplate'])->name('mailing.save-template');

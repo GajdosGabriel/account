@@ -14,6 +14,7 @@ const props = defineProps({
     links: { type: Array, default: () => [] },
     deliveries: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
+    new_recipients: { type: Number, default: 0 },
 });
 
 const statuses = ['pending', 'sending', 'sent', 'failed', 'bounced', 'skipped'];
@@ -26,6 +27,7 @@ const when = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
 
 const post = (action) => router.post(`/mailing/${props.campaign.id}/${action}`, {}, { preserveScroll: true });
 
+const topUp = () => confirm(t('mailing.campaigns.confirm_top_up', { count: props.new_recipients })) && post('top-up');
 const cancel = () => confirm(t('mailing.campaigns.confirm_cancel')) && post('cancel');
 const remove = () => confirm(t('mailing.campaigns.confirm_delete', { name: props.campaign.name })) && router.delete(`/mailing/${props.campaign.id}`);
 </script>
@@ -41,6 +43,7 @@ const remove = () => confirm(t('mailing.campaigns.confirm_delete', { name: props
         <template #action>
             <StatusBadge :status="campaign.status" :label="t(`mailing.status.${campaign.status}`)" :tone="campaignTone(campaign.status)" />
             <Link :href="`/mailing/${campaign.id}/edit`" class="btn-secondary">{{ campaign.status === 'draft' ? t('mailing.campaigns.edit') : t('mailing.campaigns.view_content') }}</Link>
+            <button v-if="new_recipients > 0" type="button" class="btn-primary" @click="topUp">{{ t('mailing.campaigns.top_up', { count: new_recipients }) }}</button>
             <button type="button" class="btn-secondary" @click="post('duplicate')">{{ t('mailing.campaigns.duplicate') }}</button>
             <button type="button" class="btn-secondary" @click="post('template')">{{ t('mailing.campaigns.save_template') }}</button>
             <button v-if="campaign.status === 'queued'" type="button" class="btn-danger" @click="cancel">{{ t('mailing.campaigns.cancel') }}</button>

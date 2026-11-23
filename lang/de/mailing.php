@@ -164,6 +164,8 @@ return [
         'save' => 'Speichern',
         'test' => 'Test an mich senden',
         'duplicate' => 'Duplizieren',
+        'top_up' => 'An neue senden (:count)',
+        'confirm_top_up' => 'Kampagne an :count neue Kontakte senden, die nach dem Start hinzugekommen sind?',
         'delete' => 'Löschen',
         'edit' => 'Bearbeiten',
         'view_content' => 'Inhalt',
@@ -188,6 +190,8 @@ return [
 
         'saved' => 'Die Kampagne wurde gespeichert.',
         'duplicated' => 'Die Kampagne wurde als Entwurf kopiert.',
+        'top_up_unavailable' => 'Nachsenden ist nur bei einer gestarteten oder abgeschlossenen Massenkampagne möglich.',
+        'no_new_recipients' => 'Im Segment sind keine neuen Kontakte hinzugekommen.',
         'only_draft' => 'Nur Entwürfe können bearbeitet werden.',
         'test_dry_run' => 'Testmodus: Die E-Mail wurde nicht wirklich gesendet.',
         'test_sent' => 'Der Test wurde an :email gesendet.',

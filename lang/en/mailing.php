@@ -186,6 +186,8 @@ return [
         'save' => 'Save',
         'test' => 'Send test to me',
         'duplicate' => 'Duplicate',
+        'top_up' => 'Send to new (:count)',
+        'confirm_top_up' => 'Send the campaign to :count new contacts added since it started?',
         'delete' => 'Delete',
         'edit' => 'Edit',
         'view_content' => 'Content',
@@ -210,6 +212,8 @@ return [
 
         'saved' => 'The campaign was saved.',
         'duplicated' => 'The campaign was copied as a draft.',
+        'top_up_unavailable' => 'Only a running or completed broadcast campaign can be sent to new contacts.',
+        'no_new_recipients' => 'No new contacts were added to the segment.',
         'only_draft' => 'Only a draft can be edited.',
         'test_dry_run' => 'Dry run: the e-mail was not actually sent.',
         'test_sent' => 'The test was sent to :email.',

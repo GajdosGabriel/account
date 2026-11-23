@@ -169,6 +169,35 @@ class MailingAudienceTest extends TestCase
         $this->assertSame(['trial@firma.test'], MailingDelivery::pluck('email')->all());
     }
 
+    public function test_dokoncenu_kampan_doposle_len_novym_kontaktom_segmentu(): void
+    {
+        $user = User::factory()->create();
+        $this->contact('prvy@firma.test', ['trial']);
+
+        $campaign = $this->campaign(['status' => MailingCampaign::DRAFT, 'audience' => ['any' => ['trial']]]);
+        $this->actingAs($user)->post("/mailing/{$campaign->id}/queue")->assertSessionHas('success');
+        $this->assertSame(1, app(MailingSender::class)->runBatch());
+        $this->assertSame(MailingCampaign::COMPLETED, $campaign->fresh()->status);
+
+        $this->contact('druhy@firma.test', ['trial']);
+        $this->contact('mimo@firma.test', ['iny']);
+
+        $this->actingAs($user)->get("/mailing/{$campaign->id}")
+            ->assertInertia(fn ($page) => $page->where('new_recipients', 1));
+
+        $this->actingAs($user)->post("/mailing/{$campaign->id}/top-up")->assertSessionHas('success');
+        $this->assertSame(MailingCampaign::QUEUED, $campaign->fresh()->status);
+        $this->assertSame(1, app(MailingSender::class)->runBatch());
+
+        $this->assertSame(MailingCampaign::COMPLETED, $campaign->fresh()->status);
+        $this->assertEqualsCanonicalizing(['prvy@firma.test', 'druhy@firma.test'], MailingDelivery::where('status', MailingDelivery::SENT)->pluck('email')->all());
+        $this->assertCount(2, $this->sentEmails());
+
+        // Druhé kliknutie už nikoho nové nenájde.
+        $this->actingAs($user)->post("/mailing/{$campaign->id}/top-up")->assertSessionHas('error');
+        $this->assertSame(2, MailingDelivery::count());
+    }
+
     public function test_oznamenie_ide_aj_bez_suhlasu_bez_odhlasenia_ale_nie_na_blokovanu_adresu(): void
     {
         $this->contact('suhlas@firma.test', ['user']);
