@@ -64,6 +64,8 @@ return [
         'hide_full' => 'Hide quote',
         'show_as_text' => 'Show as text',
         'show_as_html' => 'Show as email',
+        'show_quote' => '··· Show quoted message',
+        'hide_quote' => 'Hide quoted message',
         'attachments' => 'Attachments',
         'show_automatic' => 'Also show threads with only automatic e-mails (confirmations, campaigns)',
         'mailing_badge' => 'Sent automatically by campaign “:campaign”',

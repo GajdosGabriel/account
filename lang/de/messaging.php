@@ -64,6 +64,8 @@ return [
         'hide_full' => 'Zitat ausblenden',
         'show_as_text' => 'Als Text anzeigen',
         'show_as_html' => 'Als E-Mail anzeigen',
+        'show_quote' => '··· Zitierte Nachricht anzeigen',
+        'hide_quote' => 'Zitierte Nachricht ausblenden',
         'attachments' => 'Anhänge',
         'show_automatic' => 'Auch Verläufe nur mit automatischen E-Mails anzeigen (Bestätigungen, Kampagnen)',
         'mailing_badge' => 'Automatisch aus Kampagne „:campaign“',

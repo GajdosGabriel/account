@@ -333,7 +333,7 @@ const hasQuote = (message) => message.direction === 'in'
                 </header>
 
                 <p v-if="showSubject(message)" class="mt-3 text-sm font-medium text-slate-700">{{ message.subject }}</p>
-                <EmailHtmlFrame v-if="showHtml(message)" :html="message.html" class="mt-3" />
+                <EmailHtmlFrame v-if="showHtml(message)" :html="message.html" collapse-quotes class="mt-3" />
                 <div v-else class="mt-2 whitespace-pre-line break-words text-sm leading-relaxed text-slate-800">{{ body(message) }}</div>
 
                 <button v-if="message.html" type="button" class="mt-2 text-xs text-slate-500 hover:text-slate-900" @click="toggleText(message.id)">

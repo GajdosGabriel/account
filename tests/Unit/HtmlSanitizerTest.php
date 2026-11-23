@@ -24,6 +24,19 @@ class HtmlSanitizerTest extends TestCase
         $this->assertSame('<span style="color: red">Text</span>', HtmlSanitizer::sanitize($html));
     }
 
+    public function test_lines_from_div_stay_on_own_lines(): void
+    {
+        $this->assertSame(
+            'Ďakujem.<br>S pozdravom<br>Gabriel Gajdoš',
+            HtmlSanitizer::sanitize('Ďakujem.<br>S pozdravom<div>Gabriel Gajdoš</div>')
+        );
+        $this->assertSame(
+            'Riadok<br>Druhý<br><br>Po prázdnom',
+            HtmlSanitizer::sanitize('Riadok<div>Druhý</div><div><br></div><div>Po prázdnom</div>')
+        );
+        $this->assertSame('<p>Odsek</p>Ďalej', HtmlSanitizer::sanitize('<p>Odsek</p><div>Ďalej</div>'));
+    }
+
     public function test_removes_style_with_nothing_allowed(): void
     {
         $this->assertSame('<p>Text</p>', HtmlSanitizer::sanitize('<p style="position: absolute; behavior: expression(alert(1))">Text</p>'));

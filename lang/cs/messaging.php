@@ -64,6 +64,8 @@ return [
         'hide_full' => 'Skrýt citaci',
         'show_as_text' => 'Zobrazit jako text',
         'show_as_html' => 'Zobrazit jako e-mail',
+        'show_quote' => '··· Zobrazit citovanou zprávu',
+        'hide_quote' => 'Skrýt citovanou zprávu',
         'attachments' => 'Přílohy',
         'show_automatic' => 'Zobrazit i vlákna jen s automatickými e-maily (potvrzení, kampaně)',
         'mailing_badge' => 'Automaticky z kampaně „:campaign“',

@@ -15,6 +15,9 @@ class HtmlSanitizer
 {
     private const ALLOWED_TAGS = ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'h2', 'h3', 'ul', 'ol', 'li', 'a', 'span'];
 
+    /** Blokové značky, ktoré sa zahodia, ale ich obsah musí ostať na vlastnom riadku. */
+    private const LINE_TAGS = ['div', 'blockquote', 'pre', 'h1', 'h4', 'h5', 'h6'];
+
     private const ALLOWED_HREF = '/^(https?:\/\/|mailto:|\/)/i';
 
     /** Štýly z editora (farba, pozadie, zarovnanie, veľkosť) – nič, čo by načítalo cudzí obsah. */
@@ -99,6 +102,11 @@ class HtmlSanitizer
             self::clean($child);
 
             if (! in_array(strtolower($child->tagName), self::ALLOWED_TAGS, true)) {
+                // Editor (contenteditable) píše riadky ako <div>; bez zalomenia by sa zlepili („S pozdravomGabriel“).
+                if (in_array(strtolower($child->tagName), self::LINE_TAGS, true) && self::endsInline($child->previousSibling)) {
+                    $child->parentNode->insertBefore($child->ownerDocument->createElement('br'), $child);
+                }
+
                 self::unwrap($child);
 
                 continue;
@@ -106,6 +114,17 @@ class HtmlSanitizer
 
             self::stripAttributes($child);
         }
+    }
+
+    /** Predchádza riadku text alebo inline obsah? Po <br>, odseku či nadpise je nový riadok už daný. */
+    private static function endsInline(?DOMNode $node): bool
+    {
+        while ($node && $node->nodeType === XML_TEXT_NODE && trim($node->textContent) === '') {
+            $node = $node->previousSibling;
+        }
+
+        return $node !== null
+            && ! ($node instanceof DOMElement && in_array(strtolower($node->tagName), ['br', 'p', 'h2', 'h3', 'ul', 'ol'], true));
     }
 
     /** Nepovolenú značku zahodíme, jej text ponecháme. */

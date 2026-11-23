@@ -66,6 +66,8 @@ return [
         'hide_full' => 'Skryť citáciu',
         'show_as_text' => 'Zobraziť ako text',
         'show_as_html' => 'Zobraziť ako e-mail',
+        'show_quote' => '··· Zobraziť citovanú správu',
+        'hide_quote' => 'Skryť citovanú správu',
         'attachments' => 'Prílohy',
         'show_automatic' => 'Zobraziť aj vlákna len s automatickými e-mailmi (potvrdenia, kampane)',
         'mailing_badge' => 'Automaticky z kampane „:campaign“',
