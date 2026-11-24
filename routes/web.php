@@ -270,6 +270,7 @@ Route::middleware('auth')->group(function () {
     Route::post('mailing/labels', [MailingContactController::class, 'storeLabel'])->name('mailing.labels.store');
     Route::patch('mailing/labels/{label}', [MailingContactController::class, 'updateLabel'])->name('mailing.labels.update');
     Route::delete('mailing/labels/{label}', [MailingContactController::class, 'destroyLabel'])->name('mailing.labels.destroy');
+    Route::patch('mailing/contacts/{contact}', [MailingContactController::class, 'update'])->name('mailing.contacts.update');
     Route::put('mailing/contacts/{contact}/tags', [MailingContactController::class, 'updateTags'])->name('mailing.contacts.tags');
     Route::post('mailing/contacts/{contact}/unsubscribe', [MailingContactController::class, 'unsubscribe'])->name('mailing.contacts.unsubscribe');
     Route::post('mailing/contacts/{contact}/reactivate', [MailingContactController::class, 'reactivate'])->name('mailing.contacts.reactivate');

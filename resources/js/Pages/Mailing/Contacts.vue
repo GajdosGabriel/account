@@ -104,6 +104,19 @@ const editTags = (contact) => {
 };
 const saveTags = (contact) => tagsForm.put(`/mailing/contacts/${contact.id}/tags`, { preserveScroll: true, onSuccess: () => { editing.value = null; } });
 
+/* ---------- Oprava adresy a mena ---------- */
+
+const editingContact = ref(null);
+const contactForm = useForm({ email: '', name: '' });
+const editContact = (contact) => {
+    editing.value = null;
+    editingContact.value = contact.id;
+    contactForm.clearErrors();
+    contactForm.email = contact.email;
+    contactForm.name = contact.name ?? '';
+};
+const saveContact = (contact) => contactForm.patch(`/mailing/contacts/${contact.id}`, { preserveScroll: true, onSuccess: () => { editingContact.value = null; } });
+
 /* ---------- Výber a hromadné akcie ---------- */
 
 const selected = ref(new Set());
@@ -422,7 +435,14 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
                         <input type="checkbox" class="mt-0.5" :checked="allMatching || selected.has(c.id)" :disabled="allMatching" :aria-label="c.email" @change="toggle(c.id)" />
                     </td>
                     <td class="px-4 py-2">
-                        {{ c.email }}<span v-if="c.name" class="text-slate-500"> · {{ c.name }}</span>
+                        <form v-if="editingContact === c.id" class="flex flex-wrap items-center gap-2" @submit.prevent="saveContact(c)">
+                            <input v-model="contactForm.email" type="email" required class="min-w-[14rem] flex-1 !py-1" :aria-label="t('mailing.contacts.edit_email')" :placeholder="t('mailing.contacts.edit_email')" />
+                            <input v-model="contactForm.name" type="text" class="min-w-[10rem] flex-1 !py-1" :aria-label="t('mailing.contacts.edit_name')" :placeholder="t('mailing.contacts.edit_name')" />
+                            <button type="submit" class="link text-xs" :disabled="contactForm.processing">{{ t('mailing.contacts.save_tags') }}</button>
+                            <button type="button" class="text-xs text-slate-500 hover:underline" @click="editingContact = null">{{ t('mailing.contacts.cancel') }}</button>
+                            <InputError :message="contactForm.errors.email || contactForm.errors.name" class="w-full" />
+                        </form>
+                        <template v-else>{{ c.email }}<span v-if="c.name" class="text-slate-500"> · {{ c.name }}</span></template>
                         <form v-if="editing === c.id" class="mt-1 flex flex-wrap items-center gap-2" @submit.prevent="saveTags(c)">
                             <LabelPicker v-model="tagsForm.labels" :options="labelsOf(c.product_key)" class="min-w-[16rem] flex-1 md:max-w-md" />
                             <button type="submit" class="link text-xs" :disabled="tagsForm.processing">{{ t('mailing.contacts.save_tags') }}</button>
@@ -443,7 +463,8 @@ const date = (iso) => (iso ? new Intl.DateTimeFormat(locale(), { dateStyle: 'sho
                         <p v-if="c.bounce_reason" class="mt-1 text-xs text-slate-500">{{ c.bounce_reason }}</p>
                     </td>
                     <td class="whitespace-nowrap px-4 py-2 text-right">
-                        <button type="button" class="link mr-3 text-xs" @click="editTags(c)">{{ t('mailing.contacts.edit_tags') }}</button>
+                        <button type="button" class="link mr-3 text-xs" @click="editContact(c)">{{ t('mailing.contacts.edit') }}</button>
+                        <button type="button" class="link mr-3 text-xs" @click="editingContact = null; editTags(c)">{{ t('mailing.contacts.edit_tags') }}</button>
                         <button v-if="!c.unsubscribed_at" type="button" class="link text-xs" @click="action(c, 'unsubscribe')">{{ t('mailing.contacts.unsubscribe') }}</button>
                         <button v-if="c.bounced_at || c.suppression === 'hard_bounce'" type="button" class="link ml-3 text-xs" @click="action(c, 'reactivate')">{{ t('mailing.contacts.reactivate') }}</button>
                         <button type="button" class="ml-3 text-xs text-rose-600 hover:underline" @click="remove(c)">{{ t('mailing.campaigns.delete') }}</button>

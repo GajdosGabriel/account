@@ -321,6 +321,54 @@ class MailingAudienceTest extends TestCase
         $this->assertSame(['samosprava'], $contact->manual_tags);
     }
 
+    public function test_oprava_adresy_kontaktu_zachova_historiu_a_presmeruje_cakajuce_dorucenia(): void
+    {
+        $contact = $this->contact('stara@obec.test', ['user']);
+        $contact->forceFill(['manual_tags' => ['samosprava'], 'bounced_at' => now(), 'bounce_reason' => 'mailbox unavailable'])->save();
+        MailSuppression::create(['product_id' => $this->product->id, 'email' => 'stara@obec.test', 'reason' => MailSuppression::HARD_BOUNCE]);
+        $token = $contact->token;
+
+        $campaign = $this->campaign();
+        $sent = MailingDelivery::create(['campaign_id' => $campaign->id, 'contact_id' => $contact->id, 'email' => 'stara@obec.test', 'status' => MailingDelivery::SENT, 'dedupe_key' => 'a']);
+        $pending = MailingDelivery::create(['campaign_id' => $campaign->id, 'contact_id' => $contact->id, 'email' => 'stara@obec.test', 'status' => MailingDelivery::PENDING, 'dedupe_key' => '']);
+
+        $this->actingAs(User::factory()->create())
+            ->patch("/mailing/contacts/{$contact->id}", ['email' => ' Nova@Obec.test ', 'name' => 'Obec Hermanovce'])
+            ->assertSessionHasNoErrors()->assertSessionHas('success', __('mailing.contacts.updated'));
+
+        $contact->refresh();
+        $this->assertSame('nova@obec.test', $contact->email);
+        $this->assertSame('Obec Hermanovce', $contact->name);
+        $this->assertSame($token, $contact->token);
+        $this->assertSame(['samosprava'], $contact->manual_tags);
+        $this->assertNull($contact->bounced_at);
+        $this->assertSame('stara@obec.test', $sent->fresh()->email);
+        $this->assertSame('nova@obec.test', $pending->fresh()->email);
+        // Stará adresa ostáva blokovaná.
+        $this->assertTrue(MailSuppression::blocks($this->product, 'stara@obec.test'));
+    }
+
+    public function test_oprava_adresy_odmietne_existujuci_alebo_blokovany_kontakt(): void
+    {
+        $contact = $this->contact('jana@firma.test');
+        $this->contact('peter@firma.test')->delete();
+        MailSuppression::create(['product_id' => $this->product->id, 'email' => 'blok@firma.test', 'reason' => MailSuppression::HARD_BOUNCE]);
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->patch("/mailing/contacts/{$contact->id}", ['email' => 'peter@firma.test'])
+            ->assertSessionHasErrors(['email' => __('mailing.contacts.email_taken')]);
+        $this->actingAs($user)->patch("/mailing/contacts/{$contact->id}", ['email' => 'blok@firma.test'])
+            ->assertSessionHasErrors(['email' => __('mailing.contacts.email_suppressed')]);
+        $this->actingAs($user)->patch("/mailing/contacts/{$contact->id}", ['email' => 'nie-je-adresa'])
+            ->assertSessionHasErrors('email');
+
+        // Len zmena mena s tou istou adresou prejde.
+        $this->actingAs($user)->patch("/mailing/contacts/{$contact->id}", ['email' => 'jana@firma.test', 'name' => 'Jana'])
+            ->assertSessionHasNoErrors();
+        $this->assertSame('jana@firma.test', $contact->fresh()->email);
+        $this->assertSame('Jana', $contact->fresh()->name);
+    }
+
     public function test_segment_kampane_zahrna_rucne_stitky(): void
     {
         $this->contact('samosprava@firma.test')->forceFill(['manual_tags' => ['samosprava']])->save();

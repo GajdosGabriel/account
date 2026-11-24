@@ -236,6 +236,59 @@ class MailingContactController extends Controller
         return $value !== null && preg_match('/^[=+\-@\t\r]/', $value) ? "'".$value : $value;
     }
 
+    /**
+     * Oprava adresy a mena kontaktu. Kontakt si ponechá históriu doručení,
+     * štítky, súhlas, odhlásenie aj token na odhlásenie. Nedoručiteľnosť
+     * patrila starej adrese, preto sa pri zmene adresy zruší; blokovanie
+     * starej adresy ostáva. Ešte neodoslané doručenia pôjdu na novú adresu.
+     */
+    public function update(Request $request, MailingContact $contact): RedirectResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:255'],
+            'name' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $email = strtolower(trim($data['email']));
+        $changed = $email !== $contact->email;
+
+        if ($changed) {
+            $taken = MailingContact::withTrashed()->where('product_id', $contact->product_id)
+                ->where('email', $email)->whereKeyNot($contact->id)->exists();
+
+            if ($taken) {
+                throw ValidationException::withMessages(['email' => __('mailing.contacts.email_taken')]);
+            }
+
+            if (MailSuppression::blocks($contact->product, $email)) {
+                throw ValidationException::withMessages(['email' => __('mailing.contacts.email_suppressed')]);
+            }
+        }
+
+        DB::transaction(function () use ($contact, $data, $email, $changed) {
+            $contact->name = filled($data['name'] ?? null) ? trim($data['name']) : null;
+
+            if ($changed) {
+                $contact->forceFill(['email' => $email, 'bounced_at' => null, 'bounce_reason' => null, 'soft_bounces' => 0]);
+
+                // Doručenie, ktoré kampaň už má pre novú adresu, sa nezdvojí.
+                MailingDelivery::query()->where('contact_id', $contact->id)->where('status', MailingDelivery::PENDING)
+                    ->each(function (MailingDelivery $delivery) use ($email) {
+                        $duplicate = MailingDelivery::query()->where('campaign_id', $delivery->campaign_id)
+                            ->where('dedupe_key', $delivery->dedupe_key)->where('email', $email)->exists();
+
+                        $duplicate
+                            ? $delivery->forceFill(['status' => MailingDelivery::SKIPPED, 'error' => __('mailing.contacts.email_changed_duplicate')])->save()
+                            : $delivery->forceFill(['email' => $email])->save();
+                    });
+            }
+
+            $contact->save();
+        });
+
+        return back()->with('success', __('mailing.contacts.updated'));
+    }
+
     /** Ručné štítky kontaktu; štítky z projektu sa tu nemenia. */
     public function updateTags(Request $request, MailingContact $contact): RedirectResponse
     {
