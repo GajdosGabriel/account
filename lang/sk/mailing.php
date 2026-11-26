@@ -186,6 +186,11 @@ return [
         'link_clicks' => ':clicks kliknutí v :messages e-mailoch',
         'due' => 'odíde :date',
         'no_deliveries' => 'Žiadne doručenia.',
+        'bounces' => 'Nedoručené',
+        'bounces_blocked' => ':blocked z :total adries je zablokovaných, už sa na ne neposiela.',
+        'bounces_show_contacts' => 'Zobraziť v kontaktoch',
+        'bounce_blocked' => 'Zablokovaná',
+        'bounce_soft' => 'Dočasná chyba :count/:limit',
         'copy_of' => 'Kópia – :name',
 
         'saved' => 'Kampaň bola uložená.',

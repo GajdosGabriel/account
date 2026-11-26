@@ -11,6 +11,7 @@ use App\Models\MailingLayout;
 use App\Models\MailingLink;
 use App\Models\MailingTemplate;
 use App\Models\MailingTrigger;
+use App\Models\MailSuppression;
 use App\Models\Product;
 use App\Services\Mailing\MailingSender;
 use App\Services\Messaging\MessagingException;
@@ -94,7 +95,7 @@ class MailingController extends Controller
                 'contacts' => (clone $contacts)->notBlocked()->count(),
                 'active' => (clone $contacts)->reachable()->count(),
                 'unsubscribed' => (clone $contacts)->whereNotNull('unsubscribed_at')->count(),
-                'bounced' => (clone $contacts)->whereNotNull('bounced_at')->count(),
+                'bounced' => (clone $contacts)->blocked()->count(),
             ],
             'contacts_by_product' => $product ? [] : MailingContact::query()
                 ->notBlocked()
@@ -377,10 +378,34 @@ class MailingController extends Controller
     {
         $request->validate(['status' => ['nullable', 'string', 'max:10']]);
 
+        $deliveries = $campaign->deliveries()
+            ->with('contact:id,name,bounced_at,soft_bounces')
+            ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
+            ->orderByDesc('id')
+            ->paginate(50)
+            ->withQueryString();
+
+        // Blokované adresy (trvalý bounce, odhlásenie) – pre zobrazenú stranu a pre súhrn nedoručených.
+        $suppressed = MailSuppression::query()->where('product_id', $campaign->product_id)
+            ->whereIn('email', $deliveries->pluck('email'))->pluck('email')->flip();
+        $bounced = $campaign->deliveries()->where('status', MailingDelivery::BOUNCED);
+
         return Inertia::render('Mailing/Show', [
             'campaign' => [
                 ...$this->campaignPayload($campaign),
                 'product' => $campaign->product?->name,
+                'product_key' => $campaign->product?->key,
+            ],
+            'bounces' => [
+                'total' => (clone $bounced)->count(),
+                // Adresy z kampane, na ktoré sa už nič neposiela.
+                'blocked' => (clone $bounced)->where(fn ($q) => $q
+                    ->whereExists(fn ($s) => $s->from('mail_suppressions')
+                        ->where('mail_suppressions.product_id', $campaign->product_id)
+                        ->whereColumn('mail_suppressions.email', 'mailing_deliveries.email'))
+                    ->orWhereHas('contact', fn ($c) => $c->whereNotNull('bounced_at')))
+                    ->count(),
+                'soft_limit' => MailingContact::SOFT_BOUNCE_LIMIT,
             ],
             // Kontakty, ktoré do segmentu pribudli po spustení hromadnej kampane.
             'new_recipients' => self::canTopUp($campaign) ? self::newRecipients($campaign)->count() : 0,
@@ -396,25 +421,21 @@ class MailingController extends Controller
                 ->groupBy('mailing_links.url')
                 ->orderByDesc('clicks')
                 ->get(),
-            'deliveries' => $campaign->deliveries()
-                ->with('contact:id,name')
-                ->when($request->input('status'), fn ($q, $s) => $q->where('status', $s))
-                ->orderByDesc('id')
-                ->paginate(50)
-                ->withQueryString()
-                ->through(fn (MailingDelivery $d) => [
-                    'id' => $d->id,
-                    'email' => $d->email,
-                    'name' => $d->contact?->name ?? ($d->payload['name'] ?? null),
-                    'status' => $d->status,
-                    'ref' => $d->ref_type ? ($d->payload['ref_label'] ?? $d->ref_type.' '.$d->ref_id) : null,
-                    'ref_url' => $d->payload['ref_url'] ?? null,
-                    'due_at' => $d->due_at?->toIso8601String(),
-                    'sent_at' => $d->sent_at?->toIso8601String(),
-                    'opened_at' => $d->opened_at?->toIso8601String(),
-                    'clicked_at' => $d->clicked_at?->toIso8601String(),
-                    'error' => $d->error,
-                ]),
+            'deliveries' => $deliveries->through(fn (MailingDelivery $d) => [
+                'id' => $d->id,
+                'email' => $d->email,
+                'name' => $d->contact?->name ?? ($d->payload['name'] ?? null),
+                'status' => $d->status,
+                'ref' => $d->ref_type ? ($d->payload['ref_label'] ?? $d->ref_type.' '.$d->ref_id) : null,
+                'ref_url' => $d->payload['ref_url'] ?? null,
+                'due_at' => $d->due_at?->toIso8601String(),
+                'sent_at' => $d->sent_at?->toIso8601String(),
+                'opened_at' => $d->opened_at?->toIso8601String(),
+                'clicked_at' => $d->clicked_at?->toIso8601String(),
+                'error' => $d->error,
+                'blocked' => isset($suppressed[strtolower($d->email)]) || (bool) $d->contact?->bounced_at,
+                'soft_bounces' => (int) $d->contact?->soft_bounces,
+            ]),
             'filters' => ['status' => $request->input('status')],
         ]);
     }

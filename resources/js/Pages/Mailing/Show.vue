@@ -15,7 +15,10 @@ const props = defineProps({
     deliveries: { type: Object, required: true },
     filters: { type: Object, default: () => ({}) },
     new_recipients: { type: Number, default: 0 },
+    bounces: { type: Object, default: () => ({ total: 0, blocked: 0, soft_limit: 3 }) },
 });
+
+const bouncedContacts = computed(() => `/mailing/contacts?${new URLSearchParams({ ...(props.campaign.product_key ? { product: props.campaign.product_key } : {}), state: 'bounced' })}`);
 
 const statuses = ['pending', 'sending', 'sent', 'failed', 'bounced', 'skipped'];
 const sent = computed(() => props.counts.sent ?? 0);
@@ -72,6 +75,17 @@ const remove = () => confirm(t('mailing.campaigns.confirm_delete', { name: props
         </div>
     </div>
 
+    <div v-if="bounces.total" class="card mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
+        <div>
+            <p class="font-semibold text-slate-900">{{ t('mailing.campaigns.bounces') }}: {{ bounces.total }} <span class="text-sm font-normal text-slate-500">({{ Math.round((bounces.total / (sent + bounces.total)) * 100) }} %)</span></p>
+            <p class="text-sm text-slate-600">{{ t('mailing.campaigns.bounces_blocked', { blocked: bounces.blocked, total: bounces.total }) }}</p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <button v-if="filters.status !== 'bounced'" type="button" class="btn-secondary" @click="filter('bounced')">{{ t('mailing.status.bounced') }}</button>
+            <Link :href="bouncedContacts" class="btn-secondary">{{ t('mailing.campaigns.bounces_show_contacts') }}</Link>
+        </div>
+    </div>
+
     <div v-if="links.length" class="card mb-6 overflow-hidden">
         <h2 class="border-b border-slate-100 px-4 py-3 font-semibold text-slate-900">{{ t('mailing.campaigns.links') }}</h2>
         <table class="w-full text-sm">
@@ -111,6 +125,10 @@ const remove = () => confirm(t('mailing.campaigns.confirm_delete', { name: props
                     </td>
                     <td class="px-4 py-2">
                         <StatusBadge :status="d.status" :label="t(`mailing.status.${d.status}`)" :tone="campaignTone(d.status)" />
+                        <template v-if="d.status === 'bounced'">
+                            <span v-if="d.blocked" class="pill ml-1">{{ t('mailing.campaigns.bounce_blocked') }}</span>
+                            <span v-else-if="d.soft_bounces" class="pill ml-1">{{ t('mailing.campaigns.bounce_soft', { count: d.soft_bounces, limit: bounces.soft_limit }) }}</span>
+                        </template>
                         <p v-if="d.error" class="mt-1 text-xs text-slate-500">{{ d.error }}</p>
                     </td>
                     <td class="px-4 py-2 text-xs text-slate-600">

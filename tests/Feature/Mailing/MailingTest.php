@@ -350,6 +350,28 @@ class MailingTest extends TestCase
         $this->assertTrue(MailSuppression::blocks($this->product, 'zla@firma.test'));
     }
 
+    public function test_nedorucene_v_prehlade_aj_v_detaile_kampane(): void
+    {
+        $user = User::factory()->create();
+        $campaign = $this->campaign(['status' => MailingCampaign::COMPLETED]);
+        $this->contact('zla@firma.test');
+        $this->contact('plna@firma.test');
+        app(MailingSender::class)->recordBounce($this->product, 'zla@firma.test', BounceClassifier::HARD, '550 5.1.1 no such user');
+        app(MailingSender::class)->recordBounce($this->product, 'plna@firma.test', BounceClassifier::SOFT, '452 mailbox full');
+        foreach (['zla@firma.test', 'plna@firma.test'] as $email) {
+            MailingDelivery::create(['campaign_id' => $campaign->id, 'email' => $email, 'status' => MailingDelivery::BOUNCED, 'dedupe_key' => $email,
+                'contact_id' => MailingContact::where('email', $email)->value('id')]);
+        }
+
+        $this->actingAs($user)->get('/mailing')->assertInertia(fn ($page) => $page->where('stats.bounced', 1));
+
+        $this->actingAs($user)->get("/mailing/{$campaign->id}?status=bounced")->assertInertia(fn ($page) => $page
+            ->where('bounces.total', 2)
+            ->where('bounces.blocked', 1)
+            ->where('deliveries.data', fn ($rows) => collect($rows)->firstWhere('email', 'zla@firma.test')['blocked'] === true
+                && collect($rows)->firstWhere('email', 'plna@firma.test')['soft_bounces'] === 1));
+    }
+
     public function test_odkaz_z_premennej_udalosti_je_v_ponuke_klikatelny(): void
     {
         $campaign = new MailingCampaign(['product_id' => $this->product->id, 'subject' => 'Ponuka', 'body' => "Prevziať profil:\n\n{odkaz_prevzatia}", 'kind' => MailingCampaign::OFFER]);

@@ -186,6 +186,11 @@ return [
         'link_clicks' => ':clicks Klicks in :messages E-Mails',
         'due' => 'geht raus :date',
         'no_deliveries' => 'Keine Zustellungen.',
+        'bounces' => 'Unzustellbar',
+        'bounces_blocked' => ':blocked von :total Adressen sind gesperrt und erhalten keine Mails mehr.',
+        'bounces_show_contacts' => 'In Kontakten anzeigen',
+        'bounce_blocked' => 'Gesperrt',
+        'bounce_soft' => 'Vorübergehender Fehler :count/:limit',
         'copy_of' => 'Kopie – :name',
 
         'saved' => 'Die Kampagne wurde gespeichert.',

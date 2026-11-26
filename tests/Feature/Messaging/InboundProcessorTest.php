@@ -9,6 +9,7 @@ use App\Models\Conversation;
 use App\Models\ConversationMessage;
 use App\Models\Mailbox;
 use App\Models\MailingCampaign;
+use App\Models\MailingContact;
 use App\Models\MailingDelivery;
 use App\Models\MailSuppression;
 use App\Models\Product;
@@ -238,6 +239,28 @@ class InboundProcessorTest extends TestCase
         $this->assertSame('hard', $sent->bounce_type);
         $this->assertTrue(MailSuppression::blocks($this->product, 'neexistuje@firma.test'));
         $this->assertSame(1, WebhookDelivery::where('event', 'message.bounced')->count());
+    }
+
+    public function test_trvaly_bounce_kampane_bez_adresata_zablokuje_adresu_z_dorucenia(): void
+    {
+        $campaign = MailingCampaign::create([
+            'product_id' => $this->product->id, 'name' => 'Pozvanie', 'subject' => 'Pozvanie', 'body' => 'Text',
+            'status' => MailingCampaign::COMPLETED,
+        ]);
+        $contact = MailingContact::create(['product_id' => $this->product->id, 'email' => 'zla@obec.test']);
+        $delivery = MailingDelivery::create([
+            'campaign_id' => $campaign->id, 'contact_id' => $contact->id, 'mailbox_id' => $this->mailbox->id,
+            'email' => 'zla@obec.test', 'status' => MailingDelivery::SENT, 'dedupe_key' => 'c:zla',
+            'message_id' => 'kampan-1@zastavy.test', 'sent_at' => now()->subHour(),
+        ]);
+        // Bez Final-Recipient – adresa sa vezme z doručenia.
+        $raw = preg_replace('/Final-Recipient: [^\r]+\r\n/', '', $this->bounce('kampan-1@zastavy.test', 'zla@obec.test', '5.1.1'));
+
+        $this->process($raw);
+
+        $this->assertSame(MailingDelivery::BOUNCED, $delivery->fresh()->status);
+        $this->assertTrue(MailSuppression::blocks($this->product, 'zla@obec.test'));
+        $this->assertStringContainsString('5.1.1', (string) $contact->fresh()->bounce_reason);
     }
 
     public function test_docasny_bounce_adresu_neblokuje(): void

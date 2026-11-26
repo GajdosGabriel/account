@@ -208,6 +208,11 @@ return [
         'link_clicks' => ':clicks clicks in :messages e-mails',
         'due' => 'due :date',
         'no_deliveries' => 'No deliveries.',
+        'bounces' => 'Bounced',
+        'bounces_blocked' => ':blocked of :total addresses are blocked and no longer receive mail.',
+        'bounces_show_contacts' => 'Show in contacts',
+        'bounce_blocked' => 'Blocked',
+        'bounce_soft' => 'Temporary error :count/:limit',
         'copy_of' => 'Copy – :name',
 
         'saved' => 'The campaign was saved.',

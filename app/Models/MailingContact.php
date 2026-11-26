@@ -101,6 +101,20 @@ class MailingContact extends Model
     }
 
     /**
+     * Opak `notBlocked`: vylúčený po opakovanom dočasnom bounce alebo adresa
+     * je blokovaná (trvalý bounce, odhlásenie, ručne).
+     *
+     * @param  Builder<self>  $query
+     */
+    public function scopeBlocked(Builder $query): void
+    {
+        $query->where(fn ($q) => $q->whereNotNull('bounced_at')
+            ->orWhereExists(fn ($s) => $s->from('mail_suppressions')
+                ->whereColumn('mail_suppressions.product_id', 'mailing_contacts.product_id')
+                ->whereColumn('mail_suppressions.email', 'mailing_contacts.email')));
+    }
+
+    /**
      * Adresáti kampane: projekt, druh (ponuka / oznámenie o službe) a segment
      * podľa štítkov – `any` aspoň jeden z nich, `none` žiadny z nich.
      *

@@ -565,10 +565,7 @@ class MailingContactController extends Controller
             // Bez súhlasu s ponukami: dostanú len oznámenia o službe.
             ->when($state === 'service', fn ($q) => $q->whereNull('permission_at')->whereNull('permission_note')->notBlocked())
             ->when($state === 'unsubscribed', fn ($q) => $q->whereNotNull('unsubscribed_at'))
-            ->when($state === 'bounced', fn ($q) => $q->where(fn ($q) => $q->whereNotNull('bounced_at')
-                ->orWhereExists(fn ($s) => $s->from('mail_suppressions')
-                    ->whereColumn('mail_suppressions.product_id', 'mailing_contacts.product_id')
-                    ->whereColumn('mail_suppressions.email', 'mailing_contacts.email'))));
+            ->when($state === 'bounced', fn ($q) => $q->blocked());
     }
 
     /**

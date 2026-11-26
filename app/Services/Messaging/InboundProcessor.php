@@ -10,7 +10,6 @@ use App\Models\ConversationMessage;
 use App\Models\InboundBlock;
 use App\Models\Mailbox;
 use App\Models\MailingDelivery;
-use App\Models\MailSuppression;
 use App\Models\User;
 use App\Services\Mailing\BounceClassifier;
 use App\Services\Mailing\MailingRenderer;
@@ -377,20 +376,20 @@ class InboundProcessor
         $status = $this->dsnField($raw, 'Status');
         $recipient = $this->dsnRecipient($raw) ?? $original?->to_email;
         $hard = $status === null ? true : str_starts_with($status, '5');
-        $reason = $this->dsnField($raw, 'Diagnostic-Code') ?? $mail->getSubject();
+        $reason = trim(($status ? $status.' ' : '').($this->dsnField($raw, 'Diagnostic-Code') ?? $mail->getSubject()));
+        $delivery = $this->bouncedDelivery($mailbox, $raw);
+        // Správa o nedoručení nemusí uviesť adresáta – vtedy adresa z doručenia kampane.
+        $recipient ??= $delivery?->email;
 
-        if ($recipient && $hard) {
-            $suppression = MailSuppression::firstOrNew([
-                'product_id' => $mailbox->product_id,
-                'email' => strtolower($recipient),
-            ]);
-            $suppression->reason = MailSuppression::HARD_BOUNCE;
-            $suppression->bounce_count = $suppression->bounce_count + 1;
-            $suppression->note = mb_substr((string) $reason, 0, 1000);
-            $suppression->save();
+        if ($recipient && ($hard || $delivery)) {
+            // Trvalý bounce blokuje adresu v projekte; dočasný sa počíta len kampaniam.
+            app(MailingSender::class)->recordBounce($mailbox->product, $recipient, $hard ? BounceClassifier::HARD : BounceClassifier::SOFT, $reason);
         }
 
-        $this->bounceMailing($mailbox, $raw, $recipient, $hard, trim(($status ? $status.' ' : '').$reason));
+        if ($delivery) {
+            $delivery->forceFill(['status' => MailingDelivery::BOUNCED, 'error' => mb_substr($reason, 0, 255)])->save();
+            app(MailingWebhooks::class)->delivery('mailing.delivery.bounced', $delivery);
+        }
 
         if (! $original) {
             return self::RESULT_BOUNCE;
@@ -399,7 +398,7 @@ class InboundProcessor
         $original->forceFill([
             'status' => MessageStatus::Bounced,
             'bounce_type' => $hard ? 'hard' : 'soft',
-            'error' => mb_substr(trim(($status ? $status.' ' : '').$reason), 0, 2000),
+            'error' => mb_substr($reason, 0, 2000),
         ])->save();
 
         $this->webhooks->dispatch('message.bounced', $original);
@@ -430,30 +429,17 @@ class InboundProcessor
 
     /**
      * Nedoručený e-mail kampane – ponuka nemá konverzáciu, páruje sa
-     * cez Message-ID uložený pri doručení. Trvalý bounce už zablokoval
-     * adresu vyššie; dočasný sa pripočíta kontaktu.
+     * cez Message-ID uložený pri doručení.
      */
-    private function bounceMailing(Mailbox $mailbox, string $raw, ?string $recipient, bool $hard, string $reason): void
+    private function bouncedDelivery(Mailbox $mailbox, string $raw): ?MailingDelivery
     {
         $ids = $this->quotedIds($raw);
 
-        $delivery = $ids === [] ? null : MailingDelivery::query()
+        return $ids === [] ? null : MailingDelivery::query()
             ->whereIn('message_id', $ids)
             ->whereHas('campaign', fn ($q) => $q->where('product_id', $mailbox->product_id))
             ->latest('id')
             ->first();
-
-        if (! $delivery) {
-            return;
-        }
-
-        if (! $hard) {
-            app(MailingSender::class)->recordBounce($mailbox->product, $recipient ?? $delivery->email, BounceClassifier::SOFT, $reason);
-        }
-
-        $delivery->forceFill(['status' => MailingDelivery::BOUNCED, 'error' => mb_substr($reason, 0, 255)])->save();
-
-        app(MailingWebhooks::class)->delivery('mailing.delivery.bounced', $delivery);
     }
 
     /** @return array<int, string> naše Message-ID citované v správe o nedoručení */
