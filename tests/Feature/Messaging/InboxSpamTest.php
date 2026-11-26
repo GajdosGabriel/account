@@ -118,6 +118,24 @@ class InboxSpamTest extends TestCase
             ->assertInertia(fn ($page) => $page->has('conversations.data', 1));
     }
 
+    public function test_zmena_stavu_vrati_operatora_odkial_prisiel_len_v_ramci_aplikacie(): void
+    {
+        $this->process($this->mail('klient@firma.test', 'Otázka'));
+        $conversation = Conversation::sole();
+
+        $this->actingAs($this->user)
+            ->post("/inbox/{$conversation->uuid}/status", ['status' => 'closed', 'return_to' => '/inbox?status=active'])
+            ->assertRedirect('/inbox?status=active');
+        $this->assertSame(ConversationStatus::Closed, $conversation->fresh()->status);
+
+        foreach (['https://zle.test/x', '//zle.test/x', '/\\zle.test'] as $evil) {
+            $this->actingAs($this->user)
+                ->from("/inbox/{$conversation->uuid}")
+                ->post("/inbox/{$conversation->uuid}/status", ['status' => 'waiting', 'return_to' => $evil])
+                ->assertRedirect("/inbox/{$conversation->uuid}");
+        }
+    }
+
     public function test_dalsi_mail_od_blokovaneho_odosielatela_ide_rovno_do_spamu(): void
     {
         InboundBlock::create(['product_id' => $this->product->id, 'email' => 'spam@lacne-lieky.test']);

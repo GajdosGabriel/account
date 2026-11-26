@@ -9,6 +9,7 @@ import EmailHtmlFrame from '../../Components/EmailHtmlFrame.vue';
 import ReplyTemplatePicker from '../../Components/ReplyTemplatePicker.vue';
 import { locale, t } from '../../Composables/useLang';
 import { excerpt, renderTemplate, searchTemplates } from '../../Composables/useReplyTemplates';
+import { returnUrl } from '../../Composables/useReturnUrl';
 
 const props = defineProps({
     conversation: { type: Object, required: true },
@@ -181,11 +182,19 @@ const destroy = () => {
     router.delete(`/inbox/${props.conversation.id}`);
 };
 
-const changeStatus = (event) => router.post(
-    `/inbox/${props.conversation.id}/status`,
-    { status: event.target.value },
-    { preserveScroll: true },
-);
+// Keď už nie sme na ťahu (vybavené, čaká sa na klienta), nie je dôvod vo vlákne
+// zostávať – vrátime sa tam, odkiaľ operátor prišiel. Pri „Otvorené“ si ho práve
+// berie do práce, tak zostane.
+const changeStatus = (event) => {
+    const status = event.target.value;
+    const leave = status !== 'open';
+
+    router.post(
+        `/inbox/${props.conversation.id}/status`,
+        { status, return_to: leave ? returnUrl('/inbox') : null },
+        { preserveScroll: !leave },
+    );
+};
 
 const when = (iso) => (iso
     ? new Intl.DateTimeFormat(locale(), { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso))

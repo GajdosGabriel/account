@@ -184,13 +184,20 @@ class InboxController extends Controller
         $data = $request->validate([
             // Do Spamu a späť len cez vlastné akcie – blokujú odosielateľa.
             'status' => ['required', Rule::enum(ConversationStatus::class)->except(ConversationStatus::Spam)],
+            'return_to' => ['nullable', 'string', 'max:2000'],
         ]);
 
         abort_if($conversation->isSpam(), 422);
 
         $this->conversations->changeStatus($conversation, ConversationStatus::from($data['status']));
 
-        return back()->with('success', __('messaging.inbox.status_changed'));
+        // Len cesta v rámci aplikácie – žiadne presmerovanie na cudziu doménu.
+        $returnTo = $data['return_to'] ?? null;
+        $redirect = is_string($returnTo) && preg_match('#^/(?![/\\\\])#', $returnTo)
+            ? redirect($returnTo)
+            : back();
+
+        return $redirect->with('success', __('messaging.inbox.status_changed'));
     }
 
     public function spam(Request $request, Conversation $conversation): RedirectResponse

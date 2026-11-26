@@ -1,6 +1,7 @@
 import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import AppLayout from './Layouts/AppLayout.vue';
+import './Composables/useReturnUrl';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Account';
 
